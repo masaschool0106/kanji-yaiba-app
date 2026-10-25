@@ -128,6 +128,7 @@
   // ==================== マイページ ====================
   function openMypage() {
     showView('mypage');
+    requestAnimationFrame(czLayout);   // 表示されてから大きさを測る
     if (state.player) renderPlayer(state.player);
     loadMypage(true);
     startRefresh();
@@ -238,6 +239,109 @@
     $('loginNumber').focus();
   }
 
+  // ==================== 3Dカルーセル（行き先を選ぶ） ====================
+  //   まん中のカードをタップ → その画面へ移動。横のカードをタップ → そのカードがまん中へ回ってくる
+  //   左右の矢印・下の点・左右へのスワイプ・キーボードの ← → でも回せる。最後に選んだカードを覚えておく
+  const CAROUSEL_KEY = 'kanji_carousel';
+  const cz = { cards: [], n: 0, pos: 0, step: 60, drag: null, moved: false };
+
+  function czActive() { return ((Math.round(cz.pos) % cz.n) + cz.n) % cz.n; }
+  function czCardWidth() { return $('carouselRing').offsetWidth || 200; }
+
+  function setupCarousel() {
+    const ring = $('carouselRing');
+    if (!ring) return;
+    cz.cards = Array.from(ring.querySelectorAll('.cz-card'));
+    cz.n = cz.cards.length;
+    cz.step = 360 / cz.n;
+    const saved = parseInt(storeGet(CAROUSEL_KEY), 10);
+    cz.pos = (saved >= 0 && saved < cz.n) ? saved : 0;
+
+    const dots = $('carouselDots');
+    cz.cards.forEach((card, i) => {
+      card.style.setProperty('--a', (i * cz.step) + 'deg');
+      card.addEventListener('click', () => {
+        if (cz.moved) return;   // ドラッグして回したあとの指はなしでは、移動しない
+        if (i === czActive()) navigate(card.dataset.page);
+        else czRotateTo(i);
+      });
+      const dot = document.createElement('button');
+      dot.type = 'button';
+      dot.setAttribute('aria-label', card.getAttribute('aria-label'));
+      dot.addEventListener('click', () => czRotateTo(i));
+      dots.appendChild(dot);
+    });
+    $('carouselPrev').addEventListener('click', () => czRotateBy(-1));
+    $('carouselNext').addEventListener('click', () => czRotateBy(1));
+    $('carouselGo').addEventListener('click', () => navigate(cz.cards[czActive()].dataset.page));
+
+    // スワイプ：指（マウス）の動きに合わせて回し、はなしたら近いカードにぴたっと止める
+    const stage = $('carouselStage');
+    stage.addEventListener('pointerdown', (e) => {
+      cz.drag = { x: e.clientX, pos: cz.pos, id: e.pointerId };
+      cz.moved = false;
+    });
+    stage.addEventListener('pointermove', (e) => {
+      if (!cz.drag || e.pointerId !== cz.drag.id) return;
+      const dx = e.clientX - cz.drag.x;
+      if (!cz.moved && Math.abs(dx) > 8) {
+        cz.moved = true;
+        stage.classList.add('dragging');
+        try { stage.setPointerCapture(e.pointerId); } catch (err) {}
+      }
+      if (cz.moved) { cz.pos = cz.drag.pos - dx / czCardWidth(); czRender(); }
+    });
+    const end = () => {
+      if (!cz.drag) return;
+      stage.classList.remove('dragging');
+      cz.drag = null;
+      if (cz.moved) {
+        cz.pos = Math.round(cz.pos);
+        czRender();
+        setTimeout(() => { cz.moved = false; }, 0);
+      }
+    };
+    stage.addEventListener('pointerup', end);
+    stage.addEventListener('pointercancel', end);
+
+    // キーボード（← →）
+    document.addEventListener('keydown', (e) => {
+      if (state.view !== 'mypage' || $('editModal').classList.contains('show')) return;
+      const tag = document.activeElement && document.activeElement.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (e.key === 'ArrowLeft') { czRotateBy(-1); e.preventDefault(); }
+      if (e.key === 'ArrowRight') { czRotateBy(1); e.preventDefault(); }
+    });
+    window.addEventListener('resize', czLayout);
+    czRender();   // 前回のカードを最初から正面に置く（画面が隠れているうちに置くので、読み込み直後に回るアニメは出ない）
+  }
+
+  // カードの幅から、カード同士が重ならない円の半径を決める（画面の幅が変わったら作り直す）
+  function czLayout() {
+    const w = $('carouselRing').offsetWidth;
+    if (!cz.n || !w) return;   // 隠れていて測れないときは、CSS の初期値（--r0）のまま
+    const r = Math.round((w / 2) / Math.tan(Math.PI / cz.n) * 1.3);
+    $('carouselRing').style.setProperty('--r', r + 'px');
+    czRender();
+  }
+
+  function czRender() {
+    $('carouselRing').style.transform = 'translateZ(calc(var(--r, var(--r0)) * -1)) rotateY(' + (-cz.pos * cz.step) + 'deg)';
+    const a = czActive();
+    cz.cards.forEach((c, i) => { c.classList.toggle('active', i === a); c.tabIndex = (i === a) ? 0 : -1; });
+    Array.from($('carouselDots').children).forEach((d, i) => d.classList.toggle('active', i === a));
+    $('carouselGoLabel').textContent = cz.cards[a].getAttribute('aria-label');
+    try { localStorage.setItem(CAROUSEL_KEY, String(a)); } catch (e) {}
+  }
+
+  function czRotateBy(d) { cz.pos = Math.round(cz.pos) + d; czRender(); }
+  function czRotateTo(i) {
+    let diff = i - czActive();
+    if (diff > cz.n / 2) diff -= cz.n;
+    if (diff < -cz.n / 2) diff += cz.n;   // 近い向きに回す
+    czRotateBy(diff);
+  }
+
   // ==================== 画面の移動 ====================
   // まだ1ページ型に移していない画面は、今の画面へ移動する（移行のあいだだけ）
   function navigate(page) {
@@ -262,6 +366,8 @@
     document.querySelectorAll('#view-mypage .ranking-tab').forEach((tab) => tab.addEventListener('click', () => switchRanking(tab.getAttribute('data-ranking'), tab)));
     $('globalNavToggle').addEventListener('click', () => $('globalNavMenu').classList.toggle('show'));
     $('specialMoveBox').addEventListener('click', openFinisherEditor);
+    $('specialMoveBox').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openFinisherEditor(); } });
+    setupCarousel();
     $('saveSpecialMoveBtn').addEventListener('click', saveFinisher);
     $('cancelSpecialMoveBtn').addEventListener('click', closeFinisherEditor);
     $('editModal').addEventListener('click', function (e) { if (e.target === this) closeFinisherEditor(); });
@@ -271,6 +377,8 @@
   function start() {
     setupEvents();
     hideLoading();
+    // タップの粒（fx.js が読み込めたときだけ。App.html で fx.js を先に読み込んでいる）
+    if (window.KanjiFX && window.KanjiFX.enableTapSparkles) window.KanjiFX.enableTapSparkles();
     const saved = loadSession();
     if (saved) {
       state.token = saved.token;
