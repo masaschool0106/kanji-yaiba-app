@@ -278,3 +278,7 @@ body.view-mypage { padding: 16px 14px 110px; }
   .hud-floor, .cz-card.active .cz-icon { animation: none; }
   .carousel-ring { transition: none; }
 }
+
+/* メッセージの中のリンク（決め技の変更フォームなど） */
+.msg-link { display: inline-block; margin-left: 6px; padding: 4px 12px; border-radius: 999px; background: #0ea5e9; color: #fff !important; font-weight: 900; text-decoration: none; }
+.msg-link:hover { background: #0284c7; }

@@ -1,0 +1,109 @@
+/* ===============================================================
+   漢字の刃｜マイページと同じ「未来風（HUD）」の見た目を、ほかの画面にもかける
+   GAS の FxBridge が読み込み、body に .hud-theme と data-page（gacha / battle / randombattle /
+   privatebattle / zukan / quiz / stepup）を付ける。色やぼかしは軽いものだけ（Chromebook 向け）
+   =============================================================== */
+body.hud-theme {
+  --hud-cyan: #38bdf8; --hud-violet: #8b5cf6; --hud-gold: #fbbf24;
+  --hud-panel: rgba(10, 16, 40, 0.78); --hud-line: rgba(56, 189, 248, 0.38);
+  background: radial-gradient(circle at 15% 8%, rgba(99, 102, 241, 0.30), transparent 42%),
+              radial-gradient(circle at 85% 0%, rgba(236, 72, 153, 0.20), transparent 40%),
+              linear-gradient(180deg, #050816 0%, #0a1030 60%, #120a2e 100%) fixed !important;
+  color: #e2e8f0;
+}
+/* 地平線のグリッド（FxBridge が .hud-bg を入れる） */
+.hud-theme .hud-bg { position: fixed; inset: 0; pointer-events: none; z-index: -1; overflow: hidden; }
+.hud-theme .hud-floor {
+  position: absolute; left: -50%; right: -50%; bottom: -10%; height: 60%;
+  background-image: linear-gradient(rgba(56, 189, 248, 0.22) 1px, transparent 1px), linear-gradient(90deg, rgba(56, 189, 248, 0.22) 1px, transparent 1px);
+  background-size: 60px 60px; transform: perspective(500px) rotateX(62deg); transform-origin: center top;
+  animation: hudFloor 6s linear infinite; mask-image: linear-gradient(transparent, #000 30%); -webkit-mask-image: linear-gradient(transparent, #000 30%);
+}
+@keyframes hudFloor { to { background-position: 0 60px; } }
+
+/* 共通のガラスの板 */
+.hud-theme .hud-glass {
+  background: var(--hud-panel) !important; color: #e2e8f0 !important;
+  border: 1px solid var(--hud-line) !important; border-radius: 18px;
+  box-shadow: 0 0 24px rgba(56, 189, 248, 0.12), inset 0 0 30px rgba(56, 189, 248, 0.05) !important;
+}
+.hud-theme .hud-title { background: linear-gradient(90deg, #7dd3fc, #c4b5fd); -webkit-background-clip: text; background-clip: text; color: transparent !important; text-shadow: none !important; }
+
+/* 画面に入ったとき：板が下からすっと出る（順番に少しずつ遅れて） */
+.hud-theme .hud-enter { animation: hudEnter 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes hudEnter { from { opacity: 0; transform: translateY(18px) scale(0.98); } to { opacity: 1; transform: none; } }
+/* 画面を出るとき：光の幕 */
+.hud-theme.hud-leave::after {
+  content: ''; position: fixed; inset: 0; z-index: 30000; pointer-events: none;
+  background: linear-gradient(120deg, rgba(56, 189, 248, 0.0), rgba(56, 189, 248, 0.55), rgba(139, 92, 246, 0.75));
+  animation: hudLeave 0.45s ease-out both;
+}
+@keyframes hudLeave { from { opacity: 0; transform: translateX(-30%); } to { opacity: 1; transform: none; } }
+/* ボタンにふれると光る */
+.hud-theme button:not(:disabled):hover, .hud-theme .btn:not(:disabled):hover { filter: brightness(1.08); box-shadow: 0 0 18px rgba(56, 189, 248, 0.45); }
+
+/* 右下のメニュー（SubMenu） */
+.hud-theme .global-nav-toggle { background: linear-gradient(135deg, #0ea5e9, #7c3aed) !important; box-shadow: 0 0 18px rgba(56, 189, 248, 0.55) !important; }
+.hud-theme .global-nav-menu { background: rgba(10, 16, 40, 0.96) !important; border: 1px solid var(--hud-line); }
+.hud-theme .global-nav-menu button { color: #e2e8f0 !important; border-bottom-color: rgba(56, 189, 248, 0.15) !important; }
+.hud-theme .global-nav-menu button:hover { background: rgba(56, 189, 248, 0.14) !important; color: #7dd3fc !important; box-shadow: none; }
+
+/* ---------- ガチャ ---------- */
+[data-page="gacha"] .header { background: linear-gradient(135deg, rgba(14, 165, 233, 0.55), rgba(124, 58, 237, 0.65)) !important; border: 1px solid var(--hud-line); box-shadow: 0 0 26px rgba(56, 189, 248, 0.25); }
+[data-page="gacha"] .gacha-card:hover { box-shadow: 0 0 26px rgba(56, 189, 248, 0.35); }
+
+/* ---------- バトル（ランダム・プライベート） ---------- */
+[data-page="randombattle"] header, [data-page="privatebattle"] header { border: 1px solid var(--hud-line); box-shadow: 0 0 24px rgba(56, 189, 248, 0.2); }
+[data-page="randombattle"] .slot, [data-page="privatebattle"] .slot { border-color: var(--hud-line) !important; }
+[data-page="randombattle"] .battle-arena, [data-page="privatebattle"] .battle-arena { border: 1px solid var(--hud-line); box-shadow: inset 0 0 40px rgba(56, 189, 248, 0.08); }
+
+/* ---------- バトルの入口（Battle.html） ---------- */
+[data-page="battle"] .container { background: var(--hud-panel) !important; border: 1px solid var(--hud-line); box-shadow: 0 0 30px rgba(56, 189, 248, 0.15) !important; color: #e2e8f0; }
+[data-page="battle"] h1 { color: #e0f2fe !important; }
+[data-page="battle"] .battle-card { background: rgba(2, 6, 23, 0.6) !important; border: 1px solid var(--hud-line) !important; color: #e2e8f0 !important; box-shadow: 0 0 18px rgba(56, 189, 248, 0.12); }
+[data-page="battle"] .battle-card.random { border-left: 6px solid #ec4899 !important; }
+[data-page="battle"] .battle-card.private { border-left: 6px solid #14b8a6 !important; }
+[data-page="battle"] .battle-card.defense { border-left: 6px solid #8b5cf6 !important; }
+[data-page="battle"] .battle-card.disabled { opacity: 0.55; }
+[data-page="battle"] .battle-title, [data-page="battle"] .battle-description, [data-page="battle"] .info-item { color: #e2e8f0 !important; }
+[data-page="battle"] .warning-box { background: rgba(251, 191, 36, 0.12) !important; border: 1px solid rgba(251, 191, 36, 0.45); color: #fde68a !important; }
+[data-page="battle"] .warning-title, [data-page="battle"] .warning-text { color: #fde68a !important; }
+[data-page="battle"] .error-message { background: rgba(239, 68, 68, 0.15) !important; color: #fecaca !important; }
+
+/* ---------- 図鑑 ---------- */
+[data-page="zukan"] .wrap { background: var(--hud-panel) !important; border: 1px solid var(--hud-line); box-shadow: 0 0 30px rgba(56, 189, 248, 0.15) !important; color: #e2e8f0; }
+[data-page="zukan"] h1 { color: #e0f2fe !important; }
+[data-page="zukan"] .stats, [data-page="zukan"] .filter-bar { background: rgba(2, 6, 23, 0.55) !important; border-color: var(--hud-line) !important; }
+[data-page="zukan"] .stats h3, [data-page="zukan"] .filter-bar h3, [data-page="zukan"] .zukan-hint { color: #cbd5e1 !important; }
+[data-page="zukan"] .filter-btn { background: rgba(15, 23, 42, 0.9) !important; color: #e2e8f0 !important; border-color: var(--hud-line) !important; }
+[data-page="zukan"] .filter-btn.active { background: linear-gradient(135deg, #0ea5e9, #7c3aed) !important; color: #fff !important; }
+[data-page="zukan"] .card { background: rgba(2, 6, 23, 0.6) !important; border-color: rgba(148, 163, 184, 0.3) !important; }
+[data-page="zukan"] .card.owned { border-color: rgba(56, 189, 248, 0.6) !important; box-shadow: 0 0 14px rgba(56, 189, 248, 0.15); }
+[data-page="zukan"] .card.owned:hover { box-shadow: 0 0 22px rgba(56, 189, 248, 0.45); }
+[data-page="zukan"] .card-name { color: #f8fafc !important; }
+[data-page="zukan"] .card-rank, [data-page="zukan"] .card-hand { color: #cbd5e1 !important; }
+[data-page="zukan"] .card.owned .card-status { color: #4ade80 !important; }
+[data-page="zukan"] .card-effect { background: rgba(139, 92, 246, 0.18) !important; color: #e2e8f0; }
+[data-page="zukan"] .card-effect .ef-label { color: #a5b4fc !important; }
+[data-page="zukan"] .card-effect .ef-name { color: #fde68a !important; }
+[data-page="zukan"] #message { color: #fca5a5; }
+
+/* ---------- クイズ ---------- */
+[data-page="quiz"] .status-panel, [data-page="quiz"] .start-screen, [data-page="quiz"] .question-box { border: 1px solid var(--hud-line) !important; box-shadow: 0 0 24px rgba(56, 189, 248, 0.12); }
+[data-page="quiz"] .choice-btn { border-color: var(--hud-line) !important; }
+
+/* ---------- ステップアップバトル（表ルートも暗いHUDに。裏ルートは紫の光） ---------- */
+body.hud-theme[data-page="stepup"] {
+  --bg-main: #050816; --bg-card: rgba(10, 16, 40, 0.86); --border-glow: #38bdf8; --text-main: #e2e8f0; --text-neon: #f8fafc;
+  --accent-gold: #fbbf24; --board-line: #334155; --btn-grad: linear-gradient(135deg, #0ea5e9 0%, #7c3aed 100%);
+}
+body.hud-theme.theme-ura[data-page="stepup"] { --border-glow: #d946ef; --btn-grad: linear-gradient(135deg, #a855f7 0%, #d946ef 100%); }
+[data-page="stepup"] .main-box { box-shadow: 0 0 26px rgba(56, 189, 248, 0.15) !important; }
+[data-page="stepup"] .route-omote { background: rgba(2, 6, 23, 0.6) !important; color: #e0f2fe !important; border-color: #38bdf8 !important; }
+[data-page="stepup"] .status-panel { background: rgba(2, 6, 23, 0.5) !important; border: 1px solid var(--hud-line); }
+[data-page="stepup"] .mass { color: #e2e8f0; }
+[data-page="stepup"].has-era-bg .main-box { background: rgba(10, 16, 40, 0.62) !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-theme .hud-floor, .hud-theme .hud-enter, .hud-theme.hud-leave::after { animation: none; }
+}

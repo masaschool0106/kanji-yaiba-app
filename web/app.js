@@ -8,7 +8,9 @@
 
   // ==================== 設定 ====================
   const SESSION_STORE_KEY = 'kanji_app_session';   // { token, exp }
-  const LEGACY_NUM_KEY = 'kanji_num';              // 今の画面（Gacha.html など）が使う出席番号
+  const LEGACY_NUM_KEY = 'kanji_num';
+  const FINISHER_FORM_URL = 'https://forms.gle/KDEHoS8UNkS6uB8a6';   // 決め技を変えたいときのフォーム
+  const BUG_FORM_URL = 'https://forms.gle/ZRoicHDGxMdQQU4R7';        // バグ報告のフォーム              // 今の画面（Gacha.html など）が使う出席番号
   const REFRESH_MS = 300000;                       // マイページを5分ごとに読み直す（今のマイページと同じ）
   const CONFIG = window.KANJI_CONFIG || {};        // App.html が入れる { assetBase, assetVersion }
 
@@ -211,7 +213,13 @@
   // 決め技
   function openFinisherEditor() {
     if (!state.settings.finisherEditable) {
-      showMessage('mypageMessage', '決め技を変えたいときは、「柱名 決め技」のフォームで先生に伝えてね。', 'info');
+      // フォームへのリンクを出す（新しいタブで開く）
+      const el = $('mypageMessage');
+      const a = document.createElement('a');
+      a.href = FINISHER_FORM_URL; a.target = '_blank'; a.rel = 'noopener'; a.className = 'msg-link';
+      a.textContent = '📝 決め技の変更フォームを開く';
+      el.replaceChildren(document.createTextNode('決め技を変えたいときは、フォームで先生に送ってね。 '), a);
+      el.className = 'message info';
       return;
     }
     $('newSpecialMove').value = state.player ? state.player.finisher : '';
@@ -395,6 +403,7 @@
       return;
     }
     if (page === 'cardmake') { openCardMake(); return; }
+    if (page === 'bugreport') { window.open(BUG_FORM_URL, '_blank', 'noopener'); return; }
     showLoading('移動中...');
     call('nav.legacyUrl', { page: page })
       .then((res) => { window.top.location.href = res.url; })
@@ -407,11 +416,14 @@
   // ==================== 起動 ====================
   function setupEvents() {
     setupLogin();
-    if ($('globalNavMenu') && !$('globalNavMenu').querySelector('[data-nav="cardmake"]')) {
-      const nb = document.createElement('button');
-      nb.type = 'button'; nb.setAttribute('data-nav', 'cardmake'); nb.textContent = '🎨 カードを作る';
-      $('globalNavMenu').appendChild(nb);
-    }
+    // メニューに「カードを作る」「バグ報告」を足す（GAS の App.html が前の版でも出るように、ここで足す）
+    [['cardmake', '🎨 カードを作る'], ['bugreport', '🐞 バグ報告']].forEach(([key, label]) => {
+      if ($('globalNavMenu') && !$('globalNavMenu').querySelector('[data-nav="' + key + '"]')) {
+        const nb = document.createElement('button');
+        nb.type = 'button'; nb.setAttribute('data-nav', key); nb.textContent = label;
+        $('globalNavMenu').appendChild(nb);
+      }
+    });
     document.querySelectorAll('[data-nav]').forEach((el) => el.addEventListener('click', () => navigate(el.getAttribute('data-nav'))));
     document.querySelectorAll('#view-mypage .ranking-tab').forEach((tab) => tab.addEventListener('click', () => switchRanking(tab.getAttribute('data-ranking'), tab)));
     $('globalNavToggle').addEventListener('click', () => $('globalNavMenu').classList.toggle('show'));
@@ -433,6 +445,12 @@
     if (saved) {
       state.token = saved.token;
       openMypage();
+      // ほかの画面のメニューから「カードを作る」で来たとき（?page=cardmake）は、そのまま開く
+      try {
+        if (window.google && google.script && google.script.url) {
+          google.script.url.getLocation((loc) => { if (loc && loc.parameter && loc.parameter.page === 'cardmake') openCardMake(); });
+        }
+      } catch (e) {}
     } else {
       clearSession();
       showView('login');
