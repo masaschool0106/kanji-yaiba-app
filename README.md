@@ -10,16 +10,16 @@
 | `assets/img/` | 新しく作る画像 |
 | `assets/sound/` | 効果音 |
 | `index.html` | このURLを直接開いた人への案内だけ（ゲームは動かない） |
-| `robots.txt` | 検索エンジンに載せない |
+| `robots.txt` | 予備（GitHub Pages のリポジトリ単位のサイトでは効かない。検索に載せない設定は index.html の noindex で行っている） |
 
 ## はじめての公開
 
 1. GitHub で新しいリポジトリを作る（例：`kanji-yaiba-app`、**Public**）。
 2. 「Add file」→「Upload files」で、このフォルダの中身をすべてドラッグして「Commit changes」。
 3. 「Settings」→「Pages」→ Source を「Deploy from a branch」、Branch を「main」「/ (root)」にして「Save」。
-4. 1〜2分待って `https://（ユーザー名）.github.io/kanji-yaiba-app/app.js` が開けば公開できています。
+4. 1〜2分待って `https://masaschool0106.github.io/kanji-yaiba-app/web/app.js` が開けば公開できています（このリポジトリは `web` フォルダごとアップロードしたので、URLに `web/` が入ります）。
 5. GAS のエディタ →「プロジェクトの設定」→「スクリプト プロパティ」に次の2つを追加。
-   - `ASSET_BASE_URL` … `https://（ユーザー名）.github.io/kanji-yaiba-app/`
+   - `ASSET_BASE_URL` … `https://masaschool0106.github.io/kanji-yaiba-app/web/`
    - `ASSET_VERSION` … `1`
 
 ## 更新するとき
