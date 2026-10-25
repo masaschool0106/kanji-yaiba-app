@@ -136,8 +136,8 @@ body.view-mypage { padding: 16px 14px 110px; }
   position: absolute; left: 50%; top: 18px; width: var(--card-w, 200px); height: var(--card-h, 270px);
   margin-left: calc(var(--card-w, 200px) / -2);
   transform-style: preserve-3d;
-  /* 最初の1コマから正しい位置に置く（app.js の czLayout と同じ計算。カード7枚：カード幅 × 1.35） */
-  --r0: calc(var(--card-w, 200px) * 1.35);
+  /* 最初の1コマから正しい位置に置く（app.js の czLayout と同じ計算。カード9枚：カード幅 × 1.79） */
+  --r0: calc(var(--card-w, 200px) * 1.79);
   transform: translateZ(calc(var(--r, var(--r0)) * -1));
   transition: transform 0.65s cubic-bezier(0.2, 0.8, 0.2, 1);
 }

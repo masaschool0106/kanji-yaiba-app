@@ -264,14 +264,17 @@
   function setupCarousel() {
     const ring = $('carouselRing');
     if (!ring) return;
-    // 7枚目「カードを作る」（GAS の App.html が前の版でも出るように、ここで足す）
-    if (!ring.querySelector('[data-page="cardmake"]')) {
+    // 7〜9枚目（GAS の App.html が前の版でも出るように、ここで足す）。決め技・柱名とバグ報告は、フォームを新しいタブで開く
+    [['cardmake', 'カードを作る', '#14b8a6', '🎨', '自分の絵を<br>カードにしよう！', true],
+     ['finisherform', '決め技・柱名', '#f97316', '✏️', '決め技や柱名を<br>変えたいときはここ', false],
+     ['bugreport', 'バグ報告', '#64748b', '🐞', 'おかしなところを<br>先生に知らせよう', false]].forEach(([page, label, color, icon, desc, isNew]) => {
+      if (ring.querySelector('[data-page="' + page + '"]')) return;
       const b = document.createElement('button');
-      b.type = 'button'; b.className = 'cz-card'; b.setAttribute('data-page', 'cardmake'); b.setAttribute('aria-label', 'カードを作る');
-      b.style.setProperty('--c', '#14b8a6');
-      b.innerHTML = '<span class="cz-badge">NEW</span><span class="cz-icon">🎨</span><span class="cz-name">カードを作る</span><span class="cz-desc">自分の絵を<br>カードにしよう！</span>';
+      b.type = 'button'; b.className = 'cz-card'; b.setAttribute('data-page', page); b.setAttribute('aria-label', label);
+      b.style.setProperty('--c', color);
+      b.innerHTML = (isNew ? '<span class="cz-badge">NEW</span>' : '') + '<span class="cz-icon">' + icon + '</span><span class="cz-name">' + label + '</span><span class="cz-desc">' + desc + '</span>';
       ring.appendChild(b);
-    }
+    });
     cz.cards = Array.from(ring.querySelectorAll('.cz-card'));
     cz.n = cz.cards.length;
     cz.step = 360 / cz.n;
