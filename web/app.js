@@ -139,6 +139,7 @@
     return call('boot')
       .then((data) => {
         if (data.role === 'teacher') { openTeacher(); return; }   // 先生（32番＋先生のアカウント）は管理画面へ
+        if (data.teacherNote) showMessage('mypageMessage', data.teacherNote, 'error');   // 先生用の番号なのに開かない理由
         state.player = data.player;
         state.settings = data.settings || {};
         renderPlayer(data.player);
@@ -255,6 +256,14 @@
   function setupCarousel() {
     const ring = $('carouselRing');
     if (!ring) return;
+    // 7枚目「カードを作る」（GAS の App.html が前の版でも出るように、ここで足す）
+    if (!ring.querySelector('[data-page="cardmake"]')) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'cz-card'; b.setAttribute('data-page', 'cardmake'); b.setAttribute('aria-label', 'カードを作る');
+      b.style.setProperty('--c', '#14b8a6');
+      b.innerHTML = '<span class="cz-badge">NEW</span><span class="cz-icon">🎨</span><span class="cz-name">カードを作る</span><span class="cz-desc">自分の絵を<br>カードにしよう！</span>';
+      ring.appendChild(b);
+    }
     cz.cards = Array.from(ring.querySelectorAll('.cz-card'));
     cz.n = cz.cards.length;
     cz.step = 360 / cz.n;
@@ -346,6 +355,21 @@
     czRotateBy(diff);
   }
 
+  // ==================== カードを作る（cardmake.js は開いたときだけ読み込む） ====================
+  function openCardMake() {
+    stopRefresh();
+    const api = { call: call, showView: showView, showLoading: showLoading, hideLoading: hideLoading, openMypage: openMypage };
+    const go = () => { hideLoading(); window.KanjiCardMake.open(api); };
+    if (window.KanjiCardMake) { go(); return; }
+    showLoading('読み込み中...');
+    const cfg = window.KANJI_CONFIG || {};
+    const sc = document.createElement('script');
+    sc.src = (cfg.assetBase || '') + 'cardmake.js' + (cfg.assetVersion ? '?v=' + encodeURIComponent(cfg.assetVersion) : '');
+    sc.onload = go;
+    sc.onerror = () => { hideLoading(); showMessage('mypageMessage', '「カードを作る」を読み込めませんでした。', 'error'); };
+    document.head.appendChild(sc);
+  }
+
   // ==================== 先生の管理画面 ====================
   // admin.js は先生のときだけ読み込む（子どもの画面の速さに影響しない）。
   // 先生かどうかは、管理画面の操作のたびにサーバーが確かめる
@@ -370,6 +394,7 @@
       if (state.view !== 'mypage') openMypage();
       return;
     }
+    if (page === 'cardmake') { openCardMake(); return; }
     showLoading('移動中...');
     call('nav.legacyUrl', { page: page })
       .then((res) => { window.top.location.href = res.url; })
@@ -382,6 +407,11 @@
   // ==================== 起動 ====================
   function setupEvents() {
     setupLogin();
+    if ($('globalNavMenu') && !$('globalNavMenu').querySelector('[data-nav="cardmake"]')) {
+      const nb = document.createElement('button');
+      nb.type = 'button'; nb.setAttribute('data-nav', 'cardmake'); nb.textContent = '🎨 カードを作る';
+      $('globalNavMenu').appendChild(nb);
+    }
     document.querySelectorAll('[data-nav]').forEach((el) => el.addEventListener('click', () => navigate(el.getAttribute('data-nav'))));
     document.querySelectorAll('#view-mypage .ranking-tab').forEach((tab) => tab.addEventListener('click', () => switchRanking(tab.getAttribute('data-ranking'), tab)));
     $('globalNavToggle').addEventListener('click', () => $('globalNavMenu').classList.toggle('show'));

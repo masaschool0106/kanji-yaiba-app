@@ -125,7 +125,7 @@ body.view-mypage { padding: 16px 14px 110px; }
 /* ---------- 3Dカルーセル ---------- */
 .carousel-wrap { margin: 8px 0 18px; text-align: center; }
 .carousel-title { font-size: 18px; font-weight: 900; letter-spacing: 2px; color: #e0f2fe; margin-bottom: 4px; }
-.carousel { position: relative; display: flex; align-items: center; justify-content: center; }
+.carousel { position: relative; display: flex; align-items: center; justify-content: center; overflow-x: clip; }   /* 横のカードが画面の外にはみ出さないように */
 .carousel-stage {
   position: relative; width: 100%; height: var(--stage-h, 330px);
   perspective: 1100px; perspective-origin: 50% 40%;
@@ -136,8 +136,8 @@ body.view-mypage { padding: 16px 14px 110px; }
   position: absolute; left: 50%; top: 18px; width: var(--card-w, 200px); height: var(--card-h, 270px);
   margin-left: calc(var(--card-w, 200px) / -2);
   transform-style: preserve-3d;
-  /* 最初の1コマから正しい位置に置く（app.js の czLayout と同じ計算：カード幅 × 1.126。ずれると読み込み直後に横にはみ出す） */
-  --r0: calc(var(--card-w, 200px) * 1.126);
+  /* 最初の1コマから正しい位置に置く（app.js の czLayout と同じ計算。カード7枚：カード幅 × 1.35） */
+  --r0: calc(var(--card-w, 200px) * 1.35);
   transform: translateZ(calc(var(--r, var(--r0)) * -1));
   transition: transform 0.65s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
