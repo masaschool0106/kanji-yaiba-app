@@ -170,7 +170,7 @@
         : req.status === '見送り' ? el('span', { class: 'cm-badge ng', text: '今回は見送り' })
         : el('span', { class: 'cm-badge wait', text: '⏳ 先生が見ているところ' });
       const lines = [badge, el('div', { class: 'cm-note', text: '「' + req.name + '」（' + req.hand + '）　' + req.time })];
-      if (req.status === '承認') lines.push(el('div', { class: 'cm-note', text: 'カード No.' + req.rank + ' になったよ。図鑑を見てみよう！ ガチャからも出るよ。' }));
+      if (req.status === '承認') lines.push(el('div', { class: 'cm-note', text: 'カード No.' + req.rank + ' になったよ。図鑑を見てみよう！ ガチャからも出るよ。（絵が出るまで10分ほどかかることがあるよ）' }));
       if (req.status === '見送り' && req.comment) lines.push(el('div', { class: 'cm-note', text: '先生から：' + req.comment }));
       if (req.status !== '審査中') lines.push(el('div', { class: 'cm-note', text: '下から、新しいカードを送れるよ。' }));
       box.replaceChildren(el('div', { class: 'cm-status' }, [req.thumb ? el('img', { src: req.thumb, alt: '' }) : null, el('div', {}, lines)]));

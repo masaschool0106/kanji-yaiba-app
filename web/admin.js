@@ -161,7 +161,7 @@
     setBusy();
     app.call('admin.cardRequests', { all: true }).then((d) => {
       const note = d.autoGithub
-        ? '承認すると、画像が GitHub に自動で追加され、1分ほどでガチャ・図鑑に出ます。作った子には1枚プレゼントされます。'
+        ? '承認すると、画像が GitHub に自動で追加されます。カードはすぐガチャ・図鑑に入りますが、絵が表示されるまで1〜10分かかります。作った子には1枚プレゼントされます。'
         : 'GITHUB_TOKEN が未設定なので「手動」です。承認したあとに出る2つの画像を、GitHub Desktop で web/assets/cards/（大きい画像）と web/assets/cards/thumb/（小さい画像）に入れて Push してください。';
       const items = (d.pending || []).map((r) => cardItem(r, d));
       const done = (d.done || []).map((r) => el('tr', {}, [
@@ -204,7 +204,7 @@
       app.call('admin.cardDecide', { id: r.id, decision: decision, rarity: rarIn.value, gachaType: gachaIn.value, name: nameIn.value, hand: handIn.value, line: lineIn.value, comment: comIn.value })
         .then((x) => {
           if (x.decided !== '承認') { msgEl.textContent = '見送りました。子どもの画面にコメントが表示されます。'; msgEl.className = 'adm-note adm-ok'; return; }
-          msgEl.textContent = 'カード No.' + x.rank + ' として追加しました。' + (x.github === '自動' ? '（GitHub に自動で追加済み）' : '');
+          msgEl.textContent = 'カード No.' + x.rank + ' として追加しました。' + (x.github === '自動' ? '（GitHub に自動で追加済み。絵が表示されるまで1〜10分かかります。すぐに開いて出ないときは、10分ほど待ってから Ctrl＋Shift＋R で開き直してください）' : '');
           msgEl.className = 'adm-note adm-ok';
           if (x.github !== '自動') manualDownloads(r.id, x.rank, msgEl);
         })
