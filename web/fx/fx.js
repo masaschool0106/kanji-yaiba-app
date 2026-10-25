@@ -2,12 +2,15 @@
 // 漢字の刃 演出エンジン（KanjiFX）
 //   ・320×180 の小さな画面に描いて、拡大して表示する → 自然にドット絵の見た目になる
 //   ・動きはアニメの手法（ため→一気に動く、残像、集中線、衝撃の一瞬止め、画面のゆれ）
-//   ・ライブラリなし（このファイルだけ。約40KB）。演出が終わると描画を止めるので、待っている間は負荷ゼロ
+//   ・ライブラリなし（このファイルだけ。約70KB）。演出が終わると描画を止めるので、待っている間は負荷ゼロ
 //   ・勝ち負け・出目はサーバー（または今の画面の処理）が決めた値を受け取って見せるだけ
 //
 //   KanjiFX.janken(要素, round)          … じゃんけん1回戦（RandomBattle の log の1件をそのまま渡せる）
 //   KanjiFX.dice(要素, { value })         … すごろくのサイコロ。value は数字か Promise（サーバーの返事を待ちながら転がす）
 //   KanjiFX.diceDuel(要素, { … })         … 偉人（ボス）とのサイコロ勝負
+//   KanjiFX.gachaOpen(要素, { results })  … ガチャ開封（昇格・シルエット・サインつき）
+//   KanjiFX.treasure(要素, { icon, label }) … 宝箱（タップで開けると中身が飛び出す）
+//   KanjiFX.enableTapSparkles()           … 画面のどこをタップしても星が散る
 //   KanjiFX.setSound(true / false)        … 効果音のオン・オフ（端末に記憶）
 // ===============================================================
 (function (global) {
@@ -85,6 +88,22 @@
         case 'six': [784, 988, 1175, 1568].forEach((f, i) => this.tone(f, 0.1, 'square', i * 0.06)); break;
         case 'beam': this.tone(1200, 0.25, 'sawtooth', 0, 0.6, 200); break;
         case 'hit': this.noise(0.15, 0, 1.2); this.tone(110, 0.15, 'square', 0, 0.9, 55); break;
+        case 'tear': this.noise(0.35, 0, 1.3); this.tone(900, 0.25, 'sawtooth', 0, 0.4, 300); break;
+        case 'flip': this.tone(600, 0.04, 'square', 0, 0.6); this.tone(900, 0.05, 'square', 0.04, 0.6); break;
+        case 'rumble': this.tone(70, 0.5, 'sawtooth', 0, 1.2, 50); break;
+        case 'reveal1': this.tone(660, 0.1, 'square'); break;
+        case 'reveal2': [523, 659, 784].forEach((f, i) => this.tone(f, 0.1, 'square', i * 0.07)); break;
+        case 'reveal3': [523, 659, 784, 1047, 1319].forEach((f, i) => this.tone(f, 0.12, 'square', i * 0.07)); break;
+        case 'legend':
+          [392, 523, 659, 784, 1047, 1319, 1568].forEach((f, i) => this.tone(f, 0.12, 'square', i * 0.06));
+          [1047, 1319, 1568].forEach((f) => this.tone(f, 0.6, 'triangle', 0.5, 0.8));
+          break;
+        case 'thunder': this.noise(0.45, 0, 1.6); this.tone(60, 0.4, 'sawtooth', 0, 1.2, 40); break;
+        case 'sign': this.tone(1400, 0.18, 'sine', 0, 0.8, 2800); this.tone(2800, 0.12, 'triangle', 0.15, 0.5); break;
+        case 'slam': this.noise(0.12, 0, 1.4); this.tone(180, 0.18, 'square', 0, 1, 90); break;
+        case 'chest': this.tone(120, 0.14, 'triangle', 0, 1.2, 70); break;
+        case 'open': this.noise(0.1, 0, 0.8); [659, 784, 988, 1319].forEach((f, i) => this.tone(f, 0.12, 'square', 0.05 + i * 0.07)); break;
+        case 'line': this.tone(520 + Math.random() * 80, 0.03, 'square', 0, 0.35); break;
       }
     }
   };
@@ -154,7 +173,12 @@
       this.inverted = 0;
       this.closed = false; this.last = 0;
       this.frame = this.frame.bind(this);
-      this.skipHandler = () => { this.speed = 4; };   // 画面をタップすると早送り
+      // 画面をタップすると早送り。ただし「タップを待っている」とき（ガチャのパックなど）はそちらを優先
+      this.onTap = null;
+      this.skipHandler = () => {
+        if (this.onTap) { const f = this.onTap; this.onTap = null; f(); }
+        else this.speed = 4;
+      };
       this.canvas.addEventListener('pointerdown', this.skipHandler);
       requestAnimationFrame(this.frame);
     }
@@ -255,6 +279,16 @@
       });
     }
     wait(ms) { return this.tween({ v: 0 }, { v: 1 }, ms, E.linear); }
+    // タップを待つ。ms たってもタップがなければ先へ進む（止まったままにしない）
+    waitTap(ms) {
+      return new Promise((resolve) => {
+        let done = false;
+        const finish = (how) => { if (done) return; done = true; if (this.onTap === tapped) this.onTap = null; resolve(how); };
+        const tapped = () => finish('tap');
+        this.onTap = tapped;
+        setTimeout(() => finish('timeout'), ms);
+      });
+    }
     shake(px) { this.shakeAmt = Math.max(this.shakeAmt, px); }
     flash(color, a) { this.flashColor = color || '#fff'; this.flashA = Math.max(this.flashA, Math.min(0.6, a || 0.5)); }
     impact() { this.inverted = 70; }
@@ -295,12 +329,16 @@
       this.img = img; this.rar = rarityOf(rarity); this.rarity = String(rarity || 'N');
       this.x = 0; this.y = 0; this.w = 58; this.h = 80; this.sx = 1; this.sy = 1; this.rot = 0; this.z = 2;
       this.trail = []; this.trailOn = false; this.glow = 0;
+      this.glowColor = '#ffffff';
+      this.back = false;   // true：裏向き（ガチャでめくる前）
+      this.holo = 0;       // 1：光沢が流れる（高レア）
+      this.rainbow = 0;    // 1：ふちが虹色（LEGEND）
     }
     update(dt, st) {
       if (this.trailOn) { this.trail.unshift({ x: this.x, y: this.y, sx: this.sx, sy: this.sy }); if (this.trail.length > 4) this.trail.pop(); }
       else if (this.trail.length) this.trail.pop();
-      // レアリティが高いカードは、ときどききらめく
-      if (this.rar.r >= 7 && Math.random() < 0.04 * (dt / 16)) {
+      // レアリティが高いカードは、ときどききらめく（裏向きのときは、めくるまでわからないように光らせない）
+      if (!this.back && this.rar.r >= 7 && Math.random() < 0.04 * (dt / 16)) {
         st.burst(this.x + (Math.random() - 0.5) * this.w, this.y + (Math.random() - 0.5) * this.h, { n: 1, colors: [this.rar.c, '#ffffff'], speed: 0.2, g: -0.01, life: 500, shape: 'star', size: 2 });
       }
     }
@@ -309,11 +347,17 @@
       // 勝ったカードは白く光る（ゆっくり明滅。点滅にはしない）
       if (this.glow) {
         const pulse = (0.45 + 0.35 * Math.sin(now / 160)) * this.glow;
-        g.save(); g.globalAlpha *= pulse; g.fillStyle = '#ffffff'; g.fillRect(-w / 2 - 4, -h / 2 - 4, w + 8, h + 8); g.restore();
+        g.save(); g.globalAlpha *= pulse; g.fillStyle = this.glowColor || '#ffffff'; g.fillRect(-w / 2 - 4, -h / 2 - 4, w + 8, h + 8); g.restore();
       }
       g.fillStyle = '#000'; g.fillRect(-w / 2 - 2, -h / 2 - 2, w + 4, h + 4);
-      g.fillStyle = this.rar.c; g.fillRect(-w / 2 - 1, -h / 2 - 1, w + 2, h + 2);
+      if (this.back) { cardBack(g, w, h, now); return; }
+      g.fillStyle = this.rainbow ? `hsl(${Math.floor(now / 6) % 360}, 90%, 60%)` : this.rar.c;
+      g.fillRect(-w / 2 - 1, -h / 2 - 1, w + 2, h + 2);
       g.fillStyle = '#0f172a'; g.fillRect(-w / 2 + 1, -h / 2 + 1, w - 2, h - 2);
+      this.drawImage(g, w, h);
+      if (this.holo) holoShine(g, w, h, now);
+    }
+    drawImage(g, w, h) {
       if (this.img) {
         // 絵を小さい画面に縮めて描く → 拡大表示でドット絵風になる（動くカードは動いたまま）
         const iw = this.img.naturalWidth || this.img.width, ih = this.img.naturalHeight || this.img.height;
@@ -336,6 +380,31 @@
       g.translate(Math.round(this.x), Math.round(this.y)); g.rotate(this.rot); g.scale(this.sx, this.sy);
       this.body(g, now);
     }
+  }
+
+  // カードの裏：紺地に金のふち、まん中に「刃」
+  function cardBack(g, w, h, now) {
+    g.fillStyle = '#b45309'; g.fillRect(-w / 2 - 1, -h / 2 - 1, w + 2, h + 2);
+    g.fillStyle = '#fbbf24'; g.fillRect(-w / 2, -h / 2, w, h);
+    g.fillStyle = '#1e1b4b'; g.fillRect(-w / 2 + 3, -h / 2 + 3, w - 6, h - 6);
+    g.fillStyle = '#312e81';
+    for (let y = -h / 2 + 5; y < h / 2 - 5; y += 6) for (let x = -w / 2 + 5 + ((y / 6) % 2 ? 3 : 0); x < w / 2 - 5; x += 6) g.fillRect(Math.round(x), Math.round(y), 2, 2);
+    g.fillStyle = '#4c1d95'; g.beginPath(); g.arc(0, 0, Math.min(w, h) * 0.28, 0, Math.PI * 2); g.fill();
+    outlinedText(g, '刃', 0, 1, Math.round(Math.min(w, h) * 0.38), '#fde68a', '#78350f');
+  }
+
+  // 高レアのカードに、ななめの光が流れる
+  function holoShine(g, w, h, now) {
+    const t = (now % 1600) / 1600, x = -w + t * w * 2.4;
+    g.save();
+    g.beginPath(); g.rect(-w / 2 + 2, -h / 2 + 2, w - 4, h - 4); g.clip();
+    g.globalCompositeOperation = 'lighter';
+    const grd = g.createLinearGradient(x - 14, -h / 2, x + 14, h / 2);
+    grd.addColorStop(0, 'rgba(255,255,255,0)');
+    grd.addColorStop(0.5, 'rgba(255,255,255,0.5)');
+    grd.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grd; g.fillRect(-w / 2, -h / 2, w, h);
+    g.restore();
   }
 
   class Text {
@@ -455,6 +524,153 @@
     }
   }
 
+  // ---------------- 演出の部品（雷・暗転・シルエット・サイン・叩きつける文字・宝箱・オーラ） ----------------
+  class Bolt {    // 稲妻（ジグザグの線）
+    constructor(x1, y1, x2, y2, color) {
+      this.pts = []; this.z = 8; this.color = color || '#fde047';
+      const n = 7;
+      for (let i = 0; i <= n; i++) {
+        const k = i / n;
+        this.pts.push([x1 + (x2 - x1) * k + (i && i < n ? (Math.random() - 0.5) * 22 : 0), y1 + (y2 - y1) * k]);
+      }
+    }
+    draw(g) {
+      g.lineJoin = 'miter';
+      for (const [w, c] of [[5, '#000'], [3, this.color], [1, '#ffffff']]) {
+        g.strokeStyle = c; g.lineWidth = w; g.beginPath();
+        this.pts.forEach(([x, y], i) => (i ? g.lineTo(Math.round(x), Math.round(y)) : g.moveTo(Math.round(x), Math.round(y))));
+        g.stroke();
+      }
+    }
+  }
+  // 光るのは times 回（最大2回）。前後の光と合わせて、1秒に3回をこえないように使う
+  async function lightning(st, x, y, color, times) {
+    Sound.play('thunder');
+    for (let i = 0; i < Math.min(2, times || 2); i++) {
+      const b = st.add(new Bolt(x + (Math.random() - 0.5) * 60, -4, x + (Math.random() - 0.5) * 16, y, color));
+      st.flash('#ffffff', 0.45); st.shake(6);
+      await st.wait(90);
+      st.remove(b);
+      await st.wait(110);   // 2回まで。1秒に3回以上は光らせない
+    }
+  }
+
+  class Dim {     // 画面を暗くする
+    constructor() { this.alpha = 0; this.z = 5; }
+    draw(g) { g.fillStyle = '#05030f'; g.fillRect(0, 0, W, H); }
+  }
+
+  // シルエット：カードの絵を暗く、白黒をはっきりさせて紫に染める（カードの絵は四角いので、形が うっすら見える影にする）
+  function silhouetteOf(img, w, h, rim) {
+    const c = document.createElement('canvas'); c.width = w + 6; c.height = h + 6;
+    const g = c.getContext('2d');
+    g.fillStyle = rim; g.fillRect(0, 0, w + 6, h + 6);   // ふちの光
+    g.fillStyle = '#05030f'; g.fillRect(3, 3, w, h);
+    if (img) {
+      const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height, s = Math.max(w / iw, h / ih);
+      g.save(); g.beginPath(); g.rect(3, 3, w, h); g.clip();
+      g.filter = 'grayscale(1) brightness(0.6) contrast(2.4)';
+      g.drawImage(img, 3 + (w - iw * s) / 2, 3 + (h - ih * s) / 2, iw * s, ih * s);
+      g.filter = 'none';
+      g.globalCompositeOperation = 'multiply'; g.fillStyle = '#5b21b6'; g.fillRect(3, 3, w, h);
+      g.restore();
+    }
+    return c;
+  }
+  class Sprite {
+    constructor(canvas) { this.c = canvas; this.x = 160; this.y = 90; this.sx = 1; this.sy = 1; this.z = 6; }
+    draw(g) { g.translate(Math.round(this.x), Math.round(this.y)); g.scale(this.sx, this.sy); g.drawImage(this.c, -this.c.width / 2, -this.c.height / 2); }
+  }
+
+  class TypeLine {   // セリフを1文字ずつ表示する帯
+    constructor(text) { this.text = text; this.n = 0; this.z = 7; }
+    draw(g) {
+      g.fillStyle = 'rgba(0,0,0,0.75)'; g.fillRect(0, 140, W, 30);
+      g.fillStyle = '#fbbf24'; g.fillRect(0, 140, W, 1); g.fillRect(0, 169, W, 1);
+      outlinedText(g, Array.from(this.text).slice(0, Math.floor(this.n)).join(''), 160, 155, 12, '#ffffff', '#000');
+    }
+  }
+
+  class Signature {  // カードの上に、名前をサインのように書き込む
+    constructor(text) { this.text = text; this.k = 0; this.x = 160; this.y = 120; this.z = 7; }
+    draw(g) {
+      g.translate(Math.round(this.x), Math.round(this.y)); g.transform(1, 0, -0.35, 1, 0, 0); g.rotate(-0.12);
+      g.font = `italic 900 14px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      const tw = g.measureText(this.text).width, left = -tw / 2 - 4;
+      g.save(); g.beginPath(); g.rect(left, -14, (tw + 8) * this.k, 28); g.clip();
+      g.lineWidth = 3; g.strokeStyle = '#1e1b4b'; g.strokeText(this.text, 0, 0);
+      const grd = g.createLinearGradient(-tw / 2, 0, tw / 2, 0);
+      grd.addColorStop(0, '#fde68a'); grd.addColorStop(0.5, '#ffffff'); grd.addColorStop(1, '#f9a8d4');
+      g.fillStyle = grd; g.fillText(this.text, 0, 0);
+      g.restore();
+      if (this.k > 0 && this.k < 1) { g.fillStyle = '#ffffff'; const px = left + (tw + 8) * this.k; g.fillRect(px - 1, -6, 3, 3); g.fillRect(px, -9, 1, 9); }
+    }
+  }
+
+  class Slam {   // ななめの帯に大きな文字を叩きつける
+    constructor(main, sub, color) { this.main = main; this.sub = sub; this.color = color || '#dc2626'; this.x = 420; this.y = 74; this.sx = 1; this.z = 9; }
+    draw(g) {
+      g.translate(Math.round(this.x), this.y); g.rotate(-0.16); g.scale(this.sx, 1);
+      g.fillStyle = '#000'; g.fillRect(-240, -22, 480, 44);
+      g.fillStyle = this.color; g.fillRect(-240, -18, 480, 36);
+      g.fillStyle = 'rgba(255,255,255,0.25)';
+      for (let i = -12; i < 12; i++) g.fillRect(i * 20, -18, 6, 36);
+      outlinedText(g, this.main, -6, -2, 26, '#ffffff', '#000');
+      if (this.sub) outlinedText(g, this.sub, 96, 14, 11, '#fde047', '#000');
+    }
+  }
+  async function slam(st, main, sub, color) {
+    const s = st.add(new Slam(main, sub, color));
+    s.sx = 1.5;
+    Sound.play('slam');
+    await st.tween(s, { x: 160, sx: 1 }, 120, E.outQuad);
+    st.shake(6); st.hitstop(60);
+    st.burst(160, 74, { n: 18, colors: ['#ffffff', '#fde047'], speed: 4, g: 0.05, life: 400 });
+    await st.wait(620);
+    await st.tween(s, { x: -260 }, 160, E.inQuad);
+    st.remove(s);
+  }
+
+  class Aura {   // 強くなっている間、まわりに炎の粒をまとう
+    constructor(target, w, h) { this.t = target; this.w = w; this.h = h; this.z = 0; this.acc = 0; this.on = true; }
+    update(dt, st) {
+      if (!this.on || REDUCED || st.particles.length > 260) return;
+      this.acc += dt;
+      while (this.acc > 28) {
+        this.acc -= 28;
+        const side = Math.random();
+        const x = this.t.x + (side < 0.5 ? (Math.random() - 0.5) * this.w : (side < 0.75 ? -1 : 1) * this.w / 2);
+        const y = this.t.y + this.h / 2 - Math.random() * this.h * (side < 0.5 ? 0.2 : 1);
+        st.particles.push({ x, y, vx: (Math.random() - 0.5) * 0.3, vy: -0.6 - Math.random() * 0.6, g: -0.02, drag: 0.98,
+          life: 420 + Math.random() * 260, size: Math.random() < 0.4 ? 2 : 1, color: ['#f97316', '#fbbf24', '#ef4444', '#fde68a'][Math.floor(Math.random() * 4)] });
+      }
+    }
+    draw() {}
+  }
+
+  class Chest {   // 宝箱
+    constructor() { this.x = 160; this.y = -40; this.sx = 1; this.sy = 1; this.lid = 0; this.z = 4; this.shine = 0; }
+    draw(g, st, now) {
+      g.translate(Math.round(this.x), Math.round(this.y)); g.scale(this.sx, this.sy);
+      // 影
+      g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(-30, 22, 60, 4);
+      // 本体
+      g.fillStyle = '#000'; g.fillRect(-29, -3, 58, 27);
+      g.fillStyle = '#92400e'; g.fillRect(-28, -2, 56, 25);
+      g.fillStyle = '#b45309'; g.fillRect(-28, -2, 56, 6);
+      g.fillStyle = '#fbbf24'; g.fillRect(-28, 8, 56, 3); g.fillRect(-24, -2, 4, 25); g.fillRect(20, -2, 4, 25);
+      g.fillStyle = '#fde68a'; g.fillRect(-4, 4, 8, 9); g.fillStyle = '#78350f'; g.fillRect(-1, 7, 2, 4);
+      // ふた（開くと上に回る）
+      g.save(); g.translate(0, -2); g.rotate(-this.lid * 1.9);
+      g.fillStyle = '#000'; g.fillRect(-29, -17, 58, 16);
+      g.fillStyle = '#b45309'; g.fillRect(-28, -16, 56, 14);
+      g.fillStyle = '#d97706'; g.fillRect(-28, -16, 56, 4);
+      g.fillStyle = '#fbbf24'; g.fillRect(-24, -16, 4, 14); g.fillRect(20, -16, 4, 14); g.fillRect(-28, -4, 56, 2);
+      g.restore();
+      if (this.shine) { g.globalAlpha *= this.shine; g.fillStyle = '#fef9c3'; g.fillRect(-26, -6, 52, 6); }
+    }
+  }
+
   // ---------------- よく使う動き ----------------
   async function pop(st, item, ms) {
     item.sx = 2.2; item.sy = 2.2; item.alpha = 1;
@@ -549,6 +765,8 @@
         st.tween(c2, { x: 330, y: 70, rot: 1.2 }, 420, E.outCubic).then(() => st.tween(c2, { y: 200, rot: 2.4 }, 380, E.inQuad));
         st.tween(c1, { x: 128 }, 300, E.outBack);
         c1.glow = 1;
+        // 有利な手で勝った →「こうかばつぐん！」、あいこからレアリティで勝った →「レアリティの差！」
+        await slam(st, sameHand ? 'レアリティの差！' : 'こうかばつぐん！', sameHand ? 'CRITICAL!' : 'WEAK!', sameHand ? '#7c3aed' : '#dc2626');
         Sound.play('win'); confetti(st, 128, 60);
         await popText(st, opts.winText || 'WIN!', { size: 40, color: '#fde047', outline: '#9a3412', y: 44 });
       } else if (winner === -1) {
@@ -603,6 +821,7 @@
     Promise.resolve(opts.value).then((v) => { value = Number(v); settled = true; }, (e) => { failed = e || new Error('roll failed'); settled = true; });
     try {
       const d = st.add(new Die(opts.golden, 36));
+      if (opts.bonus) st.add(new Aura(d, 40, 40));   // 出目が上がっているときは炎のオーラ
       d.ground = 132; d.x = 30; d.y = d.ground; d.rolling = true;
       Sound.play('whoosh');
       // 投げる（放物線）
@@ -684,6 +903,8 @@
       await popText(st, 'サイコロ勝負！', { size: 20, color: '#fde68a', outline: '#7c2d12', y: 96, hold: 450 });
 
       const d1 = st.add(new Die(false, 26)), d2 = st.add(new Die(false, 26));
+      // 能力やレリックで出目が上がっているときは、自分のサイコロに炎のオーラ
+      if (o.player && Number(o.player.bonus) > 0) st.add(new Aura(d1, 30, 30));
       d1.ground = d2.ground = 140; d1.x = 20; d2.x = 300; d1.y = d2.y = 140; d1.rolling = d2.rolling = true;
       Sound.play('whoosh');
       const throwDie = async (d, x) => {
@@ -719,8 +940,9 @@
         boss.whiten = 1; st.tween(boss, { whiten: 0 }, 400, E.linear);
         st.tween(boss, { rot: 0.15 }, 80, E.outQuad).then(() => st.tween(boss, { rot: 0 }, 400, E.outElastic));
         fadeOut(st, beam, 250);
-        if (o.critical) popText(st, '会心！', { size: 18, color: '#f97316', x: 248, y: 18, hold: 900 });
         await damageNumber(st, boss.x, boss.y + 6, o.damage);
+        if (o.critical) await slam(st, 'CRITICAL!', '会心の一撃！', '#ea580c');
+        else if (o.damage >= 40) await slam(st, 'こうかばつぐん！', 'WEAK!', '#dc2626');
       } else if (res === -1) {
         const beam = st.add(new Beam(d2.x, d2.y, 72, 50, '#f87171'));
         Sound.play('beam');
@@ -743,6 +965,322 @@
     }
   }
 
+  // ===============================================================
+  // ガチャ開封
+  //   o.results  … [{ id, name, rarity, imageUrl, imageUrlFull, isNew }]（サーバーの抽選結果をそのまま見せる）
+  //   o.packName … パックに書く名前（例：キラキラレアガチャ）
+  //   o.packColor… パックの色（例：'#a855f7'）
+  //   パックをタップでやぶる → 光（いちばん高いレアリティの色）→ 1枚ずつタップでめくる → 一覧 → タップで閉じる
+  //   タップしなくても、少し待てば自動で進む
+  // ===============================================================
+  const TIER_COLOR = ['#e2e8f0', '#60a5fa', '#c084fc', '#fbbf24', '#f43f5e'];
+  const tierOf = (rarity) => { const r = rarityOf(rarity).r; return r >= 10 ? 4 : r >= 7 ? 3 : r >= 5 ? 2 : r >= 3 ? 1 : 0; };
+
+  function shade(hex, k) {   // k > 0 で明るく、k < 0 で暗く
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex || ''); if (!m) return hex;
+    const n = parseInt(m[1], 16), c = [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+      .map((v) => Math.round(k > 0 ? v + (255 - v) * k : v * (1 + k)));
+    return `rgb(${c[0]},${c[1]},${c[2]})`;
+  }
+
+  function crimp(g, w, y, dir, color) {   // パックのギザギザのふち
+    g.fillStyle = color;
+    for (let x = -w / 2; x < w / 2; x += 4) { g.beginPath(); g.moveTo(x, y); g.lineTo(x + 2, y + 3 * dir); g.lineTo(x + 4, y); g.fill(); }
+  }
+
+  class Pack {
+    constructor(color, name) {
+      this.color = color || '#3b82f6'; this.name = name || 'ガチャ';
+      this.x = 160; this.y = 92; this.w = 84; this.h = 116; this.sx = 1; this.sy = 1; this.rot = 0; this.z = 3;
+      this.cut = false; this.glow = 0; this.glowColor = '#ffffff'; this.rainbow = false; this.bob = true;
+    }
+    draw(g, st, now) {
+      const bob = this.bob ? Math.round(Math.sin(now / 400) * 2) : 0;
+      g.translate(Math.round(this.x), Math.round(this.y) + bob); g.rotate(this.rot); g.scale(this.sx, this.sy);
+      const w = this.w, h = this.h, top = this.cut ? -h / 2 + 12 : -h / 2;
+      if (this.glow) {
+        const p = (0.45 + 0.3 * Math.sin(now / 150)) * this.glow;
+        g.save(); g.globalAlpha *= p;
+        g.fillStyle = this.rainbow ? `hsl(${Math.floor(now / 5) % 360}, 90%, 60%)` : this.glowColor;
+        g.fillRect(-w / 2 - 6, top - 6, w + 12, h / 2 - top + 12); g.restore();
+      }
+      g.fillStyle = '#000'; g.fillRect(-w / 2 - 1, top - 1, w + 2, h / 2 - top + 2);
+      const grd = g.createLinearGradient(0, -h / 2, 0, h / 2);
+      grd.addColorStop(0, shade(this.color, 0.35)); grd.addColorStop(0.5, this.color); grd.addColorStop(1, shade(this.color, -0.45));
+      g.fillStyle = grd; g.fillRect(-w / 2, top, w, h / 2 - top);
+      if (!this.cut) crimp(g, w, -h / 2, -1, shade(this.color, 0.35));
+      crimp(g, w, h / 2, 1, shade(this.color, -0.45));
+      g.fillStyle = 'rgba(255,255,255,0.18)';
+      for (let i = -3; i <= 3; i++) { g.beginPath(); g.moveTo(i * 22 - 6, top); g.lineTo(i * 22 + 4, top); g.lineTo(i * 22 + 4 - 30, h / 2); g.lineTo(i * 22 - 6 - 30, h / 2); g.fill(); }
+      g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillRect(-w / 2, -20, w, 40);
+      outlinedText(g, '漢字の刃', 0, -7, 15, '#ffffff', '#000');
+      outlinedText(g, this.name, 0, 10, 8, '#fde68a', '#000');
+      // 光が流れる
+      const t = (now % 2200) / 2200, x = -w + t * w * 2.4;
+      g.save(); g.beginPath(); g.rect(-w / 2, top, w, h / 2 - top); g.clip(); g.globalCompositeOperation = 'lighter';
+      const s = g.createLinearGradient(x - 16, -h / 2, x + 16, h / 2);
+      s.addColorStop(0, 'rgba(255,255,255,0)'); s.addColorStop(0.5, 'rgba(255,255,255,0.35)'); s.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = s; g.fillRect(-w / 2, -h / 2, w, h); g.restore();
+    }
+  }
+
+  class Strip {   // やぶれて飛んでいくパックの上の部分
+    constructor(color, w) { this.color = color; this.w = w; this.x = 0; this.y = 0; this.rot = 0; this.z = 4; }
+    draw(g) {
+      g.translate(Math.round(this.x), Math.round(this.y)); g.rotate(this.rot);
+      g.fillStyle = '#000'; g.fillRect(-this.w / 2 - 1, -7, this.w + 2, 14);
+      g.fillStyle = shade(this.color, 0.35); g.fillRect(-this.w / 2, -6, this.w, 12);
+      crimp(g, this.w, -6, -1, shade(this.color, 0.35));
+    }
+  }
+
+  class Rays {    // 開け口からあふれる光
+    constructor(x, y, color, rainbow) { this.x = x; this.y = y; this.color = color; this.rainbow = rainbow; this.len = 0; this.rot = 0; this.z = 1; }
+    draw(g, st, now) {
+      g.translate(Math.round(this.x), Math.round(this.y)); g.rotate(this.rot + now / 1500);
+      for (let i = 0; i < 14; i++) {
+        const a = (i / 14) * Math.PI * 2;
+        g.fillStyle = this.rainbow ? `hsla(${(i * 26 + now / 8) % 360}, 90%, 65%, 0.55)` : this.color;
+        if (!this.rainbow) g.globalAlpha *= 0.5;
+        g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a - 0.09) * this.len, Math.sin(a - 0.09) * this.len); g.lineTo(Math.cos(a + 0.09) * this.len, Math.sin(a + 0.09) * this.len); g.fill();
+        if (!this.rainbow) g.globalAlpha /= 0.5;
+      }
+    }
+  }
+
+  function shortLabel(s, n) { const a = Array.from(String(s || '')); return a.length > n ? a.slice(0, n - 1).join('') + '…' : a.join(''); }
+
+  // 最高レアの登場前：暗転 → シルエットが浮かび上がる → セリフが1文字ずつ → 白く光って登場
+  //   セリフはスプレッドシート（Characters の「セリフ」列）にあればそれを使い、なければ決まった文
+  async function silhouetteIntro(st, img, c) {
+    const dim = st.add(new Dim());
+    await st.tween(dim, { alpha: 0.85 }, 300, E.linear);
+    Sound.play('rumble');
+    const sil = st.add(new Sprite(silhouetteOf(img, 92, 126, '#fbbf24')));
+    sil.y = 76; sil.sx = sil.sy = 0.6; sil.alpha = 0;
+    await st.tween(sil, { alpha: 1, sx: 1, sy: 1 }, 500, E.outCubic);
+    const text = c.line ? `「${shortLabel(c.line, 22)}」` : `「${shortLabel(c.name, 12)}、ここに参上！」`;
+    const line = st.add(new TypeLine(text));
+    const total = Array.from(text).length;
+    for (let i = 1; i <= total; i++) { line.n = i; if (i % 2) Sound.play('line'); await st.wait(55); }
+    await st.waitTap(1800);
+    st.flash('#ffffff', 0.6);
+    [dim, sil, line].forEach((it) => st.remove(it));
+  }
+
+  async function gachaOpen(host, o) {
+    o = o || {};
+    const cards = (o.results || []).filter((c) => c && !c.miss);
+    const st = new Stage(host, { theme: 'arena' });
+    try {
+      if (!cards.length) return;
+      const imagesReady = Promise.all(cards.map((c) => loadImage(c.imageUrl, c.imageUrlFull)));
+      const bestTier = Math.max.apply(null, cards.map((c) => tierOf(c.rarity)));
+
+      // 1. パック登場（いちばん高いレアリティほど、強く光る）
+      const pack = st.add(new Pack(o.packColor, o.packName));
+      pack.y = 240;
+      // 昇格演出：高レアが入っていても、ときどき最初は青く光らせ、やぶる直前に雷で本当の色に変える（見せ方だけ。中身は最初から決まっている）
+      const promote = bestTier >= 3 && Math.random() < 0.6;
+      const shownTier = promote ? 1 : bestTier;
+      pack.glow = shownTier >= 2 ? 1 : 0.5; pack.glowColor = TIER_COLOR[shownTier]; pack.rainbow = shownTier >= 4;
+      Sound.play('whoosh');
+      await st.tween(pack, { y: 88 }, 520, E.outBack);
+      const hint = st.add(new Text('タップしてパックをやぶろう！', 11, '#fde68a'));
+      hint.y = 166; hint.update = function (dt, s) { this.alpha = 0.55 + 0.45 * Math.sin(performance.now() / 260); };
+      await st.waitTap(7000);
+      st.remove(hint);
+
+      // 2. ため → やぶる
+      pack.bob = false;
+      if (shownTier >= 3) Sound.play('rumble');
+      for (let i = 0; i < (shownTier >= 3 ? 4 : 2); i++) {
+        await st.tween(pack, { rot: 0.07 }, 60, E.outQuad);
+        await st.tween(pack, { rot: -0.07 }, 90, E.outQuad);
+        if (shownTier >= 3) st.shake(2);
+      }
+      await st.tween(pack, { rot: 0 }, 60, E.outQuad);
+      if (promote) {
+        await lightning(st, pack.x, pack.y - pack.h / 2);
+        pack.glow = 1; pack.glowColor = TIER_COLOR[bestTier]; pack.rainbow = bestTier >= 4;
+        await popText(st, bestTier >= 4 ? '虹色に変わった！？' : '金色に変わった！？', { size: 14, color: TIER_COLOR[bestTier], y: 20, hold: 450 });
+      }
+      const strip = st.add(new Strip(pack.color, pack.w));
+      strip.x = pack.x; strip.y = pack.y - pack.h / 2 + 6;
+      pack.cut = true;
+      Sound.play('tear');
+      st.tween(strip, { x: strip.x + 90, y: strip.y - 70, rot: 1.4, alpha: 0 }, 520, E.outCubic).then(() => st.remove(strip));
+      const rays = st.add(new Rays(pack.x, pack.y - pack.h / 2 + 12, TIER_COLOR[bestTier], bestTier >= 4));
+      st.tween(rays, { len: 220 }, 400, E.outCubic);
+      st.flash(TIER_COLOR[bestTier], 0.4); st.shake(bestTier >= 3 ? 6 : 3);
+      st.burst(pack.x, pack.y - pack.h / 2 + 12, { n: 24 + bestTier * 10, colors: [TIER_COLOR[bestTier], '#ffffff'], speed: 3.5, up: 1.5, life: 900 });
+      if (bestTier >= 3) st.speedLines(600, pack.x, pack.y - 40);
+      if (bestTier >= 4) confetti(st, 160, 40);
+      await st.wait(650);
+      await imagesReady;
+      st.tween(pack, { y: 260 }, 400, E.inQuad).then(() => st.remove(pack));
+      await st.tween(rays, { alpha: 0 }, 400, E.linear);
+      st.remove(rays);
+
+      // 3. 1枚ずつめくる（高いレアリティのカードを最大10枚、低い順に。いちばん高いカードが最後）
+      const byScore = cards.map((c, i) => ({ c, i })).sort((a, b) => (rarityOf(b.c.rarity).r - rarityOf(a.c.rarity).r) || (a.i - b.i)).map((x) => x.c);
+      const top = byScore.slice(0, 10);
+      const order = top.slice().reverse();
+      for (let i = 0; i < order.length; i++) {
+        const c = order[i], tier = tierOf(c.rarity);
+        const img = await loadImage(c.imageUrl, c.imageUrlFull);
+        const card = st.add(new Card(img, c.rarity));
+        card.w = 74; card.h = 102; card.back = true; card.x = 160; card.y = 240;
+        const count = st.add(new Text(`${i + 1} / ${order.length}`, 9, '#cbd5e1')); count.x = 22; count.y = 10;
+        Sound.play('flip');
+        await st.tween(card, { y: 86 }, 260, E.outBack);
+        if (tier >= 3) {   // 高レア：めくる前に青く光ってふるえる → 雷で本当の色に（昇格）
+          card.glow = 1; card.glowColor = TIER_COLOR[1];
+          for (let k = 0; k < 3; k++) { Sound.play('tick'); await st.tween(card, { rot: 0.06 }, 70); await st.tween(card, { rot: -0.06 }, 70); }
+          card.rot = 0;
+          await lightning(st, card.x, card.y - card.h / 2, null, 1);
+          card.glowColor = tier >= 4 ? '#f9a8d4' : TIER_COLOR[tier];
+          await st.wait(400);
+        }
+        if (tier >= 4) await silhouetteIntro(st, img, c);   // 最高レア：暗転 → シルエットとセリフ
+        await st.tween(card, { sx: 0 }, 110, E.inQuad);
+        card.back = false; card.glow = 0;
+        card.holo = tier >= 3 ? 1 : 0; card.rainbow = tier >= 4 ? 1 : 0;
+        Sound.play(tier >= 4 ? 'legend' : tier >= 3 ? 'reveal3' : tier >= 1 ? 'reveal2' : 'reveal1');
+        await st.tween(card, { sx: 1 }, 180, E.outBack);
+        const rlabel = st.add(new Text(String(c.rarity), tier >= 3 ? 18 : 14, TIER_COLOR[tier], '#000')); rlabel.y = 22;
+        const name = st.add(new Text(shortLabel(c.name, 14), 10, '#ffffff')); name.y = 150;
+        pop(st, rlabel, 220);
+        if (tier >= 2) st.burst(160, 86, { n: 14 + tier * 8, colors: [TIER_COLOR[tier], '#ffffff'], speed: 3, life: 700 });
+        if (tier >= 3) { st.flash(TIER_COLOR[tier], 0.3); st.speedLines(500, 160, 86); st.shake(4); }
+        if (tier >= 4) confetti(st, 160, 50);
+        let badge = null;
+        if (c.isNew) { badge = st.add(new Text('NEW!', 11, '#ffffff', '#dc2626')); badge.x = 196; badge.y = 40; badge.rot = 0.25; pop(st, badge, 240); }
+        let sign = null;
+        if (tier >= 4) {   // 最高レア：サインがシュピーンと書き込まれる
+          sign = st.add(new Signature(shortLabel(c.name, 10)));
+          sign.y = card.y + 30;
+          await st.wait(250);
+          Sound.play('sign');
+          await st.tween(sign, { k: 1 }, 650, E.outQuad);
+          st.burst(sign.x + 30, sign.y - 4, { n: 10, colors: ['#ffffff', '#fde68a'], speed: 2, life: 500, shape: 'star', size: 2 });
+        }
+        await st.waitTap(tier >= 3 ? 3500 : 1500);
+        if (sign) { sign.follow = card; sign.oy = 30; }
+        await st.tween(card, { x: -60, rot: -0.4 }, 160, E.inQuad);
+        [card, count, rlabel, name, badge, sign].forEach((it) => it && st.remove(it));
+      }
+
+      // 4. 一覧（高い順に最大10枚）
+      const title = st.add(new Text('ゲットしたカード', 14, '#fde68a')); title.y = 13; pop(st, title, 200);
+      const small = await Promise.all(top.map((c) => loadImage(c.imageUrl, c.imageUrlFull)));
+      top.forEach((c, i) => {
+        const col = i % 5, row = Math.floor(i / 5), rows = Math.ceil(top.length / 5);
+        const m = st.add(new Card(small[i], c.rarity));
+        m.w = 40; m.h = 55; m.x = 160 + (col - (Math.min(top.length, 5) - 1) / 2) * 50; m.y = (rows === 1 ? 90 : 60 + row * 64);
+        m.holo = tierOf(c.rarity) >= 3 ? 1 : 0; m.rainbow = tierOf(c.rarity) >= 4 ? 1 : 0;
+        m.sx = m.sy = 0; st.tween(m, { sx: 1, sy: 1 }, 220 + i * 40, E.outBack);
+        if (c.isNew) { const b = st.add(new Text('NEW', 7, '#ffffff', '#dc2626')); b.x = m.x + 14; b.y = m.y - 26; }
+      });
+      if (cards.length > top.length) { const more = st.add(new Text(`ほか ${cards.length - top.length} 枚`, 10, '#cbd5e1')); more.y = 158; }
+      const close = st.add(new Text('タップでとじる', 10, '#94a3b8')); close.y = 172;
+      Sound.play('reveal2');
+      await st.waitTap(9000);
+    } finally {
+      if (!o.keep) st.destroy();
+    }
+  }
+
+  // ===============================================================
+  // 宝箱（すごろくの良いマス、アイテムを手に入れたとき）
+  //   o.title … 上に出す文（例：【平安】良い出来事！）
+  //   o.icon  … 中から出てくるもの（絵文字。例：'❤️'）
+  //   o.label … 下に出す文（例：HPが 15 回復！）
+  //   落ちてくる → タップで開ける → 光とともに中身が飛び出す（タップしなくても自動で進む）
+  // ===============================================================
+  async function treasure(host, o) {
+    o = o || {};
+    const st = new Stage(host, { theme: 'board' });
+    try {
+      if (o.title) { const t = st.add(new Text(shortLabel(o.title, 20), 13, '#fde68a')); t.y = 16; pop(st, t, 220); }
+      const chest = st.add(new Chest());
+      Sound.play('whoosh');
+      await st.tween(chest, { y: 110 }, 420, E.inQuad);
+      chest.sx = 1.25; chest.sy = 0.8;
+      st.dust(chest.x - 20, 134); st.dust(chest.x + 20, 134); st.shake(3); Sound.play('chest');
+      await st.tween(chest, { sx: 1, sy: 1 }, 260, E.outElastic);
+      const hint = st.add(new Text('タップしてあけよう！', 11, '#ffffff'));
+      hint.y = 160; hint.update = function () { this.alpha = 0.55 + 0.45 * Math.sin(performance.now() / 260); };
+      await st.waitTap(5000);
+      st.remove(hint);
+      for (let i = 0; i < 2; i++) { await st.tween(chest, { sx: 1.08, sy: 0.92 }, 70); await st.tween(chest, { sx: 0.95, sy: 1.05 }, 70); }
+      chest.sx = chest.sy = 1;
+      Sound.play('open');
+      const rays = st.add(new Rays(chest.x, chest.y - 4, '#fde68a', false));
+      st.tween(rays, { len: 200 }, 360, E.outCubic);
+      st.tween(chest, { lid: 1, shine: 1 }, 260, E.outBack);
+      st.flash('#fef9c3', 0.35); st.shake(3);
+      st.burst(chest.x, chest.y - 6, { n: 30, colors: ['#fde68a', '#ffffff', '#fbbf24'], speed: 3.2, up: 2, life: 800 });
+      const item = st.add(new Glyph(o.icon || '🎁', 26));
+      item.x = chest.x; item.y = chest.y - 6; item.sx = item.sy = 0.3; item.z = 6;
+      await st.tween(item, { y: 54, sx: 1.3, sy: 1.3 }, 420, E.outBack);
+      st.burst(item.x, item.y, { n: 12, colors: ['#ffffff', '#fde68a'], speed: 2, life: 600, shape: 'star', size: 2 });
+      if (o.label) await popText(st, shortLabel(o.label, 18), { size: 15, color: '#ffffff', outline: '#7c2d12', y: 154 });
+      await st.waitTap(3000);
+    } finally {
+      if (!o.keep) st.destroy();
+    }
+  }
+
+  // ===============================================================
+  // タップの粒：画面のどこをタップしても、小さな星がふわっと散る
+  //   画面全体に透明なキャンバスを重ねる（タップの邪魔はしない）。粒があるときだけ描くので、ふだんは負荷ゼロ
+  // ===============================================================
+  let tapLayer = null;
+  function enableTapSparkles() {
+    if (tapLayer || !document.body) return;
+    const c = document.createElement('canvas');
+    Object.assign(c.style, { position: 'fixed', left: '0', top: '0', width: '100%', height: '100%', pointerEvents: 'none', zIndex: '30000' });
+    c.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(c);
+    const g = c.getContext('2d');
+    const parts = [];
+    let running = false, last = 0;
+    const fit = () => { c.width = window.innerWidth; c.height = window.innerHeight; };
+    fit();
+    window.addEventListener('resize', fit);
+    const colors = ['#fde68a', '#f9a8d4', '#a5f3fc', '#c4b5fd', '#ffffff'];
+    function tick(now) {
+      const dt = last ? Math.min(50, now - last) : 16;
+      last = now;
+      g.clearRect(0, 0, c.width, c.height);
+      for (let i = parts.length - 1; i >= 0; i--) {
+        const p = parts[i];
+        p.life -= dt;
+        if (p.life <= 0) { parts.splice(i, 1); continue; }
+        const s = dt / 16;
+        p.vy += 0.05 * s; p.x += p.vx * s; p.y += p.vy * s;
+        g.globalAlpha = Math.min(1, p.life / 250); g.fillStyle = p.color;
+        const x = Math.round(p.x), y = Math.round(p.y), r = p.size;
+        g.fillRect(x - r, y, r * 2 + 1, 1); g.fillRect(x, y - r, 1, r * 2 + 1);   // 十字の星
+        if (r > 1) g.fillRect(x - 1, y - 1, 3, 3);
+      }
+      g.globalAlpha = 1;
+      if (parts.length) requestAnimationFrame(tick);
+      else { running = false; g.clearRect(0, 0, c.width, c.height); }
+    }
+    document.addEventListener('pointerdown', (e) => {
+      const n = REDUCED ? 3 : 10;
+      for (let i = 0; i < n && parts.length < 120; i++) {
+        const a = Math.random() * Math.PI * 2, sp = 1 + Math.random() * 2.2;
+        parts.push({ x: e.clientX, y: e.clientY, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1, life: 380 + Math.random() * 300,
+          size: 1 + Math.floor(Math.random() * 3), color: colors[i % colors.length] });
+      }
+      if (!running) { running = true; last = 0; requestAnimationFrame(tick); }
+    }, { capture: true, passive: true });
+    tapLayer = c;
+  }
+
   async function damageNumber(st, x, y, dmg) {
     if (!dmg) return;
     const t = st.add(new Text(`-${dmg}`, 26, '#ffffff', '#b91c1c'));
@@ -756,6 +1294,9 @@
     janken: janken,
     dice: dice,
     diceDuel: diceDuel,
+    gachaOpen: gachaOpen,
+    treasure: treasure,
+    enableTapSparkles: enableTapSparkles,
     preload: (urls) => Promise.all((urls || []).map((u) => loadImage(u))),
     setSound: (on) => { Sound.on = !!on; try { localStorage.setItem('kanji_fx_sound', on ? 'on' : 'off'); } catch (e) {} },
     soundOn: () => Sound.on,

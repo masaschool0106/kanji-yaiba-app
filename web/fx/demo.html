@@ -44,6 +44,13 @@
       <button data-demo="bossDraw" class="red">👑 ボス勝負（互角）</button>
     </div>
     <div class="row">
+      <button data-demo="gacha1">🎰 ガチャ 1回</button>
+      <button data-demo="gacha10">🎰 ガチャ 10連</button>
+      <button data-demo="gachaLegend" class="gold">🌈 LEGEND が出る10連</button>
+      <button data-demo="chest">🎁 宝箱</button>
+      <button data-demo="bonusDuel" class="red">🔥 ボス勝負（オーラつき）</button>
+    </div>
+    <div class="row">
       <button id="soundBtn">🔊 効果音：オン</button>
     </div>
     <div class="meter" id="meter">fps：-</div>
@@ -73,6 +80,7 @@
     };
 
     const stage = document.getElementById('stage');
+    KanjiFX.enableTapSparkles();   // 画面のどこをタップしても星が散る
     const buttons = document.querySelectorAll('[data-demo]');
     let busy = false;
 
@@ -90,6 +98,11 @@
         else if (name === 'bossWin') await KanjiFX.diceDuel(stage, { player: { value: 5, bonus: 2 }, boss: Object.assign({ value: 3 }, BOSS), result: 1, damage: 40, critical: true });
         else if (name === 'bossLose') await KanjiFX.diceDuel(stage, { player: { value: 2 }, boss: Object.assign({ value: 6 }, BOSS), result: -1, damage: 40 });
         else if (name === 'bossDraw') await KanjiFX.diceDuel(stage, { player: { value: 4 }, boss: Object.assign({ value: 4 }, BOSS), result: 0 });
+        else if (name === 'gacha1') await KanjiFX.gachaOpen(stage, { results: [Object.assign({ isNew: true }, C.akebono)], packColor: '#3b82f6', packName: 'ノーマルガチャ' });
+        else if (name === 'gacha10') await KanjiFX.gachaOpen(stage, { results: [C.tate, C.kaminari, C.kiri, C.kiriA, C.akebono, C.tate, Object.assign({ isNew: true }, C.honooS), C.kaminari, C.kiri, C.tate], packColor: '#8b5cf6', packName: 'レアガチャ' });
+        else if (name === 'gachaLegend') await KanjiFX.gachaOpen(stage, { results: [C.tate, C.kaminari, C.kiri, C.honoo, C.akebono, C.tate, Object.assign({ isNew: true, line: '雅なる一太刀、受けてみよ！' }, C.miyabi), C.kaminari, C.kiriA, C.tate], packColor: '#ec4899', packName: 'キラキラレア' });
+        else if (name === 'chest') await KanjiFX.treasure(stage, { title: '【平安】良い出来事！', icon: '❤️', label: 'HPが 15 回復！' });
+        else if (name === 'bonusDuel') await KanjiFX.diceDuel(stage, { player: { value: 4, bonus: 3 }, boss: Object.assign({ value: 2 }, BOSS), result: 1, damage: 50 });
       } catch (e) {
         console.error(e);
       } finally {
