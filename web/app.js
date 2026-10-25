@@ -150,7 +150,10 @@
 
   function renderPlayer(p) {
     $('playerNickname').textContent = p.nickname;
-    $('playerNumber').textContent = p.studentId;
+    // 名前の横は、出席番号ではなくテストの点数（Students の I列）を「Lv.」として出す
+    // （GAS の App.html が前の版で「No.」の形のままでも、ここで書きかえる）
+    const lv = document.querySelector('.player-id');
+    if (lv) lv.textContent = 'Lv.' + p.testScore;
     $('specialMoveText').textContent = p.finisher;
     $('specialMoveEditIcon').hidden = !state.settings.finisherEditable;
     $('totalPoints').textContent = p.points;
