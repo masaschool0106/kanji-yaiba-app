@@ -138,6 +138,7 @@
     if (withSpinner) showLoading('読み込み中...');
     return call('boot')
       .then((data) => {
+        if (data.role === 'teacher') { openTeacher(); return; }   // 先生（32番＋先生のアカウント）は管理画面へ
         state.player = data.player;
         state.settings = data.settings || {};
         renderPlayer(data.player);
@@ -343,6 +344,22 @@
     if (diff > cz.n / 2) diff -= cz.n;
     if (diff < -cz.n / 2) diff += cz.n;   // 近い向きに回す
     czRotateBy(diff);
+  }
+
+  // ==================== 先生の管理画面 ====================
+  // admin.js は先生のときだけ読み込む（子どもの画面の速さに影響しない）。
+  // 先生かどうかは、管理画面の操作のたびにサーバーが確かめる
+  function openTeacher() {
+    stopRefresh();
+    const api = { call: call, logout: logout, showView: showView, showLoading: showLoading, hideLoading: hideLoading };
+    const go = () => { hideLoading(); window.KanjiAdmin.open(api); };
+    if (window.KanjiAdmin) { go(); return; }
+    const cfg = window.KANJI_CONFIG || {};
+    const sc = document.createElement('script');
+    sc.src = (cfg.assetBase || '') + 'admin.js' + (cfg.assetVersion ? '?v=' + encodeURIComponent(cfg.assetVersion) : '');
+    sc.onload = go;
+    sc.onerror = () => { hideLoading(); showView('mypage'); showMessage('mypageMessage', '管理画面を読み込めませんでした。', 'error'); };
+    document.head.appendChild(sc);
   }
 
   // ==================== 画面の移動 ====================
