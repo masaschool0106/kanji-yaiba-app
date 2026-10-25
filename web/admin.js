@@ -183,6 +183,17 @@
     const opt = (list, val) => list.map((v) => { const o = el('option', { value: v, text: v }); if (v === val) o.selected = true; return o; });
     const nameIn = el('input', { type: 'text', maxlength: '12', value: r.name });
     const handIn = el('select', {}, opt(d.hands, r.hand));
+    // ステップアップの効果：子どもが選んだものが最初に入る（空＝おまかせ）。手を変えたら、その手の効果にえらび直す
+    const effIn = el('select', {});
+    const fillEff = (h, sel) => {
+      effIn.replaceChildren(...[el('option', { value: '', text: 'おまかせ（自動）' })].concat((d.effects || []).filter((e) => e.hand === h).map((e) => {
+        const o = el('option', { value: e.id, text: e.name + (e.auto ? '' : '（ぶっとび）') + '：' + e.desc.replace(/\{S(\d*)\}/g, (m, n) => n ? '強さ×' + n : '強さ').replace(/\{H\}/g, '強さの半分') });
+        if (e.id === sel) o.selected = true;
+        return o;
+      })));
+    };
+    fillEff(r.hand, r.effect);
+    handIn.addEventListener('change', () => fillEff(handIn.value, ''));
     const lineIn = el('input', { type: 'text', maxlength: '30', value: r.line });
     const rarIn = el('select', {}, [el('option', { value: '', text: 'えらぶ' })].concat(opt(d.rarities, '')));
     const gachaIn = el('select', {}, [el('option', { value: '', text: 'えらぶ' })].concat(opt(d.gachaTypes, '')));
@@ -201,7 +212,7 @@
       if (decision === 'reject' && !confirm('この申請を見送りますか？（画像はドライブのごみ箱に入ります）')) return;
       yes.disabled = no.disabled = true;
       msgEl.textContent = decision === 'approve' ? '追加しています...' : '記録しています...'; msgEl.className = 'adm-note';
-      app.call('admin.cardDecide', { id: r.id, decision: decision, rarity: rarIn.value, gachaType: gachaIn.value, name: nameIn.value, hand: handIn.value, line: lineIn.value, comment: comIn.value })
+      app.call('admin.cardDecide', { id: r.id, decision: decision, rarity: rarIn.value, gachaType: gachaIn.value, name: nameIn.value, hand: handIn.value, effect: effIn.value, line: lineIn.value, comment: comIn.value })
         .then((x) => {
           if (x.decided !== '承認') { msgEl.textContent = '見送りました。子どもの画面にコメントが表示されます。'; msgEl.className = 'adm-note adm-ok'; return; }
           msgEl.textContent = 'カード No.' + x.rank + ' として追加しました。' + (x.github === '自動' ? '（GitHub に自動で追加済み。絵が表示されるまで1〜10分かかります。すぐに開いて出ないときは、10分ほど待ってから Ctrl＋Shift＋R で開き直してください）' : '');
@@ -217,7 +228,7 @@
       img,
       el('div', {}, [
         el('div', { class: 'adm-note', text: r.time + '　' + r.studentId + '番 ' + (r.nickname || '') }),
-        el('div', { class: 'adm-form' }, [f('カード名', nameIn), f('手', handIn), f('セリフ', lineIn), f('レアリティ', rarIn), f('ガチャの種類', gachaIn), f('コメント', comIn)]),
+        el('div', { class: 'adm-form' }, [f('カード名', nameIn), f('手', handIn), f('ステップアップ効果', effIn), f('セリフ', lineIn), f('レアリティ', rarIn), f('ガチャの種類', gachaIn), f('コメント', comIn)]),
         el('div', { class: 'adm-acts' }, [yes, no]),
         msgEl
       ])

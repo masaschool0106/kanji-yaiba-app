@@ -9,7 +9,7 @@
   // ==================== 設定 ====================
   const SESSION_STORE_KEY = 'kanji_app_session';   // { token, exp }
   const LEGACY_NUM_KEY = 'kanji_num';
-  const FINISHER_FORM_URL = 'https://forms.gle/KDEHoS8UNkS6uB8a6';   // 決め技を変えたいときのフォーム
+  const FINISHER_FORM_URL = 'https://forms.gle/KDEHoS8UNkS6uB8a6';   // 決め技・柱名を変えたいときのフォーム
   const BUG_FORM_URL = 'https://forms.gle/ZRoicHDGxMdQQU4R7';        // バグ報告のフォーム              // 今の画面（Gacha.html など）が使う出席番号
   const REFRESH_MS = 300000;                       // マイページを5分ごとに読み直す（今のマイページと同じ）
   const CONFIG = window.KANJI_CONFIG || {};        // App.html が入れる { assetBase, assetVersion }
@@ -217,8 +217,8 @@
       const el = $('mypageMessage');
       const a = document.createElement('a');
       a.href = FINISHER_FORM_URL; a.target = '_blank'; a.rel = 'noopener'; a.className = 'msg-link';
-      a.textContent = '📝 決め技の変更フォームを開く';
-      el.replaceChildren(document.createTextNode('決め技を変えたいときは、フォームで先生に送ってね。 '), a);
+      a.textContent = '📝 決め技・柱名の変更フォームを開く';
+      el.replaceChildren(document.createTextNode('決め技や柱名を変えたいときは、フォームで先生に送ってね。 '), a);
       el.className = 'message info';
       return;
     }
@@ -404,6 +404,7 @@
     }
     if (page === 'cardmake') { openCardMake(); return; }
     if (page === 'bugreport') { window.open(BUG_FORM_URL, '_blank', 'noopener'); return; }
+    if (page === 'finisherform') { window.open(FINISHER_FORM_URL, '_blank', 'noopener'); return; }
     showLoading('移動中...');
     call('nav.legacyUrl', { page: page })
       .then((res) => { window.top.location.href = res.url; })
@@ -417,7 +418,7 @@
   function setupEvents() {
     setupLogin();
     // メニューに「カードを作る」「バグ報告」を足す（GAS の App.html が前の版でも出るように、ここで足す）
-    [['cardmake', '🎨 カードを作る'], ['bugreport', '🐞 バグ報告']].forEach(([key, label]) => {
+    [['cardmake', '🎨 カードを作る'], ['finisherform', '✏️ 決め技・柱名の変更'], ['bugreport', '🐞 バグ報告']].forEach(([key, label]) => {
       if ($('globalNavMenu') && !$('globalNavMenu').querySelector('[data-nav="' + key + '"]')) {
         const nb = document.createElement('button');
         nb.type = 'button'; nb.setAttribute('data-nav', key); nb.textContent = label;
