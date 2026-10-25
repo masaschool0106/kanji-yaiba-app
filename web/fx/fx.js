@@ -409,7 +409,8 @@
         g.save(); g.globalAlpha *= 0.2; g.translate(Math.round(t.x), Math.round(t.y)); g.rotate(t.rot);
         g.fillStyle = this.golden ? '#fbbf24' : '#ffffff'; g.fillRect(-this.s / 2, -this.s / 2, this.s, this.s); g.restore();
       }
-      g.translate(Math.round(this.x), Math.round(this.y)); g.rotate(this.rot); g.scale(this.sx, this.sy);
+      // つぶれ（sx・sy）は画面の縦横に対してかける。回転より先にかけないと、90度回ったときに向きが入れかわる
+      g.translate(Math.round(this.x), Math.round(this.y)); g.scale(this.sx, this.sy); g.rotate(this.rot);
       const fill = this.golden ? '#fcd34d' : '#f8fafc', dark = this.golden ? '#b45309' : '#94a3b8';
       this.shape(g, this.s, fill, dark);
       const gap = Math.round(this.s * 0.27), p = Math.max(2, Math.round(this.s / 9));
