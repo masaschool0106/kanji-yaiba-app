@@ -1,0 +1,127 @@
+/* ================= 共通 ================= */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { font-family: 'Helvetica Neue', 'Hiragino Sans', 'Yu Gothic', Arial, sans-serif; min-height: 100vh; background: #0f172a; }
+body.view-login { background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); color: #fff; display: flex; justify-content: center; align-items: center; padding: 20px; }
+body.view-mypage { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; padding-bottom: 100px; }
+
+.app-loading { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; z-index: 20000; }
+.app-loading-box { background: white; color: #333; padding: 24px 32px; border-radius: 16px; font-weight: bold; display: flex; align-items: center; gap: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+.app-spinner { width: 26px; height: 26px; border: 4px solid #e5e7eb; border-top-color: #667eea; border-radius: 50%; animation: appSpin 0.8s linear infinite; }
+@keyframes appSpin { to { transform: rotate(360deg); } }
+
+/* ================= ログイン（Login.html と同じ見た目） ================= */
+#view-login { width: 100%; display: flex; justify-content: center; }
+#view-login .login-card { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); padding: 40px 30px; border-radius: 20px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3); width: 100%; max-width: 400px; border: 1px solid rgba(255,255,255,0.15); }
+#view-login h1 { margin-top: 0; margin-bottom: 25px; font-size: 24px; letter-spacing: 2px; }
+#view-login .form-group { margin-bottom: 20px; text-align: left; }
+#view-login label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; }
+#view-login input { width: 100%; padding: 12px; border-radius: 8px; border: none; font-size: 16px; background: rgba(255,255,255,0.9); }
+#view-login .login-button { width: 100%; padding: 14px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 10px; }
+#view-login .login-button:hover:not(:disabled) { background: #2563eb; transform: translateY(-2px); }
+#view-login .login-button:disabled { background: #64748b; cursor: not-allowed; }
+#view-login .message { margin-top: 20px; font-weight: bold; display: none; padding: 10px; border-radius: 8px; }
+#view-login .message.success { display: block; background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #10b981; }
+#view-login .message.error { display: block; background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid #ef4444; }
+#view-login .info-text { margin-top: 20px; font-size: 12px; color: #94a3b8; line-height: 1.5; }
+
+/* ================= マイページ（Mypage.html と同じ見た目） ================= */
+#view-mypage .container { background: white; border-radius: 20px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); padding: 30px; max-width: 1200px; width: 100%; margin: 0 auto; animation: slideIn 0.5s ease-out; }
+@keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+#view-mypage h1 { color: #333; font-size: 32px; margin-bottom: 30px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 10px; }
+#view-mypage .profile-section { background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 20px; padding: 25px; margin: 25px 0; border: 2px solid #e5e7eb; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); }
+#view-mypage .profile-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+#view-mypage .player-name { font-size: 24px; font-weight: bold; color: #333; }
+#view-mypage .player-id { font-size: 14px; color: #6b7280; background: white; padding: 4px 12px; border-radius: 20px; }
+#view-mypage .special-move { background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: white; padding: 20px; border-radius: 15px; text-align: center; font-size: 20px; font-weight: bold; position: relative; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 15px rgba(251, 191, 36, 0.3); }
+#view-mypage .special-move:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(251, 191, 36, 0.4); }
+#view-mypage .edit-icon { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); font-size: 16px; opacity: 0.8; }
+#view-mypage .special-move-label { font-size: 14px; opacity: 0.9; margin-bottom: 5px; }
+#view-mypage .special-move-text { font-size: 24px; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); }
+#view-mypage .main-content { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin: 25px 0; }
+#view-mypage .left-column, #view-mypage .right-column { display: flex; flex-direction: column; gap: 20px; }
+#view-mypage .section-card { background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 20px; padding: 25px; border: 2px solid #e5e7eb; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); }
+#view-mypage .section-title { font-size: 20px; font-weight: bold; color: #333; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+#view-mypage .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+#view-mypage .stat-card { background: white; padding: 15px; border-radius: 12px; text-align: center; transition: all 0.3s ease; border: 1px solid #e5e7eb; }
+#view-mypage .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); }
+#view-mypage .stat-icon { font-size: 24px; margin-bottom: 8px; }
+#view-mypage .stat-value { font-size: 28px; font-weight: bold; color: #667eea; margin: 5px 0; }
+#view-mypage .stat-label { font-size: 12px; color: #6b7280; }
+#view-mypage .ranking-section { background: white; border-radius: 20px; padding: 25px; margin: 25px 0; border: 2px solid #e5e7eb; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); }
+#view-mypage .ranking-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; }
+#view-mypage .ranking-tab { padding: 10px 20px; background: transparent; border: none; color: #6b7280; font-weight: 600; cursor: pointer; transition: all 0.3s; position: relative; font-size: 16px; }
+#view-mypage .ranking-tab:hover, #view-mypage .ranking-tab.active { color: #667eea; }
+#view-mypage .ranking-tab.active::after { content: ''; position: absolute; bottom: -12px; left: 0; right: 0; height: 3px; background: #667eea; border-radius: 2px; }
+#view-mypage .ranking-content { display: none; }
+#view-mypage .ranking-content.active { display: block; animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+#view-mypage .my-rank-summary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 15px; margin-bottom: 20px; display: flex; justify-content: space-around; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3); }
+#view-mypage .rank-summary-item { text-align: center; }
+#view-mypage .rank-position { font-size: 32px; font-weight: bold; margin-bottom: 5px; }
+#view-mypage .rank-label { font-size: 14px; opacity: 0.9; }
+#view-mypage .ranking-list { display: flex; flex-direction: column; gap: 10px; }
+#view-mypage .ranking-item { background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); padding: 15px 20px; border-radius: 12px; display: flex; align-items: center; gap: 15px; transition: all 0.3s; border: 1px solid #e5e7eb; }
+#view-mypage .ranking-item.is-me { border: 2px solid #667eea; background: #eef2ff; }
+#view-mypage .ranking-item:hover { transform: translateX(5px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
+#view-mypage .ranking-empty { text-align: center; color: #9ca3af; padding: 20px; }
+#view-mypage .rank-number { font-size: 20px; font-weight: bold; width: 30px; text-align: center; }
+#view-mypage .rank-1 { color: #fbbf24; text-shadow: 0 2px 4px rgba(251, 191, 36, 0.3); }
+#view-mypage .rank-2 { color: #9ca3af; text-shadow: 0 2px 4px rgba(156, 163, 175, 0.3); }
+#view-mypage .rank-3 { color: #f97316; text-shadow: 0 2px 4px rgba(249, 115, 22, 0.3); }
+#view-mypage .player-info { flex: 1; }
+#view-mypage .player-nickname { font-weight: bold; font-size: 16px; color: #333; }
+#view-mypage .player-stats { font-size: 14px; color: #6b7280; margin-top: 5px; display: flex; gap: 15px; }
+#view-mypage .player-points { font-weight: bold; color: #667eea; font-size: 18px; }
+#view-mypage .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin: 25px 0; }
+#view-mypage .feature-card { background: white; border-radius: 20px; padding: 25px; cursor: pointer; transition: all 0.3s ease; border: 2px solid transparent; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); position: relative; overflow: hidden; }
+#view-mypage .feature-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 5px; background: linear-gradient(90deg, var(--gradient-start), var(--gradient-end)); }
+#view-mypage .feature-card:hover { transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); border-color: var(--gradient-start); }
+#view-mypage .card-quiz { --gradient-start: #10b981; --gradient-end: #34d399; }
+#view-mypage .card-gacha { --gradient-start: #ec4899; --gradient-end: #f472b6; }
+#view-mypage .card-battle { --gradient-start: #ef4444; --gradient-end: #f87171; }
+#view-mypage .card-zukan { --gradient-start: #3b82f6; --gradient-end: #60a5fa; }
+#view-mypage .card-jamaica { --gradient-start: #f59e0b; --gradient-end: #fbbf24; }
+#view-mypage .card-roguelike { --gradient-start: #8b5cf6; --gradient-end: #a78bfa; }
+#view-mypage .info-title { font-size: 20px; font-weight: bold; color: #333; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+#view-mypage .info-text { color: #6b7280; font-size: 14px; line-height: 1.6; }
+#view-mypage .new-badge { display: inline-block; background: linear-gradient(135deg, #ef4444 0%, #f87171 100%); color: white; font-size: 11px; font-weight: bold; padding: 3px 8px; border-radius: 12px; margin-left: 10px; animation: pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+#view-mypage .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 18px 35px; border-radius: 15px; font-size: 18px; font-weight: bold; cursor: pointer; transition: all 0.3s ease; text-decoration: none; margin: 10px auto; text-align: center; width: 100%; max-width: 300px; display: block; }
+#view-mypage .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4); }
+#view-mypage .btn-logout { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+#view-mypage .message { padding: 15px; border-radius: 10px; margin: 20px 0; text-align: center; font-size: 16px; display: none; }
+#view-mypage .message.success { background: #d1fae5; color: #065f46; border: 1px solid #34d399; display: block; }
+#view-mypage .message.error { background: #fee2e2; color: #991b1b; border: 1px solid #f87171; display: block; }
+#view-mypage .message.info { background: #e0e7ff; color: #3730a3; border: 1px solid #818cf8; display: block; }
+#view-mypage .edit-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.8); z-index: 1000; padding: 20px; }
+#view-mypage .edit-modal.show { display: block; }
+#view-mypage .modal-content { background: white; border-radius: 20px; padding: 30px; max-width: 500px; margin: 100px auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); animation: modalSlide 0.3s ease-out; }
+@keyframes modalSlide { from { transform: translateY(-50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+#view-mypage .modal-title { font-size: 24px; font-weight: bold; margin-bottom: 20px; text-align: center; color: #333; }
+#view-mypage .input-group { margin: 20px 0; }
+#view-mypage .input-group label { display: block; margin-bottom: 10px; font-weight: bold; color: #333; }
+#view-mypage .input-group input { width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px; transition: border-color 0.3s; }
+#view-mypage .input-group input:focus { outline: none; border-color: #667eea; }
+#view-mypage .modal-buttons { display: flex; gap: 10px; margin-top: 20px; }
+#view-mypage .modal-buttons button { flex: 1; padding: 12px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: all 0.3s; }
+#view-mypage .btn-save { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; }
+#view-mypage .btn-save:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4); }
+#view-mypage .btn-cancel { background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); color: white; }
+#view-mypage .btn-cancel:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(107, 114, 128, 0.4); }
+@media (max-width: 768px) {
+  #view-mypage .container { padding: 20px; }
+  #view-mypage .main-content { grid-template-columns: 1fr; }
+  #view-mypage .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  #view-mypage .feature-grid { grid-template-columns: 1fr; }
+  #view-mypage .my-rank-summary { flex-direction: column; gap: 15px; }
+}
+
+/* ================= 右下のメニュー（SubMenu.html と同じ見た目） ================= */
+.global-nav-toggle { position: fixed; bottom: 20px; right: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 25px; border-radius: 30px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); cursor: pointer; z-index: 10000; font-weight: bold; font-size: 16px; user-select: none; transition: all 0.3s ease; }
+.global-nav-toggle:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.4); }
+.global-nav-menu { position: fixed; bottom: 80px; right: 20px; background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); display: flex; flex-direction: column; overflow: hidden; z-index: 9999; transform: scaleY(0); transform-origin: bottom; transition: transform 0.3s ease; opacity: 0; }
+.global-nav-menu.show { transform: scaleY(1); opacity: 1; }
+.global-nav-menu button { background: transparent; border: none; padding: 15px 30px; text-align: left; font-size: 16px; font-weight: bold; color: #333; cursor: pointer; border-bottom: 1px solid #eee; transition: background 0.2s; }
+.global-nav-menu button:last-child { border-bottom: none; }
+.global-nav-menu button:hover { background: #f3f4f6; color: #667eea; }

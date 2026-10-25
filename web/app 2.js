@@ -1,0 +1,287 @@
+// ===============================================================
+// 漢字の刃（1ページ型）の画面の動き
+//   GitHub Pages に置き、GAS の外枠（App.html）から読み込まれる。
+//   データはすべて google.script.run の api() 経由。個人情報・正解・確率はこのファイルに書かない。
+// ===============================================================
+(function () {
+  'use strict';
+
+  // ==================== 設定 ====================
+  const SESSION_STORE_KEY = 'kanji_app_session';   // { token, exp }
+  const LEGACY_NUM_KEY = 'kanji_num';              // 今の画面（Gacha.html など）が使う出席番号
+  const REFRESH_MS = 300000;                       // マイページを5分ごとに読み直す（今のマイページと同じ）
+  const CONFIG = window.KANJI_CONFIG || {};        // App.html が入れる { assetBase, assetVersion }
+
+  const state = { token: null, player: null, settings: {}, view: null, refreshTimer: null, jamaicaDone: false };
+  const $ = (id) => document.getElementById(id);
+
+  // ==================== 素材（画像・効果音）のURL ====================
+  // 例：KanjiAssets.url('assets/sound/gacha_open.mp3')
+  //   版の番号を付けるので、GAS のスクリプトのプロパティ ASSET_VERSION を上げるとすぐ新しいファイルに切り替わる
+  function assetUrl(path) {
+    const v = CONFIG.assetVersion ? (String(path).indexOf('?') >= 0 ? '&' : '?') + 'v=' + encodeURIComponent(CONFIG.assetVersion) : '';
+    return (CONFIG.assetBase || '') + String(path).replace(/^\//, '') + v;
+  }
+  window.KanjiAssets = { url: assetUrl };
+
+  // ==================== 保存（使えない端末でも止まらないようにする） ====================
+  function storeGet(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+  function storeSet(key, v) { try { localStorage.setItem(key, v); } catch (e) {} try { sessionStorage.setItem(key, v); } catch (e) {} }
+  function storeRemove(key) { try { localStorage.removeItem(key); } catch (e) {} try { sessionStorage.removeItem(key); } catch (e) {} }
+
+  function loadSession() {
+    try {
+      const s = JSON.parse(storeGet(SESSION_STORE_KEY) || 'null');
+      if (s && s.token && Date.parse(s.exp) > Date.now()) return s;
+    } catch (e) {}
+    return null;
+  }
+  function saveSession(token, exp, studentId) {
+    state.token = token;
+    try { localStorage.setItem(SESSION_STORE_KEY, JSON.stringify({ token: token, exp: exp })); } catch (e) {}
+    storeSet(LEGACY_NUM_KEY, studentId);
+  }
+  function clearSession() {
+    state.token = null;
+    state.player = null;
+    state.jamaicaDone = false;
+    try { localStorage.removeItem(SESSION_STORE_KEY); } catch (e) {}
+    storeRemove(LEGACY_NUM_KEY);
+  }
+
+  // ==================== 通信（サーバーの窓口は api() ひとつだけ） ====================
+  function call(action, params) {
+    return new Promise((resolve, reject) => {
+      google.script.run
+        .withSuccessHandler((res) => {
+          if (res && res.ok) return resolve(res.data || {});
+          const err = (res && res.error) || { code: 'SERVER_ERROR', message: 'うまくいきませんでした。' };
+          if (err.code === 'AUTH_EXPIRED') {
+            clearSession();
+            showView('login');
+            showMessage('loginMessage', err.message, 'error');
+          }
+          reject(err);
+        })
+        .withFailureHandler(() => {
+          reject({ code: 'NETWORK', message: '通信できませんでした。インターネットのつながりをたしかめて、もう一度ためしてね。' });
+        })
+        .api(action, state.token, params || {});
+    });
+  }
+
+  // ==================== 表示の切り替え ====================
+  function showLoading(text) { $('appLoadingText').textContent = text || '読み込み中...'; $('appLoading').hidden = false; }
+  function hideLoading() { $('appLoading').hidden = true; }
+
+  function showView(name) {
+    state.view = name;
+    document.querySelectorAll('.app-view').forEach((v) => { v.hidden = (v.id !== 'view-' + name); });
+    document.body.className = 'view-' + name;
+    $('globalNav').hidden = (name === 'login');
+    $('globalNavMenu').classList.remove('show');
+    if (name !== 'mypage') stopRefresh();
+    window.scrollTo(0, 0);
+  }
+
+  function showMessage(id, text, type) {
+    const el = $(id);
+    el.textContent = text;
+    el.className = 'message ' + (type || 'info');
+    if (type === 'success') setTimeout(() => { if (el.textContent === text) el.className = 'message'; }, 5000);
+  }
+  function hideMessage(id) { const el = $(id); el.textContent = ''; el.className = 'message'; }
+
+  function escapeHtml(str) {
+    return String(str === undefined || str === null ? '' : str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  // ==================== ログイン ====================
+  function setupLogin() {
+    $('loginForm').addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      const btn = $('loginBtn');
+      if (btn.disabled) return;
+      hideMessage('loginMessage');
+      btn.disabled = true;
+      btn.textContent = '🔄 確認中...';
+      call('auth.login', { number: $('loginNumber').value, password: $('loginPassword').value })
+        .then((data) => {
+          saveSession(data.sessionToken, data.expiresAt, data.player.studentId);
+          $('loginPassword').value = '';
+          showMessage('loginMessage', '✅ ログイン成功！', 'success');
+          state.player = data.player;
+          openMypage();
+        })
+        .catch((err) => {
+          showMessage('loginMessage', '❌ ' + err.message, 'error');
+          if (err.code === 'WRONG_PASSWORD') $('loginPassword').select();
+        })
+        .finally(() => {
+          btn.disabled = false;
+          btn.textContent = '🚀 ログイン';
+        });
+    });
+  }
+
+  // ==================== マイページ ====================
+  function openMypage() {
+    showView('mypage');
+    if (state.player) renderPlayer(state.player);
+    loadMypage(true);
+    startRefresh();
+  }
+
+  function loadMypage(withSpinner) {
+    if (withSpinner) showLoading('読み込み中...');
+    return call('boot')
+      .then((data) => {
+        state.player = data.player;
+        state.settings = data.settings || {};
+        renderPlayer(data.player);
+        renderRanking(data.ranking);
+        if (!state.jamaicaDone) { state.jamaicaDone = true; syncJamaica(); }
+      })
+      .catch((err) => { if (err.code !== 'AUTH_EXPIRED') showMessage('mypageMessage', 'データの読み込みに失敗しました：' + err.message, 'error'); })
+      .finally(() => { if (withSpinner) hideLoading(); });
+  }
+
+  function renderPlayer(p) {
+    $('playerNickname').textContent = p.nickname;
+    $('playerNumber').textContent = p.studentId;
+    $('specialMoveText').textContent = p.finisher;
+    $('specialMoveEditIcon').hidden = !state.settings.finisherEditable;
+    $('totalPoints').textContent = p.points;
+    $('battleCount').textContent = p.randomBattleCount;
+    $('testScore').textContent = p.testScore;
+    $('totalRecord').textContent = p.recordTotal;
+  }
+
+  function renderRanking(r) {
+    $('myStreakRank').textContent = r.streak.myRank ? r.streak.myRank + '位' : '記録なし';
+    $('myStepupRank').textContent = r.stepup.myRank ? r.stepup.myRank + '位' : '記録なし';
+    $('totalPlayers').textContent = r.totalPlayers + '人';
+    renderRankingList('streakRankingList', r.streak.top, (p) => p.value + ' 連勝', (p) => '累計戦績 ' + p.totalRecord);
+    renderRankingList('stepupRankingList', r.stepup.top, (p) => '第' + p.value + '階層', (p) => (p.score > 0 ? 'ベストスコア ' + p.score : '挑戦中'));
+  }
+
+  function renderRankingList(elId, list, valueText, subText) {
+    const el = $(elId);
+    if (!list || list.length === 0) {
+      el.innerHTML = '<div class="ranking-empty">まだ記録がありません</div>';
+      return;
+    }
+    el.innerHTML = list.map((p) => {
+      const medal = p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : p.rank === 3 ? '🥉' : p.rank + '.';
+      return '<div class="ranking-item' + (p.isMe ? ' is-me' : '') + '">' +
+        '<span class="rank-number rank-' + Number(p.rank) + '">' + medal + '</span>' +
+        '<div class="player-info"><div class="player-nickname">' + escapeHtml(p.nickname) + (p.isMe ? '（あなた）' : '') + '</div>' +
+        '<div class="player-stats"><span>' + escapeHtml(subText(p)) + '</span></div></div>' +
+        '<div class="player-points">' + escapeHtml(valueText(p)) + '</div></div>';
+    }).join('');
+  }
+
+  function switchRanking(type, tab) {
+    document.querySelectorAll('#view-mypage .ranking-tab').forEach((t) => t.classList.toggle('active', t === tab));
+    document.querySelectorAll('#view-mypage .ranking-content').forEach((c) => c.classList.toggle('active', c.id === type + 'RankingContent'));
+  }
+
+  // ジャマイカ計算で獲得したポイントを反映（失敗しても画面には出さない。ジャマイカ未連携の児童もいるため）
+  function syncJamaica() {
+    call('jamaica.sync')
+      .then((res) => {
+        if (res.synced && res.bonusPoints > 0) {
+          showMessage('mypageMessage', '🇯🇲 ジャマイカ計算で ' + res.bonusPoints + ' pt 獲得！', 'success');
+          loadMypage(false);
+        }
+      })
+      .catch(() => {});
+  }
+
+  function startRefresh() { stopRefresh(); state.refreshTimer = setInterval(() => { if (state.token && state.view === 'mypage') loadMypage(false); }, REFRESH_MS); }
+  function stopRefresh() { if (state.refreshTimer) clearInterval(state.refreshTimer); state.refreshTimer = null; }
+
+  // 決め技
+  function openFinisherEditor() {
+    if (!state.settings.finisherEditable) {
+      showMessage('mypageMessage', '決め技を変えたいときは、「柱名 決め技」のフォームで先生に伝えてね。', 'info');
+      return;
+    }
+    $('newSpecialMove').value = state.player ? state.player.finisher : '';
+    $('editModal').classList.add('show');
+  }
+  function closeFinisherEditor() { $('editModal').classList.remove('show'); }
+  function saveFinisher() {
+    const text = $('newSpecialMove').value.trim();
+    if (!text) return alert('決め技を入力してください');
+    if (Array.from(text).length > 30) return alert('30文字以内で入力してください');
+    showLoading('保存中...');
+    call('player.setFinisher', { finisher: text })
+      .then((res) => {
+        if (state.player) state.player.finisher = res.finisher;
+        $('specialMoveText').textContent = res.finisher;
+        closeFinisherEditor();
+        showMessage('mypageMessage', '決め技を更新しました！', 'success');
+      })
+      .catch((err) => alert(err.message))
+      .finally(hideLoading);
+  }
+
+  function logout() {
+    const token = state.token;
+    stopRefresh();
+    if (token) call('auth.logout').catch(() => {});
+    clearSession();
+    hideMessage('mypageMessage');
+    showView('login');
+    $('loginNumber').focus();
+  }
+
+  // ==================== 画面の移動 ====================
+  // まだ1ページ型に移していない画面は、今の画面へ移動する（移行のあいだだけ）
+  function navigate(page) {
+    $('globalNavMenu').classList.remove('show');
+    if (page === 'mypage') {
+      if (state.view !== 'mypage') openMypage();
+      return;
+    }
+    showLoading('移動中...');
+    call('nav.legacyUrl', { page: page })
+      .then((res) => { window.top.location.href = res.url; })
+      .catch((err) => {
+        hideLoading();
+        if (err.code !== 'AUTH_EXPIRED') showMessage('mypageMessage', err.message, 'error');
+      });
+  }
+
+  // ==================== 起動 ====================
+  function setupEvents() {
+    setupLogin();
+    document.querySelectorAll('[data-nav]').forEach((el) => el.addEventListener('click', () => navigate(el.getAttribute('data-nav'))));
+    document.querySelectorAll('#view-mypage .ranking-tab').forEach((tab) => tab.addEventListener('click', () => switchRanking(tab.getAttribute('data-ranking'), tab)));
+    $('globalNavToggle').addEventListener('click', () => $('globalNavMenu').classList.toggle('show'));
+    $('specialMoveBox').addEventListener('click', openFinisherEditor);
+    $('saveSpecialMoveBtn').addEventListener('click', saveFinisher);
+    $('cancelSpecialMoveBtn').addEventListener('click', closeFinisherEditor);
+    $('editModal').addEventListener('click', function (e) { if (e.target === this) closeFinisherEditor(); });
+    $('logoutBtn').addEventListener('click', logout);
+  }
+
+  function start() {
+    setupEvents();
+    hideLoading();
+    const saved = loadSession();
+    if (saved) {
+      state.token = saved.token;
+      openMypage();
+    } else {
+      clearSession();
+      showView('login');
+      $('loginNumber').focus();
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
