@@ -940,7 +940,7 @@
         st.hitstop(60); st.shake(3); Sound.play('land');
         await st.tween(d, { sx: 1, sy: 1 }, 260, E.outElastic);
         const t = await popText(st, String(v + (bonus || 0)), { size: 30, color, outline: '#000', x, y: 104 });
-        if (bonus) { const b = st.add(new Text(`(+${bonus})`, 10, '#86efac')); b.x = x; b.y = 120; await pop(st, b, 200); }
+        if (bonus) { const b = st.add(new Text(bonus > 0 ? `(+${bonus})` : `(−${-bonus})`, 10, bonus > 0 ? '#86efac' : '#fca5a5')); b.x = x; b.y = 120; await pop(st, b, 200); }   // 時の砂時計などで下がったときは −
         return t;
       };
       const p = o.player || {}, b = o.boss || {};
