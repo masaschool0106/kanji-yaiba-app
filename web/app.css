@@ -282,3 +282,9 @@ body.view-mypage { padding: 16px 14px 110px; }
 /* メッセージの中のリンク（決め技の変更フォームなど） */
 .msg-link { display: inline-block; margin-left: 6px; padding: 4px 12px; border-radius: 999px; background: #0ea5e9; color: #fff !important; font-weight: 900; text-decoration: none; }
 .msg-link:hover { background: #0284c7; }
+/* 画面の移動が止められたときの「▶ タップして移動」（iPad の Safari 対策） */
+.nav-tap { position: fixed; inset: 0; z-index: 2147483000; background: rgba(2, 6, 23, 0.8); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.nav-tap-box { background: var(--panel, #0f172a); border: 2px solid #38bdf8; border-radius: 16px; padding: 22px 20px; max-width: 340px; width: 100%; text-align: center; color: var(--text, #e2e8f0); font-weight: bold; box-shadow: 0 0 30px rgba(56, 189, 248, 0.35); }
+.nav-tap-box p { margin: 0 0 14px; line-height: 1.6; }
+.nav-tap-go { display: block; padding: 16px; border-radius: 12px; background: #0ea5e9; color: #fff !important; font-size: 1.2rem; font-weight: 900; text-decoration: none; }
+.nav-tap-close { margin-top: 12px; background: none; border: none; color: #94a3b8; font-size: 0.9rem; text-decoration: underline; cursor: pointer; }

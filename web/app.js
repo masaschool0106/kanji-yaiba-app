@@ -12,7 +12,7 @@
   const FINISHER_FORM_URL = 'https://forms.gle/KDEHoS8UNkS6uB8a6';   // 決め技・柱名を変えたいときのフォーム
   const BUG_FORM_URL = 'https://forms.gle/ZRoicHDGxMdQQU4R7';        // バグ報告のフォーム              // 今の画面（Gacha.html など）が使う出席番号
   const REFRESH_MS = 300000;                       // マイページを5分ごとに読み直す（今のマイページと同じ）
-  const CONFIG = window.KANJI_CONFIG || {};        // App.html が入れる { assetBase, assetVersion }
+  const CONFIG = window.KANJI_CONFIG || {};        // App.html が入れる { assetBase, assetVersion, nav }
 
   const state = { token: null, player: null, settings: {}, view: null, refreshTimer: null, jamaicaDone: false };
   const $ = (id) => document.getElementById(id);
@@ -398,6 +398,35 @@
   }
 
   // ==================== 画面の移動 ====================
+  // iPad の Safari は「タップした直後」しか画面全体を移動させてくれない（あとからだと The operation is insecure. になる）。
+  //   そこで、移動先はページを作るときにサーバーが用意した URL（KANJI_CONFIG.nav）を使い、タップした瞬間に移動する。
+  //   作り方はサーバーの getNavigationUrl と同じなので、移動先は今までと同じ URL
+  function legacyUrl(page) {
+    const t = (CONFIG.nav || {})[page];
+    const num = String((state.player && state.player.studentId) || storeGet(LEGACY_NUM_KEY) || '')
+      .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).trim();   // サーバーの toHalfWidth_ と同じ
+    if (!t || !num) return '';
+    return t.split('__NUM__').join(encodeURIComponent(num));
+  }
+  // 画面全体を移動する。止められたら「▶ タップして移動」を出す（このボタンを押すと、止められずに移動できる）
+  function moveTop(url) {
+    try { window.top.location.href = url; }
+    catch (e) { showNavTap(url); return; }
+    // 止められても知らせてこないブラウザのために：5秒たっても画面が変わらなければボタンを出す
+    setTimeout(() => showNavTap(url), 5000);
+  }
+  function showNavTap(url) {
+    if (document.querySelector('.nav-tap')) return;
+    const box = document.createElement('div');
+    box.className = 'nav-tap';
+    box.setAttribute('role', 'dialog');
+    box.innerHTML = '<div class="nav-tap-box"><p>画面を移動します。<br>下のボタンをタップしてね。</p>' +
+      '<a class="nav-tap-go" target="_top">▶ タップして移動</a><button type="button" class="nav-tap-close">とじる</button></div>';
+    box.querySelector('.nav-tap-go').href = url;
+    box.querySelector('.nav-tap-close').addEventListener('click', () => { box.remove(); hideLoading(); });
+    document.body.appendChild(box);
+  }
+
   // まだ1ページ型に移していない画面は、今の画面へ移動する（移行のあいだだけ）
   function navigate(page) {
     $('globalNavMenu').classList.remove('show');
@@ -409,8 +438,10 @@
     if (page === 'bugreport') { window.open(BUG_FORM_URL, '_blank', 'noopener'); return; }
     if (page === 'finisherform') { window.open(FINISHER_FORM_URL, '_blank', 'noopener'); return; }
     showLoading('移動中...');
-    call('nav.legacyUrl', { page: page })
-      .then((res) => { window.top.location.href = res.url; })
+    const direct = legacyUrl(page);
+    if (direct) { moveTop(direct); return; }
+    call('nav.legacyUrl', { page: page })   // 移動先が用意されていないとき（GAS が前の版など）は、今までどおりサーバーに聞く
+      .then((res) => { moveTop(res.url); })
       .catch((err) => {
         hideLoading();
         if (err.code !== 'AUTH_EXPIRED') showMessage('mypageMessage', err.message, 'error');

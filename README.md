@@ -1,7 +1,8 @@
 # 漢字の刃（画面のプログラムと素材）
 
 小学6年生向けの漢字学習ゲーム「漢字の刃」のうち、**画面の見た目と動き（JavaScript・CSS・画像）** を置いているリポジトリです。
-GitHub Pages で公開し、学校の Google（GAS）で動くゲームの画面から読み込まれます。
+学校の Google（GAS）で動くゲームの画面が、**jsDelivr（cdn.jsdelivr.net）** を通してこのリポジトリのファイルを読み込みます。
+（児童のタブレットでは、学校のネットワークで GitHub Pages〔github.io〕が開けないため）
 
 > ⚠️ **このリポジトリは誰でも見られます（Public）。**
 > 児童の名前・出席番号・パスワード・メールアドレス・テストの点数、スプレッドシートのID、GAS の URL、合言葉（トークン）、クイズの正解、ガチャの確率は **絶対に置かないでください**。
@@ -25,12 +26,12 @@ GitHub Pages で公開し、学校の Google（GAS）で動くゲームの画面
 flowchart LR
   kid["児童の Chromebook"] -->|"ゲームを開く（学校のアカウント）"| gas["GAS（学校の Google）<br>code.gs / Api.gs / App.html"]
   gas <-->|"ポイント・カード・記録"| sheet[("スプレッドシート")]
-  gas -->|"画面の部品を読み込む"| pages["GitHub Pages（このリポジトリ）<br>app.js / app.css / fx / 画像"]
+  gas -->|"画面の部品を読み込む"| pages["jsDelivr（このリポジトリを配信）<br>app.js / app.css / fx / 画像"]
   gas -.->|"承認したカードの画像だけ"| pages
 ```
 
 - ポイント・ガチャの結果・勝ち負けなど、**大事なことはすべて GAS（サーバー）が決めます**。このリポジトリのプログラムは、見せ方だけを担当します。
-- GitHub Pages のファイルが読めないときも、データは GAS とスプレッドシートにあるので消えません。
+- jsDelivr のファイルが読めないときも、データは GAS とスプレッドシートにあるので消えません。
 
 ---
 
@@ -58,14 +59,14 @@ flowchart LR
 
 ## 3. 更新のしかた（GitHub Desktop）
 
+> GAS が「いちばん新しいコミット」を自動で使うので、**Push すれば5分以内に反映**されます（`ASSET_VERSION` を変える必要はありません）。
+
 1. このフォルダのファイルを書きかえる（または、送られてきたファイルで置きかえる）。
 2. GitHub Desktop を開き、左の一覧で変えたファイルにチェックを入れる（`.DS_Store` はチェックを外す）。
 3. 左下の「Summary」に何を変えたかを書いて「**Commit to main**」。
 4. 上の「**Push origin**」を押す。
-5. 1〜2分待つと GitHub Pages に公開される（リポジトリの「Actions」タブで緑のチェックが付けば完了）。
-6. **GAS のスクリプト プロパティ `ASSET_VERSION` を新しい値にする**（例：`20261026a`）。
-   - 次に画面を開いたときから、新しいファイルが使われます。
-   - 上げ忘れても、最大10分ほどで自然に切り替わります（GitHub Pages が10分間ファイルを覚えているため）。
+5. 5分ほど待って、画面を開き直す。
+   - GAS は5分ごとに「いちばん新しいコミットの番号」を GitHub にたずね、jsDelivr のその番号のファイルを使います。
 
 > GAS 側のファイル（`code.gs` など）を変えたときは、GitHub ではなく GAS のエディタに貼り付けます。くわしくは `README_GAS.md`。
 
@@ -79,7 +80,7 @@ flowchart LR
 4. Characters シートのいちばん下にカードが追加され、作った児童に1枚プレゼントされる。
 
 - 自動で追加するには、GAS のスクリプト プロパティに `GITHUB_TOKEN`（このリポジトリの Contents に書きこめる Fine-grained token）が必要です。**トークンはこの README やコードには書かない**でください。
-- 絵が表示されるまで **1〜10分** かかります（公開まで約1分＋ブラウザが「まだない」を覚えている時間）。出ないときは10分ほど待って Ctrl＋Shift＋R。
+- 承認した絵は、追加したコミットの番号つきの URL でシートに入るので、ふつうはすぐ表示されます。出ないときは数分待って開き直す。
 - GitHub に送るのは画像だけです。作った児童の出席番号やニックネームは送りません。
 
 ---
@@ -90,7 +91,8 @@ flowchart LR
 2. `web` フォルダごとアップロードする。
 3. 「Settings」→「Pages」→ Source「Deploy from a branch」、Branch「main」「/ (root)」→「Save」。
 4. `https://masaschool0106.github.io/kanji-yaiba-app/web/app.js` が開ければ公開できています。
-5. GAS のスクリプト プロパティに `ASSET_BASE_URL`（上の URL から `app.js` を除いたもの）と `ASSET_VERSION` を入れる。
+5. GAS のスクリプト プロパティ `ASSET_BASE_URL` に **`https://cdn.jsdelivr.net/gh/masaschool0106/kanji-yaiba-app@main/web/`** を入れる（2026年10月に GitHub Pages から jsDelivr に切りかえ）。
+6. GAS のエディタで `checkGasFiles` を実行し、「画面の部品・画像の置き場所」が `https://cdn.jsdelivr.net/gh/…@（英数字40文字）/web/` になっていれば完了。
 
 ---
 
@@ -116,8 +118,9 @@ flowchart LR
 
 | こまったこと | 確かめること |
 |---|---|
-| 新しくしたのに見た目が変わらない | Push したか／`ASSET_VERSION` を上げたか／10分待ったか |
-| 「ゲームのファイルを読み込めませんでした」と出る | GitHub Pages が公開されているか（上の URL が開けるか）、`ASSET_BASE_URL` の値 |
-| 承認したカードの絵が出ない | 10分ほど待って Ctrl＋Shift＋R／リポジトリに「カード 番号 を追加」のコミットがあるか |
+| 新しくしたのに見た目が変わらない | Push したか／5分待ったか |
+| 「ゲームのファイルを読み込めませんでした」と出る | `ASSET_BASE_URL` が jsDelivr の URL か／`checkGasFiles` の「置き場所」に `@（40文字）` が付いているか |
+| 児童のタブレットだけ開けない（`ERR_TUNNEL_CONNECTION_FAILED`） | `ASSET_BASE_URL` が github.io のままになっていないか（学校のネットワークで止められている） |
+| 承認したカードの絵が出ない | 数分待って開き直す／リポジトリに「カード 番号 を追加」のコミットがあるか |
 | 演出が出ない | `fx/fx.js` が開けるか。GAS の FxBridge が正しいか（GAS の `checkGasFiles` で確かめる） |
-| ほかの画面が未来風にならない | `theme.css` が開けるか／`ASSET_VERSION` を上げたか／GAS の FxBridge が最新か |
+| ほかの画面が未来風にならない | `theme.css` が開けるか／GAS の FxBridge が最新か |
