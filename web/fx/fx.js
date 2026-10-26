@@ -810,57 +810,76 @@
   // ===============================================================
   // すごろくのサイコロ
   //   opts.value  … 出目（数字）か、出目を返す Promise（サーバーの返事を待つ間も転がり続ける）
+  //                 2個のときは [出目1, 出目2] でもよい（合計を進む）
+  //   opts.count  … サイコロの数（1 か 2。ダブルダイスは 2）
   //   opts.golden … 確定6ダイスなら true（金色）
   //   opts.bonus  … 出目に足す数（アイテム・レリック）。表示だけ
   // ===============================================================
   async function dice(host, opts) {
     opts = opts || {};
     const st = new Stage(host, { theme: 'board' });
-    let value;
+    const n = opts.count === 2 ? 2 : 1;
+    let value, faces;
     let settled = false, failed = null;
-    Promise.resolve(opts.value).then((v) => { value = Number(v); settled = true; }, (e) => { failed = e || new Error('roll failed'); settled = true; });
+    Promise.resolve(opts.value).then((v) => {
+      faces = (Array.isArray(v) ? v : [v]).map(Number);
+      value = faces.reduce((a, b) => a + b, 0);
+      settled = true;
+    }, (e) => { failed = e || new Error('roll failed'); settled = true; });
     try {
-      const d = st.add(new Die(opts.golden, 36));
-      if (opts.bonus) st.add(new Aura(d, 40, 40));   // 出目が上がっているときは炎のオーラ
-      d.ground = 132; d.x = 30; d.y = d.ground; d.rolling = true;
+      const dies = [];
+      for (let k = 0; k < n; k++) {
+        const d = st.add(new Die(opts.golden, 36));
+        if (opts.bonus) st.add(new Aura(d, 40, 40));   // 出目が上がっているときは炎のオーラ
+        d.ground = 132; d.x = 30 - k * 26; d.y = d.ground; d.rolling = true;
+        dies.push(d);
+      }
+      const all = (f) => Promise.all(dies.map(f));
+      const endX = n === 2 ? [126, 194] : [160];
       Sound.play('whoosh');
       // 投げる（放物線）
-      st.tween(d, { x: 130, rot: d.rot + 9 }, 520, E.linear);
-      await st.tween(d, { y: 40 }, 260, E.outQuad);
-      await st.tween(d, { y: d.ground }, 260, E.inQuad);
-      st.dust(d.x, d.ground + 14); Sound.play('tick'); st.shake(2);
+      dies.forEach((d, k) => st.tween(d, { x: 130 - k * 26 + (n === 2 ? 20 : 0), rot: d.rot + 9 + k }, 520, E.linear));
+      await all((d) => st.tween(d, { y: 40 }, 260, E.outQuad));
+      await all((d) => st.tween(d, { y: d.ground }, 260, E.inQuad));
+      dies.forEach((d) => st.dust(d.x, d.ground + 14)); Sound.play('tick'); st.shake(2);
       // 返事が来るまで、その場で小さくはね続ける（最大10秒）
       let hops = 0;
       while (!settled && hops < 30) {
         hops++;
-        st.tween(d, { rot: d.rot + 3 }, 300, E.linear);
-        await st.tween(d, { y: d.ground - 26 }, 150, E.outQuad);
-        await st.tween(d, { y: d.ground }, 150, E.inQuad);
-        st.dust(d.x, d.ground + 14); Sound.play('tick');
+        dies.forEach((d) => st.tween(d, { rot: d.rot + 3 }, 300, E.linear));
+        await all((d) => st.tween(d, { y: d.ground - 26 }, 150, E.outQuad));
+        await all((d) => st.tween(d, { y: d.ground }, 150, E.inQuad));
+        dies.forEach((d) => st.dust(d.x, d.ground + 14)); Sound.play('tick');
       }
       if (!settled || failed) {
-        d.rolling = false;
+        dies.forEach((d) => { d.rolling = false; });
         await popText(st, '…', { size: 30, color: '#e2e8f0', y: 60, hold: 500 });
         throw failed || new Error('timeout');
       }
       // 最後の2回のバウンドで中央へ
-      for (const [hy, ms, x] of [[46, 220, 150], [18, 150, 160]]) {
-        st.tween(d, { x, rot: d.rot + 2.5 }, ms * 2, E.linear);
-        await st.tween(d, { y: d.ground - hy }, ms, E.outQuad);
-        await st.tween(d, { y: d.ground }, ms, E.inQuad);
-        st.dust(d.x, d.ground + 14); Sound.play('tick');
+      for (const [hy, ms, step] of [[46, 220, 0], [18, 150, 1]]) {
+        dies.forEach((d, k) => st.tween(d, { x: step ? endX[k] : (endX[k] - 10), rot: d.rot + 2.5 }, ms * 2, E.linear));
+        await all((d) => st.tween(d, { y: d.ground - hy }, ms, E.outQuad));
+        await all((d) => st.tween(d, { y: d.ground }, ms, E.inQuad));
+        dies.forEach((d) => st.dust(d.x, d.ground + 14)); Sound.play('tick');
       }
       // 着地：目を決めて、つぶれて戻る
-      d.rolling = false; d.face = Math.min(6, Math.max(1, value || 1));
-      d.rot = Math.round(d.rot / (Math.PI / 2)) * (Math.PI / 2);
-      d.sx = 1.3; d.sy = 0.7;
-      st.hitstop(80); st.shake(value === 6 ? 6 : 3); st.flash(value === 6 ? '#fde047' : '#ffffff', 0.3);
-      const ring = st.add(new Ring(d.x, d.y, value === 6 ? '#fde047' : '#ffffff'));
-      st.tween(ring, { r: 70, alpha: 0 }, 500, E.outCubic).then(() => st.remove(ring));
-      Sound.play(value === 6 ? 'six' : 'land');
-      await st.tween(d, { sx: 1, sy: 1 }, 300, E.outElastic);
-      st.tween(d, { y: d.ground - 4 }, 200, E.outQuad);
-      if (value === 6) {
+      const big = n === 2 ? faces[0] === faces[1] : value === 6;   // 6 か、2個のときはゾロ目
+      dies.forEach((d, k) => {
+        d.rolling = false; d.face = Math.min(6, Math.max(1, faces[k] || 1));
+        d.rot = Math.round(d.rot / (Math.PI / 2)) * (Math.PI / 2);
+        d.sx = 1.3; d.sy = 0.7;
+        const ring = st.add(new Ring(d.x, d.y, big ? '#fde047' : '#ffffff'));
+        st.tween(ring, { r: 70, alpha: 0 }, 500, E.outCubic).then(() => st.remove(ring));
+      });
+      st.hitstop(80); st.shake(big ? 6 : 3); st.flash(big ? '#fde047' : '#ffffff', 0.3);
+      Sound.play(big ? 'six' : 'land');
+      await all((d) => st.tween(d, { sx: 1, sy: 1 }, 300, E.outElastic));
+      dies.forEach((d) => st.tween(d, { y: d.ground - 4 }, 200, E.outQuad));
+      if (n === 2) {
+        if (big) { st.speedLines(600, 160, 60); confetti(st, 160, 70); }
+        await popText(st, `${faces[0]} + ${faces[1]} = ${value}` + (big ? '！' : ''), { size: 32, color: big ? '#fde047' : '#ffffff', outline: big ? '#9a3412' : '#4c1d95', y: 58 });
+      } else if (value === 6) {
         st.speedLines(600, 160, 60); confetti(st, 160, 70);
         await popText(st, '6！！', { size: 44, color: '#fde047', outline: '#9a3412', y: 58 });
       } else {
@@ -869,7 +888,7 @@
       if (opts.bonus) {
         await st.wait(220);
         Sound.play('tick');
-        await popText(st, `+${opts.bonus}`, { size: 22, color: '#86efac', outline: '#14532d', x: 214, y: 58 });
+        await popText(st, `+${opts.bonus}`, { size: 22, color: '#86efac', outline: '#14532d', x: 214 + (n === 2 ? 40 : 0), y: 58 });
         await st.wait(200);
         await popText(st, `${value + opts.bonus}マス すすむ！`, { size: 18, color: '#ffffff', outline: '#000', y: 100 });
       } else {
@@ -1293,6 +1312,7 @@
   global.KanjiFX = {
     janken: janken,
     dice: dice,
+    diceCount: 2,   // dice() が2個のサイコロ（ダブルダイス）に対応している印
     diceDuel: diceDuel,
     gachaOpen: gachaOpen,
     treasure: treasure,
