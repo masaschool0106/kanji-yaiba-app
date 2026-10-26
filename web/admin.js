@@ -1,6 +1,6 @@
 /* ===============================================================
    漢字の刃｜先生の管理画面（出席番号 32 ＋ 先生の Google アカウントのときだけ app.js が読み込む）
-   ・児童一覧／ポイントの記録（PointLog）／ログインの記録（LoginLog）／カードの承認（CardRequests）
+   ・児童一覧／ポイントの記録（PointLog）／ログインの記録（LoginLog）／カードの承認（CardRequests）／説明書（「説明書」シート）
    ・データはすべて GAS（google.script.run）から受け取る。先生かどうかはサーバーが毎回確かめる
    =============================================================== */
 (function () {
@@ -45,6 +45,30 @@
   .adm-acts button:disabled { opacity: 0.5; cursor: default; }
   .adm-note { font-size: 13px; line-height: 1.6; color: #cbd5e1; margin-bottom: 10px; }
   .adm-dl a { color: #7dd3fc; font-weight: 800; margin-right: 12px; }
+  .adm-toc { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .adm-toc button { font: inherit; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(56, 189, 248, 0.35); background: #0f172a; color: #e2e8f0; cursor: pointer; }
+  .adm-md { color: #e2e8f0; font-size: 15px; line-height: 1.75; max-height: 68vh; overflow-y: auto; padding-right: 6px; }
+  .adm-md h1 { font-size: 22px; margin: 4px 0 12px; color: #f8fafc; }
+  .adm-md h2 { font-size: 19px; margin: 26px 0 10px; padding: 6px 12px; border-left: 4px solid #38bdf8; background: rgba(56, 189, 248, 0.08); border-radius: 6px; color: #f8fafc; }
+  .adm-md h3 { font-size: 16px; margin: 18px 0 8px; color: #7dd3fc; }
+  .adm-md h4 { font-size: 15px; margin: 14px 0 6px; color: #cbd5e1; }
+  .adm-md p { margin: 8px 0; }
+  .adm-md ul { list-style: none; padding: 0; margin: 8px 0; }
+  .adm-md li { display: flex; gap: 0.45em; margin: 3px 0; }
+  .adm-md li.lv1 { margin-left: 1.5em; } .adm-md li.lv2 { margin-left: 3em; } .adm-md li.lv3 { margin-left: 4.5em; }
+  .adm-md .mk { flex: none; color: #38bdf8; font-weight: 900; }
+  .adm-md code { font-family: ui-monospace, Menlo, monospace; font-size: 0.88em; background: rgba(148, 163, 184, 0.18); padding: 1px 6px; border-radius: 6px; color: #fde68a; word-break: break-all; }
+  .adm-md pre { background: #0b1224; border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 10px; padding: 12px; overflow-x: auto; }
+  .adm-md pre code { background: none; padding: 0; color: #e2e8f0; word-break: normal; white-space: pre; }
+  .adm-md blockquote { margin: 10px 0; padding: 8px 12px; border-left: 4px solid #f59e0b; background: rgba(245, 158, 11, 0.08); border-radius: 6px; }
+  .adm-md hr { border: none; border-top: 1px solid rgba(148, 163, 184, 0.3); margin: 18px 0; }
+  .adm-md a { color: #7dd3fc; }
+  .adm-md-table { overflow-x: auto; margin: 10px 0; }
+  .adm-md table { border-collapse: collapse; font-size: 14px; }
+  .adm-md th, .adm-md td { border: 1px solid rgba(148, 163, 184, 0.25); padding: 6px 10px; vertical-align: top; text-align: left; }
+  .adm-md th { background: #0b1224; color: #94a3b8; font-size: 12px; white-space: nowrap; }
+  .adm-md td:first-child code { white-space: nowrap; word-break: normal; }
+  .adm-steps { margin: 8px 0 12px 1.4em; line-height: 1.9; }
   @media (max-width: 600px) { .adm-card { grid-template-columns: 1fr; } .adm-card img { width: 160px; } }
   `;
 
@@ -71,7 +95,7 @@
         ]),
         el('div', { class: 'adm-tabs', id: 'admTabs' }, [
           tabBtn('students', '👥 児童一覧'), tabBtn('point', '💰 ポイントの記録'), tabBtn('login', '🔐 ログインの記録'),
-          tabBtn('cards', '🃏 カードの承認')
+          tabBtn('cards', '🃏 カードの承認'), tabBtn('readme', '📘 説明書')
         ]),
         el('div', { class: 'adm-panel hud-panel', id: 'admPanel' })
       ])
@@ -91,7 +115,106 @@
     document.querySelectorAll('#admTabs .adm-tab[data-tab]').forEach((b) => b.classList.toggle('active', b.getAttribute('data-tab') === tab));
     if (tab === 'students') renderStudents();
     else if (tab === 'cards') renderCards();
+    else if (tab === 'readme') renderReadme();
     else renderLogs(tab);
+  }
+
+  // ---------- 説明書（スプレッドシートの「説明書」シートに貼った README_GAS.md） ----------
+  //   文章はサーバーから先生にだけ届く（このファイルは GitHub にあるので、説明書の中身は書かない）
+  function renderReadme() {
+    setBusy();
+    app.call('admin.readme').then((d) => {
+      if (tab !== 'readme') return;
+      const reload = el('button', { type: 'button', text: '🔄 読みこみ直す', onclick: renderReadme });
+      if (!d.text) {
+        panel().replaceChildren(el('div', { class: 'adm-note' }, [
+          el('strong', { text: d.missing ? '「説明書」シートがまだありません。' : '「説明書」シートが空です。' }),
+          el('ol', { class: 'adm-steps' }, [
+            el('li', { text: 'スプレッドシートの下の「＋」でシートを足し、名前を「説明書」にする' }),
+            el('li', { text: 'README_GAS.md をテキストエディットで開いて、⌘A → ⌘C' }),
+            el('li', { text: '「説明書」シートの A1 をダブルクリックしてから ⌘V → Enter（ダブルクリックしないと、「- 」で始まる行が数式とまちがえられてこわれます）' }),
+            el('li', { text: 'この画面の「読みこみ直す」を押す' })
+          ]),
+          el('div', { class: 'adm-tools' }, [reload])
+        ]));
+        return;
+      }
+      const body = el('div', { class: 'adm-md' });
+      body.innerHTML = mdToHtml(d.text);
+      const toc = el('div', { class: 'adm-toc' }, Array.from(body.querySelectorAll('h2')).map((h) =>
+        el('button', { type: 'button', text: h.textContent, onclick: () => h.scrollIntoView({ behavior: 'smooth', block: 'start' }) })));
+      const warn = d.broken ? el('div', { class: 'adm-note adm-ng', text: '⚠️ うまく貼れていない行が ' + d.broken + ' 行あります（#ERROR! など）。シートを消して、A1 をダブルクリックしてから貼り直してください。' }) : null;
+      panel().replaceChildren(...[warn, toc, body, el('div', { class: 'adm-tools', style: 'margin-top:10px' }, [reload])].filter(Boolean));
+    }).catch(showError);
+  }
+
+  // かんたんな Markdown の表示（見出し・表・箇条書き・引用・コード・太字・リンク）
+  //   先に < > & " を文字にしてから形を付けるので、説明書の中の文字がプログラムとして動くことはない
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function mdInline(s) {
+    const codes = [];
+    let t = esc(s).replace(/`([^`]+)`/g, (m, c) => { codes.push(c); return '\u0000' + (codes.length - 1) + '\u0000'; });
+    t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+      .replace(/&lt;br\s*\/?&gt;/g, '<br>');
+    return t.replace(/\u0000(\d+)\u0000/g, (m, i) => '<code>' + codes[Number(i)] + '</code>');
+  }
+  function mdToHtml(text) {
+    const lines = String(text).replace(/\r\n?/g, '\n').split('\n');
+    const LIST = /^(\s*)([-*]|\d+\.)\s+(.*)$/;
+    const BLOCK = /^(#{1,4})\s|^\s*```|^\s*\||^\s*>|^(\s*)([-*]|\d+\.)\s+/;
+    const isRow = (l) => /^\s*\|.*\|\s*$/.test(l);
+    const cells = (l) => l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
+    const out = [];
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      if (!line.trim()) { i++; continue; }
+      if (/^\s*```/.test(line)) {
+        const buf = [];
+        i++;
+        while (i < lines.length && !/^\s*```/.test(lines[i])) buf.push(lines[i++]);
+        i++;
+        out.push('<pre><code>' + esc(buf.join('\n')) + '</code></pre>');
+        continue;
+      }
+      const h = line.match(/^(#{1,4})\s+(.*)$/);
+      if (h) { out.push('<h' + h[1].length + '>' + mdInline(h[2]) + '</h' + h[1].length + '>'); i++; continue; }
+      if (/^\s*(-{3,}|\*{3,})\s*$/.test(line)) { out.push('<hr>'); i++; continue; }
+      if (isRow(line) && i + 1 < lines.length && /^\s*\|?\s*:?-{2,}/.test(lines[i + 1])) {
+        const head = cells(line);
+        const rows = [];
+        i += 2;
+        while (i < lines.length && isRow(lines[i])) rows.push(cells(lines[i++]));
+        out.push('<div class="adm-md-table"><table><thead><tr>' + head.map((c) => '<th>' + mdInline(c) + '</th>').join('') + '</tr></thead><tbody>' +
+          rows.map((r) => '<tr>' + r.map((c) => '<td>' + mdInline(c) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>');
+        continue;
+      }
+      if (/^\s*>/.test(line)) {
+        const buf = [];
+        while (i < lines.length && /^\s*>/.test(lines[i])) buf.push(lines[i++].replace(/^\s*>\s?/, ''));
+        out.push('<blockquote>' + buf.map(mdInline).join('<br>') + '</blockquote>');
+        continue;
+      }
+      if (LIST.test(line)) {
+        const items = [];
+        while (i < lines.length && LIST.test(lines[i])) {
+          const m = lines[i].match(LIST);
+          const mark = /\d/.test(m[2]) ? m[2] : '•';
+          let body = mdInline(m[3]);
+          i++;
+          // 字下げだけの続きの行は、同じ項目につなげる
+          while (i < lines.length && /^\s{2,}\S/.test(lines[i]) && !LIST.test(lines[i]) && !BLOCK.test(lines[i])) body += '<br>' + mdInline(lines[i++].trim());
+          items.push('<li class="lv' + Math.min(3, Math.floor(m[1].length / 2)) + '"><span class="mk">' + esc(mark) + '</span><span>' + body + '</span></li>');
+        }
+        out.push('<ul>' + items.join('') + '</ul>');
+        continue;
+      }
+      const buf = [lines[i++]];
+      while (i < lines.length && lines[i].trim() && !BLOCK.test(lines[i]) && !/^\s*(-{3,}|\*{3,})\s*$/.test(lines[i])) buf.push(lines[i++]);
+      out.push('<p>' + buf.map(mdInline).join('<br>') + '</p>');
+    }
+    return out.join('\n');
   }
 
   // ---------- 児童一覧 ----------
