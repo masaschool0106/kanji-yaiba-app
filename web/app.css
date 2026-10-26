@@ -288,3 +288,16 @@ body.view-mypage { padding: 16px 14px 110px; }
 .nav-tap-box p { margin: 0 0 14px; line-height: 1.6; }
 .nav-tap-go { display: block; padding: 16px; border-radius: 12px; background: #0ea5e9; color: #fff !important; font-size: 1.2rem; font-weight: 900; text-decoration: none; }
 .nav-tap-close { margin-top: 12px; background: none; border: none; color: #94a3b8; font-size: 0.9rem; text-decoration: underline; cursor: pointer; }
+
+/* ==================== 巨大レイドボス（週末・月末） ==================== */
+/* 空が赤くそまる */
+html.raid-on body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(ellipse at 50% -10%, rgba(239, 68, 68, 0.75), rgba(127, 29, 29, 0.45) 45%, transparent 75%); animation: raidSky 3s ease-in-out infinite alternate; }
+@keyframes raidSky { from { opacity: 0.7; } to { opacity: 1; } }
+.raid-banner { margin: 10px 0 14px; padding: 14px 16px; text-align: center; border: 2px solid #ef4444 !important; box-shadow: 0 0 24px rgba(239, 68, 68, 0.45); }
+.raid-title { font-size: 1.15rem; font-weight: 900; color: #fecaca; }
+.raid-sub { font-size: 0.85rem; color: #fca5a5; margin-top: 6px; line-height: 1.5; }
+.raid-hp { position: relative; height: 22px; margin-top: 10px; border-radius: 999px; background: rgba(0, 0, 0, 0.55); border: 2px solid #7f1d1d; overflow: hidden; }
+.raid-hp i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #dc2626, #f97316); transition: width 0.5s ease; }
+.raid-hp span { position: relative; font-size: 0.8rem; font-weight: 900; color: #fff; line-height: 18px; text-shadow: 0 1px 2px #000; }
+.raid-go { margin-top: 10px; padding: 12px 22px; border: none; border-radius: 999px; font: inherit; font-size: 1.05rem; font-weight: 900; color: #fff; cursor: pointer; background: linear-gradient(135deg, #f97316, #dc2626); box-shadow: 0 0 18px rgba(249, 115, 22, 0.6); }
+@media (prefers-reduced-motion: reduce) { html.raid-on body::before { animation: none; } }

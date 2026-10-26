@@ -146,6 +146,7 @@
         state.settings = data.settings || {};
         renderPlayer(data.player);
         renderRanking(data.ranking);
+        renderRaid(data.raid);
         if (!state.jamaicaDone) { state.jamaicaDone = true; syncJamaica(); }
       })
       .catch((err) => { if (err.code !== 'AUTH_EXPIRED') showMessage('mypageMessage', 'データの読み込みに失敗しました：' + err.message, 'error'); })
@@ -378,6 +379,44 @@
     sc.src = (cfg.assetBase || '') + 'cardmake.js' + (cfg.assetVersion ? '?v=' + encodeURIComponent(cfg.assetVersion) : '');
     sc.onload = go;
     sc.onerror = () => { hideLoading(); showMessage('mypageMessage', '「カードを作る」を読み込めませんでした。', 'error'); };
+    document.head.appendChild(sc);
+  }
+
+  // ==================== 巨大レイドボス ====================
+  // 週末・月末だけ、マイページの空が赤くなり、ボスの知らせが出る。押すと raid.js を読みこんで、漢字ミサイルの画面へ
+  function renderRaid(r) {
+    const on = !!(r && r.active);
+    document.documentElement.classList.toggle('raid-on', on && !r.defeated);
+    let box = $('raidBanner');
+    if (!on) { if (box) box.remove(); return; }
+    if (!box) {
+      box = document.createElement('section');
+      box.id = 'raidBanner'; box.className = 'raid-banner hud-panel';
+      const anchor = document.querySelector('#view-mypage .carousel-wrap');
+      if (anchor) anchor.parentNode.insertBefore(box, anchor); else $('view-mypage').appendChild(box);
+    }
+    const left = Math.max(0, r.maxHp - r.damage);
+    const pct = r.maxHp ? Math.round(left / r.maxHp * 100) : 100;
+    box.innerHTML = r.defeated
+      ? `<div class="raid-title">🎉 ${escapeHtml(r.boss)} をクラスみんなで倒した！</div><div class="raid-sub">${escapeHtml(r.label)}・次の襲来を待とう</div>`
+      : `<div class="raid-title">⚠️ ${escapeHtml(r.label)}「${escapeHtml(r.boss)}」襲来！</div>
+         <div class="raid-hp"><i style="width:${pct}%"></i><span>HP ${left} / ${r.maxHp || '?'}</span></div>
+         <div class="raid-sub">じゃんけんでは勝てない…！ 漢字クイズに正解するたび「漢字ミサイル」でダメージ！ クラスみんなで倒そう</div>
+         <button type="button" class="raid-go" id="raidGo">🚀 漢字ミサイルで攻撃！</button>`;
+    const go = $('raidGo');
+    if (go) go.addEventListener('click', openRaid);
+  }
+  function openRaid() {
+    stopRefresh();
+    const api = { call: call, showView: showView, showLoading: showLoading, hideLoading: hideLoading, openMypage: openMypage, escapeHtml: escapeHtml };
+    const go = () => { hideLoading(); window.KanjiRaid.open(api); };
+    if (window.KanjiRaid) { go(); return; }
+    showLoading('ボスに近づいています...');
+    const cfg = window.KANJI_CONFIG || {};
+    const sc = document.createElement('script');
+    sc.src = (cfg.assetBase || '') + 'raid.js' + (cfg.assetVersion ? '?v=' + encodeURIComponent(cfg.assetVersion) : '');
+    sc.onload = go;
+    sc.onerror = () => { hideLoading(); showMessage('mypageMessage', 'レイドの画面を読み込めませんでした。', 'error'); };
     document.head.appendChild(sc);
   }
 

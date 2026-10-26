@@ -176,6 +176,7 @@
       // 画面をタップすると早送り。ただし「タップを待っている」とき（ガチャのパックなど）はそちらを優先
       this.onTap = null;
       this.skipHandler = () => {
+        if (this.holdTaps) return;   // スワイプを待っているとき
         if (this.onTap) { const f = this.onTap; this.onTap = null; f(); }
         else this.speed = 4;
       };
@@ -286,6 +287,29 @@
         const finish = (how) => { if (done) return; done = true; if (this.onTap === tapped) this.onTap = null; resolve(how); };
         const tapped = () => finish('tap');
         this.onTap = tapped;
+        setTimeout(() => finish('timeout'), ms);
+      });
+    }
+    // スワイプ（なぞる）を待つ。なぞれたら 'swipe'。タップだけのときは onMiss を呼ぶ。ms たったら先へ進む
+    waitSwipe(ms, onMiss) {
+      return new Promise((resolve) => {
+        let done = false, start = null;
+        const pos = (e) => { const r = this.canvas.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; };
+        const down = (e) => { start = pos(e); };
+        const move = (e) => {
+          if (!start || done) return;
+          const p = pos(e);
+          if (Math.hypot(p.x - start.x, p.y - start.y) > 40) finish('swipe', start, p);
+        };
+        const up = () => { if (start && !done && onMiss) onMiss(); start = null; };
+        const finish = (how, a, b) => {
+          if (done) return;
+          done = true; this.holdTaps = false;
+          this.canvas.removeEventListener('pointerdown', down); this.canvas.removeEventListener('pointermove', move); this.canvas.removeEventListener('pointerup', up);
+          resolve({ how, from: a, to: b });
+        };
+        this.holdTaps = true;
+        this.canvas.addEventListener('pointerdown', down); this.canvas.addEventListener('pointermove', move); this.canvas.addEventListener('pointerup', up);
         setTimeout(() => finish('timeout'), ms);
       });
     }
@@ -761,6 +785,7 @@
         await st.wait(250);
       }
       await clash(st, c1, c2, winner === 0);
+      if (winner) await attackFx(st, winner === 1 ? round.p1.hand : round.p2.hand, winner === 1 ? 236 : 84, 96);
       if (winner === 1) {
         st.tween(c2, { x: 330, y: 70, rot: 1.2 }, 420, E.outCubic).then(() => st.tween(c2, { y: 200, rot: 2.4 }, 380, E.inQuad));
         st.tween(c1, { x: 128 }, 300, E.outBack);
@@ -959,6 +984,7 @@
         boss.whiten = 1; st.tween(boss, { whiten: 0 }, 400, E.linear);
         st.tween(boss, { rot: 0.15 }, 80, E.outQuad).then(() => st.tween(boss, { rot: 0 }, 400, E.outElastic));
         fadeOut(st, beam, 250);
+        if (p.hand) await attackFx(st, p.hand, boss.x, boss.y);
         await damageNumber(st, boss.x, boss.y + 6, o.damage);
         if (o.critical) await slam(st, 'CRITICAL!', '会心の一撃！', '#ea580c');
         else if (o.damage >= 40) await slam(st, 'こうかばつぐん！', 'WEAK!', '#dc2626');
@@ -1105,9 +1131,17 @@
       pack.glow = shownTier >= 2 ? 1 : 0.5; pack.glowColor = TIER_COLOR[shownTier]; pack.rainbow = shownTier >= 4;
       Sound.play('whoosh');
       await st.tween(pack, { y: 88 }, 520, E.outBack);
-      const hint = st.add(new Text('タップしてパックをやぶろう！', 11, '#fde68a'));
+      const hint = st.add(new Text('👉 なぞってパックをやぶろう！', 11, '#fde68a'));
       hint.y = 166; hint.update = function (dt, s) { this.alpha = 0.55 + 0.45 * Math.sin(performance.now() / 260); };
-      await st.waitTap(7000);
+      // 横になぞる（スワイプ）とやぶれる。タップだけのときはパックがゆれて教える。10秒たったら自動で開く
+      const sw = await st.waitSwipe(10000, () => { st.tween(pack, { rot: 0.08 }, 60).then(() => st.tween(pack, { rot: -0.08 }, 60)).then(() => st.tween(pack, { rot: 0 }, 80)); hint.text = '👉 よこに なぞってね！'; });
+      if (sw.how === 'swipe') {
+        const cut = st.add(new Beam(Math.min(sw.from.x, sw.to.x) - 20, 64, Math.max(sw.from.x, sw.to.x) + 20, 64, '#ffffff'));
+        cut.w = 3; cut.z = 9;
+        await st.tween(cut, { k: 1 }, 90, E.linear);
+        st.burst(160, 64, { n: 24, colors: ['#ffffff', '#fde68a'], speed: 3, g: 0.05, life: 400 });
+        fadeOut(st, cut, 200);
+      }
       st.remove(hint);
 
       // 2. ため → やぶる
@@ -1309,6 +1343,443 @@
     await st.tween(t, { y: y + 2 }, 240, E.outElastic);
   }
 
+  // ===============================================================
+  // 2026年10月（夜）に足した演出
+  // ===============================================================
+
+  // ---------- 手ごとの攻撃：グー＝重い岩、チョキ＝するどい斬撃、パー＝竜巻と魔法陣 ----------
+  class Rock {
+    constructor() { this.x = 0; this.y = -40; this.r = 18; this.z = 8; this.rot = 0; }
+    draw(g) {
+      g.translate(Math.round(this.x), Math.round(this.y)); g.rotate(this.rot);
+      const r = this.r;
+      g.fillStyle = '#000'; g.beginPath(); g.arc(0, 0, r + 2, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#78716c'; g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#a8a29e'; g.beginPath(); g.arc(-r * 0.3, -r * 0.3, r * 0.55, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#44403c'; g.fillRect(r * 0.2, r * 0.1, 4, 3); g.fillRect(-r * 0.5, r * 0.4, 3, 3);
+    }
+  }
+  class Slash {
+    constructor(x, y, angle) { this.x = x; this.y = y; this.a = angle; this.k = 0; this.len = 90; this.z = 9; this.alpha = 1; }
+    draw(g) {
+      g.translate(Math.round(this.x), Math.round(this.y)); g.rotate(this.a);
+      const L = this.len * this.k;
+      g.fillStyle = '#ffffff'; g.beginPath(); g.moveTo(-this.len / 2, 0); g.lineTo(-this.len / 2 + L, -3); g.lineTo(-this.len / 2 + L, 3); g.closePath(); g.fill();
+      g.fillStyle = '#7dd3fc'; g.fillRect(-this.len / 2, -1, L, 2);
+    }
+  }
+  class Tornado {
+    constructor(x, y) { this.x = x; this.y = y; this.t = 0; this.z = 8; this.alpha = 1; this.s = 0.2; }
+    update(dt) { this.t += dt; }
+    draw(g) {
+      g.translate(Math.round(this.x), Math.round(this.y)); g.scale(this.s, this.s);
+      // 魔法陣（回る二重の丸と、まわりの小さな印）
+      g.save(); g.translate(0, 56); g.scale(1, 0.35); g.rotate(this.t / 400);   // 足もとの地面に、寝かせて回す
+      g.strokeStyle = '#a78bfa'; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 46, 0, Math.PI * 2); g.stroke();
+      g.strokeStyle = '#c4b5fd'; g.lineWidth = 2; g.beginPath(); g.arc(0, 0, 36, 0, Math.PI * 2); g.stroke();
+      for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; g.fillStyle = '#ede9fe'; g.fillRect(Math.cos(a) * 41 - 3, Math.sin(a) * 41 - 3, 6, 6); }
+      g.restore();
+      // 竜巻（上にいくほど広がる、ゆれる帯）
+      for (let i = 0; i < 9; i++) {
+        const y = 50 - i * 12, w = 10 + i * 6, off = Math.sin(this.t / 90 + i * 0.8) * 6;
+        g.fillStyle = i % 2 ? 'rgba(186,230,253,0.8)' : 'rgba(224,242,254,0.9)';
+        g.fillRect(off - w / 2, y, w, 6);
+      }
+    }
+  }
+  async function attackFx(st, hand, x, y) {
+    if (REDUCED) return;
+    if (hand === 'グー') {
+      const rock = st.add(new Rock()); rock.x = x; rock.y = -30;
+      Sound.play('whoosh');
+      st.tween(rock, { rot: 2 }, 260, E.linear);
+      await st.tween(rock, { y: y }, 240, E.inQuad);
+      st.impact(); st.hitstop(90); st.shake(9); Sound.play('hit');
+      st.burst(x, y + 10, { n: 30, colors: ['#a8a29e', '#78716c', '#fde68a'], speed: 3.5, up: 1.5, life: 700, size: 2 });
+      for (let i = 0; i < 3; i++) {   // 地面にひろがる波
+        const rg = st.add(new Ring(x, y + 12, '#e7e5e4')); rg.r = 6;
+        st.tween(rg, { r: 30 + i * 12, alpha: 0 }, 420 + i * 90, E.outCubic).then(() => st.remove(rg));
+      }
+      await st.tween(rock, { y: y + 70, alpha: 0 }, 300, E.inQuad);
+      st.remove(rock);
+    } else if (hand === 'チョキ') {
+      Sound.play('whoosh');
+      for (const a of [-0.6, 0.6]) {
+        const sl = st.add(new Slash(x, y, a));
+        await st.tween(sl, { k: 1 }, 80, E.outQuad);
+        st.hitstop(50); st.shake(4); Sound.play('hit');
+        st.burst(x, y, { n: 14, colors: ['#ffffff', '#7dd3fc'], speed: 4, g: 0.02, life: 380, shape: 'star', size: 2 });
+        fadeOut(st, sl, 220);
+      }
+      st.flash('#e0f2fe', 0.3);
+      await st.wait(200);
+    } else {
+      const tw = st.add(new Tornado(x, y));
+      Sound.play('beam');
+      await st.tween(tw, { s: 1 }, 260, E.outBack);
+      st.shake(5); st.hitstop(60); Sound.play('hit');
+      st.burst(x, y, { n: 24, colors: ['#e0f2fe', '#a78bfa', '#ffffff'], speed: 3, up: 2, g: -0.02, life: 700 });
+      await st.wait(420);
+      await st.tween(tw, { alpha: 0, s: 1.3 }, 240, E.linear);
+      st.remove(tw);
+    }
+  }
+
+  // ---------- 宝箱ルーレット：高速で回り、タップで止まる（止まるアイテムは最初から決まっている） ----------
+  class Reel {
+    constructor(items) { this.items = items; this.off = 0; this.z = 6; this.slot = 46; this.glowK = 0; }
+    draw(g) {
+      const cx = 160, cy = 88, slot = this.slot, n = this.items.length;
+      g.fillStyle = '#000'; g.fillRect(16, cy - 30, W - 32, 60);
+      g.fillStyle = '#1e1b4b'; g.fillRect(18, cy - 28, W - 36, 56);
+      g.save(); g.beginPath(); g.rect(18, cy - 28, W - 36, 56); g.clip();
+      const first = Math.floor((this.off - 160) / slot) - 1;
+      for (let i = first; i < first + 10; i++) {
+        const it = this.items[((i % n) + n) % n];
+        const x = cx + i * slot - this.off;
+        const spr = glyphSprite(it.icon, 22);
+        const near = Math.max(0, 1 - Math.abs(x - cx) / slot);
+        g.globalAlpha = 0.45 + 0.55 * near;
+        g.drawImage(spr, Math.round(x - spr.width / 2), Math.round(cy - spr.height / 2));
+      }
+      g.restore();
+      g.globalAlpha = 1;
+      g.strokeStyle = this.glowK > 0 ? '#fde047' : '#fbbf24'; g.lineWidth = 2 + this.glowK * 2;
+      g.strokeRect(cx - slot / 2, cy - 27, slot, 54);
+      g.fillStyle = '#fbbf24';
+      g.beginPath(); g.moveTo(cx - 6, cy - 34); g.lineTo(cx + 6, cy - 34); g.lineTo(cx, cy - 26); g.fill();
+      g.beginPath(); g.moveTo(cx - 6, cy + 34); g.lineTo(cx + 6, cy + 34); g.lineTo(cx, cy + 26); g.fill();
+    }
+  }
+  //   o.items  … [{ icon, label }]（ルーレットにならべるもの）
+  //   o.result … 止まる番号（items の何番目か）
+  //   o.title  … 上に出す文字
+  async function roulette(host, o) {
+    o = o || {};
+    const items = (o.items && o.items.length) ? o.items : [{ icon: '🎁', label: '' }];
+    const result = Math.max(0, Math.min(items.length - 1, Number(o.result) || 0));
+    const st = new Stage(host, { theme: 'board' });
+    try {
+      if (o.title) { const t = st.add(new Text(shortLabel(o.title, 20), 13, '#fde68a')); t.y = 18; pop(st, t, 220); }
+      const reel = st.add(new Reel(items));
+      const hint = st.add(new Text('タップでストップ！', 13, '#ffffff', '#7c2d12'));
+      hint.y = 148; hint.update = function () { this.alpha = 0.55 + 0.45 * Math.sin(performance.now() / 200); };
+      let spinning = true, last = performance.now();
+      reel.update = function () { const now = performance.now(); if (spinning) this.off += (now - last) * 0.9; last = now; };
+      let tick = 0;
+      const ticker = setInterval(() => { if (spinning && ++tick % 2 === 0) Sound.play('tick'); }, 70);
+      await st.waitTap(6000);
+      spinning = false; clearInterval(ticker);
+      st.remove(hint);
+      // 今の位置から2周以上先の「当たり」へ、ゆっくり止める
+      const n = items.length, slot = reel.slot;
+      const cur = reel.off / slot;
+      let target = Math.ceil(cur) + n * 2;
+      target += ((result - target) % n + n) % n;
+      const steps = Math.round(target - cur);
+      let lastIdx = Math.floor(cur);
+      reel.update = function () { const i = Math.floor(this.off / slot); if (i !== lastIdx) { lastIdx = i; Sound.play('tick'); } };
+      await st.tween(reel, { off: target * slot }, 900 + steps * 40, E.outCubic);
+      reel.update = null;
+      st.flash('#fef9c3', 0.4); st.shake(3); Sound.play('open');
+      st.tween(reel, { glowK: 1 }, 200);
+      st.burst(160, 88, { n: 26, colors: ['#fde68a', '#ffffff', '#fbbf24'], speed: 3.2, up: 1.5, life: 700, shape: 'star', size: 2 });
+      const it = items[result];
+      if (it.label) await popText(st, shortLabel(it.label, 18), { size: 15, color: '#ffffff', outline: '#7c2d12', y: 148 });
+      await st.waitTap(2500);
+      return result;
+    } finally {
+      if (!o.keep) st.destroy();
+    }
+  }
+
+  // ---------- 困難マス：画面が青ざめ、貧乏神がドスン！と降ってきて HP をうばっていく ----------
+  class Binbo {   // 貧乏神（ドット絵）
+    constructor() { this.x = 160; this.y = -60; this.z = 7; this.sx = 1; this.sy = 1; this.rot = 0; this.mouth = 0; }
+    draw(g) {
+      g.translate(Math.round(this.x), Math.round(this.y)); g.rotate(this.rot); g.scale(this.sx, this.sy);
+      const P = (c, x, y, w, h) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+      P('#000', -19, -31, 38, 62);
+      P('#64748b', -17, -6, 34, 35);          // ぼろぼろの着物
+      P('#475569', -17, 22, 6, 7); P('#475569', -3, 24, 6, 5); P('#475569', 11, 22, 6, 7);
+      P('#e2e8f0', -14, -29, 28, 25);         // 顔
+      P('#cbd5e1', -14, -10, 28, 6);
+      P('#94a3b8', -15, -31, 30, 5);          // うすい髪
+      P('#000', -9, -21, 4, 3); P('#000', 5, -21, 4, 3);       // たれ目
+      P('#1e293b', -10, -24, 6, 1); P('#1e293b', 4, -24, 6, 1);
+      P('#000', -5, -13, 10, 2 + Math.round(this.mouth * 3));  // 口（わらう）
+      P('#a16207', 16, -4, 3, 30);            // 杖
+      P('#ca8a04', 13, -8, 9, 6);             // うちわ
+    }
+  }
+  //   o.damage … 減った HP（見せるだけ。計算は画面のほう）
+  //   o.title  … 上に出す文字（例：【縄文・弥生】困難に見舞われた！）
+  async function misfortune(host, o) {
+    o = o || {};
+    const st = new Stage(host, { theme: 'board' });
+    try {
+      const blue = st.add({ alpha: 0, z: 4, draw(g) { g.fillStyle = '#1e3a8a'; g.fillRect(0, 0, W, H); } });
+      await st.tween(blue, { alpha: 0.55 }, 260, E.linear);
+      if (o.title) { const t = st.add(new Text(shortLabel(o.title, 22), 12, '#bfdbfe', '#000')); t.y = 16; pop(st, t, 200); }
+      const b = st.add(new Binbo());
+      Sound.play('whoosh');
+      await st.tween(b, { y: 104 }, 320, E.inQuad);
+      b.sx = 1.3; b.sy = 0.7;
+      st.shake(8); st.hitstop(80); Sound.play('slam');
+      st.dust(140, 136); st.dust(180, 136); st.dust(160, 138);
+      const don = st.add(new Text('ドスン！', 22, '#ffffff', '#1e293b')); don.x = 230; don.y = 60; don.rot = 0.2; pop(st, don, 160);
+      await st.tween(b, { sx: 1, sy: 1 }, 260, E.outElastic);
+      st.remove(don);
+      // HP をうばう：ハートが貧乏神のほうへ吸いこまれる
+      for (let i = 0; i < 3; i++) {
+        const h = st.add(new Glyph('💔', 14)); h.x = 40 + i * 14; h.y = 150;
+        st.tween(h, { x: b.x, y: b.y, sx: 0.4, sy: 0.4 }, 420 + i * 80, E.inQuad).then(() => st.remove(h));
+      }
+      await st.wait(560);
+      if (o.damage) await popText(st, 'HP −' + o.damage, { size: 24, color: '#fecaca', outline: '#7f1d1d', y: 52 });
+      const laugh = st.add(new Text('ヒッヒッヒ…', 13, '#e2e8f0', '#000')); laugh.x = 236; laugh.y = 92;
+      for (let i = 0; i < 4; i++) { await st.tween(b, { mouth: 1 }, 90); await st.tween(b, { mouth: 0 }, 90); }
+      st.remove(laugh);
+      await Promise.all([st.tween(b, { y: -70, rot: 0.4 }, 420, E.inBack), st.tween(blue, { alpha: 0.25 }, 420, E.linear)]);
+      await st.wait(200);
+    } finally {
+      if (!o.keep) st.destroy();
+    }
+  }
+
+  // ---------- ボス登場：画面が赤く点滅し、WARNING の帯が横切り、偉人（ijin シートの画像）があらわれる ----------
+  class WarnBand {
+    constructor(y, dir) { this.y = y; this.dir = dir; this.off = 0; this.z = 8; this.alpha = 1; }
+    draw(g) {
+      g.fillStyle = '#000'; g.fillRect(0, this.y - 13, W, 26);
+      g.fillStyle = '#facc15'; g.fillRect(0, this.y - 11, W, 22);
+      g.save(); g.beginPath(); g.rect(0, this.y - 11, W, 22); g.clip();
+      g.fillStyle = '#111';
+      for (let x = -40 + (this.off % 40); x < W + 40; x += 40) { g.beginPath(); g.moveTo(x, this.y - 11); g.lineTo(x + 12, this.y - 11); g.lineTo(x - 10, this.y + 11); g.lineTo(x - 22, this.y + 11); g.fill(); }
+      g.restore();
+      const text = '⚠ WARNING ⚠ ';
+      g.font = `900 14px ${FONT}`;
+      const tw = g.measureText(text).width;
+      for (let x = -tw + ((this.off * this.dir) % tw + tw) % tw; x < W; x += tw) outlinedText(g, text, x + tw / 2, this.y + 1, 14, '#dc2626', '#000');
+    }
+  }
+  //   o.name … ボスの名前、o.imageUrl … 偉人の画像、o.sub … 名前の下の文字（例：第3階層のボス）
+  async function bossIntro(host, o) {
+    o = o || {};
+    const st = new Stage(host, { theme: 'arena' });
+    try {
+      const imgP = loadImage(o.imageUrl, o.imageUrlFull);
+      const red = st.add({ alpha: 0, z: 4, draw(g) { g.fillStyle = '#7f1d1d'; g.fillRect(0, 0, W, H); } });
+      // 赤く2回点滅＋ゆれ（光るのは1秒に2回まで。強くしすぎない）
+      for (let i = 0; i < 2; i++) {
+        Sound.play('slam'); st.shake(6);
+        await st.tween(red, { alpha: 0.55 }, 220, E.linear);
+        await st.tween(red, { alpha: 0.15 }, 280, E.linear);
+      }
+      const b1 = st.add(new WarnBand(40, 1)), b2 = st.add(new WarnBand(140, -1));
+      b1.update = function (dt) { this.off += dt * 0.12; }; b2.update = function (dt) { this.off += dt * 0.12; };
+      const warn = st.add(new Text('WARNING', 34, '#ffffff', '#b91c1c')); warn.x = 420; warn.y = 90;
+      await st.tween(warn, { x: 160 }, 220, E.outQuad);
+      st.shake(8); st.flash('#ef4444', 0.4);
+      await st.wait(700);
+      await st.tween(warn, { x: -120 }, 200, E.inQuad);
+      st.remove(warn);
+      const img = await imgP;
+      const boss = st.add(new Portrait(img, ''));
+      boss.s = 92; boss.x = 400; boss.y = 84; boss.z = 6;
+      Sound.play('whoosh');
+      await st.tween(boss, { x: 160 }, 360, E.outBack);
+      st.impact(); st.hitstop(100); st.shake(8); Sound.play('hit');
+      st.burst(160, 84, { n: 36, colors: ['#fecaca', '#ef4444', '#ffffff'], speed: 4 });
+      await Promise.all([st.tween(b1, { alpha: 0 }, 200), st.tween(b2, { alpha: 0 }, 200)]);   // 帯を消してから名前
+      const nm = st.add(new Text(shortLabel((o.name || 'ボス') + ' があらわれた！', 16), 16, '#ffffff', '#7f1d1d')); nm.y = 148;
+      await pop(st, nm, 200);
+      if (o.sub) { const sb = st.add(new Text(shortLabel(o.sub, 20), 10, '#fde68a', '#000')); sb.y = 166; pop(st, sb, 160); }
+      await st.waitTap(1800);
+    } finally {
+      if (!o.keep) st.destroy();
+    }
+  }
+
+  // ---------- 総攻撃・フィニッシュ：キャラの一枚絵が画面をおおうカットイン ----------
+  class CutIn {
+    constructor(img) { this.img = img; this.k = 0; this.z = 7; this.shift = 0; }
+    draw(g) {
+      // ななめの帯（赤と黒）
+      g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+      g.save(); g.translate(160, 90); g.rotate(-0.28);
+      g.fillStyle = '#dc2626'; g.fillRect(-260, -58 * this.k, 520, 116 * this.k);
+      g.fillStyle = '#111'; for (let i = -14; i < 14; i++) g.fillRect(i * 22 + (this.shift % 22), -58 * this.k, 8, 116 * this.k);
+      g.restore();
+      // 一枚絵（平行四辺形に切りぬく）
+      if (this.img && this.k > 0) {
+        g.save();
+        g.beginPath(); g.moveTo(70 + 40 * (1 - this.k), 10); g.lineTo(290, 10); g.lineTo(250, 170); g.lineTo(30 + 40 * (1 - this.k), 170); g.closePath(); g.clip();
+        const iw = this.img.naturalWidth, ih = this.img.naturalHeight, s = Math.max(260 / iw, 160 / ih) * (1.15 - 0.15 * this.k);
+        g.drawImage(this.img, 160 - iw * s / 2 + 10 * (1 - this.k), 90 - ih * s / 2, iw * s, ih * s);
+        g.restore();
+        g.strokeStyle = '#fff'; g.lineWidth = 3;
+        g.beginPath(); g.moveTo(70, 10); g.lineTo(290, 10); g.lineTo(250, 170); g.lineTo(30, 170); g.closePath(); g.stroke();
+      }
+    }
+  }
+  //   o.imageUrl … カードの絵、o.title … 大きな文字（例：総攻撃！）、o.sub … 小さな文字（例：FINISH!）
+  async function allOut(host, o) {
+    o = o || {};
+    const st = new Stage(host, { theme: 'arena' });
+    try {
+      const img = await loadImage(o.imageUrl, o.imageUrlFull);
+      const cut = st.add(new CutIn(img));
+      cut.update = function (dt) { this.shift += dt * 0.2; };
+      Sound.play('whoosh');
+      await st.tween(cut, { k: 1 }, 300, E.outBack);
+      st.speedLines(700, 160, 90); st.flash('#ffffff', 0.45); st.shake(6);
+      await slam(st, o.title || '総攻撃！', o.sub || 'FINISH!', '#dc2626');
+      st.impact(); st.hitstop(120); st.shake(10); Sound.play('hit');
+      st.burst(160, 90, { n: 60, colors: ['#ffffff', '#fde047', '#f97316', '#ef4444'], speed: 5, life: 800 });
+      confetti(st, 160, 60);
+      await st.wait(900);
+    } finally {
+      if (!o.keep) st.destroy();
+    }
+  }
+
+  // ---------- 覚醒（限界突破）：稲妻が落ち、金のオーラをまとい、サインが書きこまれる ----------
+  //   o.imageUrl … カードの絵、o.name … カードの名前（サインになる）、o.rarity … レアリティ
+  async function awaken(host, o) {
+    o = o || {};
+    const st = new Stage(host, { theme: 'arena' });
+    try {
+      const img = await loadImage(o.imageUrl, o.imageUrlFull);
+      const dim = st.add(new Dim()); dim.alpha = 0.55;
+      const card = st.add(new Card(img, o.rarity || 'SSR'));
+      card.x = 160; card.y = 88; card.sx = card.sy = 0.2; card.z = 6;
+      Sound.play('rumble'); st.shake(4);
+      await st.tween(card, { sx: 1.25, sy: 1.25 }, 420, E.outBack);
+      const t = st.add(new Text('力が…あふれる…！', 12, '#fde68a', '#000')); t.y = 16; pop(st, t, 200);
+      for (let i = 0; i < 2; i++) { await lightning(st, 130 + i * 60, 88, '#fde047', 1); await st.wait(300); }   // 光るのは1秒に2回まで
+      st.remove(t);
+      card.glow = 1; card.glowColor = '#fbbf24'; card.holo = 1;
+      st.add(new Aura(card, 46, 64));
+      st.flash('#fde68a', 0.55); st.impact(); st.hitstop(120); st.shake(8); Sound.play('legend');
+      st.burst(160, 88, { n: 60, colors: ['#fde68a', '#fbbf24', '#ffffff', '#f97316'], speed: 4.5, life: 900 });
+      await slam(st, '覚醒！', 'AWAKEN!', '#d97706');
+      const sign = st.add(new Signature(shortLabel(o.name || '', 10)));
+      sign.y = card.y + 36;
+      Sound.play('sign');
+      await st.tween(sign, { k: 1 }, 650, E.outQuad);
+      st.burst(sign.x + 30, sign.y - 4, { n: 12, colors: ['#ffffff', '#fde68a'], speed: 2, life: 500, shape: 'star', size: 2 });
+      confetti(st, 160, 50);
+      await st.waitTap(3500);
+    } finally {
+      if (!o.keep) st.destroy();
+    }
+  }
+
+  // ---------- 巨大レイドボス：画面いっぱいの怪獣に「漢字ミサイル（レーザー）」を当てる ----------
+  //   raidStage(host, { name }) は、ずっと出しておく舞台。hit()・miss()・defeat() で動かす
+  function kaijuSprite(seedName) {
+    const c = document.createElement('canvas'); c.width = 220; c.height = 170;
+    const g = c.getContext('2d');
+    // しっぽ・からだ・頭（ドット絵らしく、太い黒ふち）
+    const shape = (fill) => {
+      g.fillStyle = fill;
+      g.beginPath(); g.moveTo(20, 150); g.quadraticCurveTo(0, 120, 30, 112); g.lineTo(70, 120); g.lineTo(60, 150); g.fill();       // しっぽ
+      g.beginPath(); g.ellipse(110, 112, 62, 52, -0.1, 0, Math.PI * 2); g.fill();                                                 // からだ
+      g.beginPath(); g.ellipse(150, 52, 38, 30, 0.15, 0, Math.PI * 2); g.fill();                                                  // 頭
+      g.beginPath(); g.moveTo(160, 62); g.lineTo(206, 70); g.lineTo(200, 84); g.lineTo(152, 80); g.fill();                         // あご
+      g.fillRect(70, 150, 22, 18); g.fillRect(128, 150, 22, 18);                                                                  // 足
+      g.beginPath(); g.ellipse(160, 108, 12, 22, 0.6, 0, Math.PI * 2); g.fill();                                                  // うで
+    };
+    g.save(); g.translate(0, 0);
+    for (const [dx, dy] of [[-2, 0], [2, 0], [0, -2], [0, 2]]) { g.save(); g.translate(dx, dy); shape('#000'); g.restore(); }
+    shape('#14532d');
+    g.restore();
+    g.fillStyle = '#4d7c0f'; g.beginPath(); g.ellipse(118, 124, 36, 30, -0.1, 0, Math.PI * 2); g.fill();   // おなか
+    // せなかのトゲ（紫に光る）
+    g.fillStyle = '#a855f7';
+    for (let i = 0; i < 6; i++) { const x = 58 + i * 16, y = 64 - Math.sin(i / 5 * Math.PI) * 14; g.beginPath(); g.moveTo(x - 8, y + 12); g.lineTo(x, y - 8); g.lineTo(x + 8, y + 12); g.fill(); }
+    // からだの「誤字」もよう
+    g.font = `900 13px ${FONT}`; g.fillStyle = 'rgba(0,0,0,0.35)';
+    const ch = Array.from(String(seedName || '誤字') + '誤字送仮名画数');
+    for (let i = 0; i < 14; i++) g.fillText(ch[i % ch.length], 62 + (i * 37) % 100, 90 + (i * 23) % 60);
+    // 目と歯
+    g.fillStyle = '#fef08a'; g.fillRect(156, 40, 10, 7); g.fillStyle = '#dc2626'; g.fillRect(160, 41, 4, 5);
+    g.fillStyle = '#fff'; for (let i = 0; i < 5; i++) g.fillRect(168 + i * 7, 68, 4, 5);
+    return c;
+  }
+  class Kaiju {
+    constructor(name) {
+      this.spr = kaijuSprite(name); this.x = 214; this.y = 92; this.sx = 1; this.sy = 1; this.rot = 0; this.whiten = 0; this.t = 0; this.z = 3; this.alpha = 1;
+      // 当たったときに白く光らせる形（怪獣の形だけ白い）
+      this.white = document.createElement('canvas'); this.white.width = this.spr.width; this.white.height = this.spr.height;
+      const wg = this.white.getContext('2d'); wg.drawImage(this.spr, 0, 0); wg.globalCompositeOperation = 'source-in'; wg.fillStyle = '#fff'; wg.fillRect(0, 0, this.spr.width, this.spr.height);
+    }
+    update(dt) { this.t += dt; }
+    draw(g) {
+      const bob = Math.sin(this.t / 600) * 2;
+      g.translate(Math.round(this.x), Math.round(this.y + bob)); g.rotate(this.rot); g.scale(this.sx, this.sy);
+      g.drawImage(this.spr, -this.spr.width / 2, -this.spr.height / 2);
+      if (this.whiten > 0) { g.globalAlpha *= this.whiten; g.drawImage(this.white, -this.spr.width / 2, -this.spr.height / 2); }
+    }
+  }
+  function raidStage(host, o) {
+    o = o || {};
+    const st = new Stage(host, { theme: 'arena' });
+    st.add({ alpha: 1, z: 1, draw(g) { const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, 'rgba(220,38,38,0.55)'); gr.addColorStop(1, 'rgba(69,10,10,0.2)'); g.fillStyle = gr; g.fillRect(0, 0, W, H); } });
+    const boss = st.add(new Kaiju(o.name));
+    const label = st.add(new Text(shortLabel(o.name || 'ボス', 10), 13, '#fecaca', '#450a0a')); label.x = 214; label.y = 14;
+    const base = { x: 48, y: 150 };
+    const ship = st.add(new Glyph('🚀', 18)); ship.x = base.x; ship.y = base.y; ship.rot = -0.6;
+    let busy = Promise.resolve();
+    const run = (fn) => (busy = busy.then(fn).catch(() => {}));
+    return {
+      hit(text) {
+        return run(async () => {
+          // 漢字ミサイル：つぶがならぶ太いレーザー → 命中で爆発
+          const beam = st.add(new Beam(base.x + 6, base.y - 8, boss.x - 10, boss.y - 10, '#fde047'));
+          beam.w = 7; beam.z = 6;
+          Sound.play('beam');
+          await st.tween(beam, { k: 1 }, 160, E.inQuad);
+          for (let i = 0; i < 12; i++) { const k = i / 12; st.burst(base.x + (boss.x - base.x) * k, base.y + (boss.y - base.y) * k - 8, { n: 2, colors: ['#fde047', '#ffffff', '#f97316'], speed: 1.2, g: 0, life: 300 }); }
+          st.impact(); st.hitstop(70); st.shake(7); Sound.play('hit');
+          st.burst(boss.x - 10, boss.y - 10, { n: 34, colors: ['#ffffff', '#fde047', '#f97316', '#ef4444'], speed: 4.5, life: 600 });
+          boss.whiten = 1; st.tween(boss, { whiten: 0 }, 300, E.linear);
+          st.tween(boss, { rot: 0.06 }, 70).then(() => st.tween(boss, { rot: 0 }, 400, E.outElastic));
+          fadeOut(st, beam, 200);
+          const t = st.add(new Text(text || '-1', 18, '#ffffff', '#b91c1c')); t.x = boss.x - 30; t.y = boss.y - 40;
+          await pop(st, t, 160);
+          st.tween(t, { y: t.y - 14, alpha: 0 }, 500, E.linear).then(() => st.remove(t));
+        });
+      },
+      miss() {
+        return run(async () => {
+          Sound.play('rumble'); st.shake(5); st.flash('#ef4444', 0.25);
+          const t = st.add(new Text('ガオォォ！', 18, '#fecaca', '#450a0a')); t.x = 150; t.y = 40; t.rot = -0.1;
+          await pop(st, t, 160);
+          await st.tween(boss, { sx: 1.08, sy: 1.08 }, 160, E.outQuad);
+          await st.tween(boss, { sx: 1, sy: 1 }, 260, E.outBack);
+          await st.wait(300); st.remove(t);
+        });
+      },
+      defeat() {
+        return run(async () => {
+          for (let i = 0; i < 6; i++) {
+            st.burst(boss.x + (Math.random() - 0.5) * 120, boss.y + (Math.random() - 0.5) * 90, { n: 24, colors: ['#ffffff', '#fde047', '#f97316', '#ef4444'], speed: 4, life: 700 });
+            Sound.play('hit'); st.shake(8);
+            await st.wait(180);
+          }
+          st.impact(); st.flash('#ffffff', 0.5);
+          await Promise.all([st.tween(boss, { y: 230, rot: 0.5, alpha: 0.2 }, 900, E.inQuad), st.tween(label, { alpha: 0 }, 400)]);
+          await slam(st, '撃破！', 'クラスの勝利！', '#dc2626');
+          confetti(st, 160, 50);
+          await st.wait(800);
+        });
+      },
+      destroy() { st.destroy(); }
+    };
+  }
+
   global.KanjiFX = {
     janken: janken,
     dice: dice,
@@ -1316,6 +1787,14 @@
     diceDuel: diceDuel,
     gachaOpen: gachaOpen,
     treasure: treasure,
+    roulette: roulette,
+    misfortune: misfortune,
+    bossIntro: bossIntro,
+    allOut: allOut,
+    awaken: awaken,
+    raidStage: raidStage,
+    attackFx: (host, hand) => { const st = new Stage(host, { theme: 'arena' }); return attackFx(st, hand, 160, 90).then(() => st.wait(300)).finally(() => st.destroy()); },
+    version: '2026-10-27',
     enableTapSparkles: enableTapSparkles,
     preload: (urls) => Promise.all((urls || []).map((u) => loadImage(u))),
     setSound: (on) => { Sound.on = !!on; try { localStorage.setItem('kanji_fx_sound', on ? 'on' : 'off'); } catch (e) {} },
