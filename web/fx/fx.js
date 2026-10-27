@@ -10,6 +10,7 @@
 //   KanjiFX.diceDuel(要素, { … })         … 偉人（ボス）とのサイコロ勝負
 //   KanjiFX.gachaOpen(要素, { results })  … ガチャ開封（昇格・シルエット・サインつき）
 //   KanjiFX.treasure(要素, { icon, label }) … 宝箱（タップで開けると中身が飛び出す）
+//   KanjiFX.multiply(要素, { base, steps }) … ダメージの掛け算（×3 などが飛んできて、数字が燃え上がる）
 //   KanjiFX.enableTapSparkles()           … 画面のどこをタップしても星が散る
 //   KanjiFX.setSound(true / false)        … 効果音のオン・オフ（端末に記憶）
 // ===============================================================
@@ -723,7 +724,7 @@
     try {
       const [im1, im2] = await Promise.all([loadImage(round.p1.imageUrl, round.p1.imageUrlFull), loadImage(round.p2.imageUrl, round.p2.imageUrlFull)]);
       // 第○回戦
-      const banner = st.add(new Banner(`第${round.round || 1}回戦`));
+      const banner = st.add(new Banner(opts.banner || `第${round.round || 1}回戦`));
       Sound.play('whoosh');
       await st.tween(banner, { x: 160 }, 320, E.outBack);
       await st.wait(260);
@@ -764,6 +765,13 @@
 
       const sameHand = round.p1.hand === round.p2.hand;
       const winner = Number(round.winner) || 0;
+      if (sameHand && opts.plainTie) {   // ボス戦のじゃんけん勝負：あいこは、あいこのまま
+        Sound.play('draw');
+        await clash(st, c1, c2, true);
+        await popText(st, 'あいこ！', { size: 28, color: '#e2e8f0', y: 44 });
+        await st.wait(700);
+        return 0;
+      }
       if (sameHand) {
         // あいこ → レアリティ勝負
         Sound.play('draw');
@@ -1601,6 +1609,66 @@
     }
   }
 
+  // ---------- ダメージの掛け算（Balatro 風）：×3 や ×2 が飛んできて数字にぶつかり、大きくなるほど燃え上がる ----------
+  //   o.base … かける前の数（出目の差×10）、o.baseLabel … その説明、o.steps … [{ label, mul }]（かける順）
+  //   数字の色：100 まで白 → 300 まで黄 → 1000 まで橙 → 3000 まで赤 → それより上は虹色。光るのは最後の1回だけ
+  const MUL_TIERS = [[100, '#ffffff'], [300, '#fde047'], [1000, '#fb923c'], [3000, '#f43f5e']];
+  const fmtNum = (v) => Math.round(v).toLocaleString('ja-JP');
+  class Counter {
+    constructor(v, size) { this.v = v; this.size = size; this.x = 160; this.y = 78; this.sx = 1; this.sy = 1; this.z = 6; this.hue = 0; }
+    color() {
+      for (const [lim, c] of MUL_TIERS) if (this.v < lim) return c;
+      return `hsl(${Math.round(this.hue) % 360}, 95%, 62%)`;
+    }
+    update(dt) { this.hue += dt * 0.25; }
+    draw(g) { g.translate(Math.round(this.x), Math.round(this.y)); g.scale(this.sx, this.sy); outlinedText(g, fmtNum(this.v), 0, 0, this.size, this.color(), '#000'); }
+  }
+  async function multiply(host, o) {
+    o = o || {};
+    const st = new Stage(host, { theme: 'arena' });
+    try {
+      const steps = (o.steps || []).filter((x) => x && Number(x.mul) > 0);
+      const title = st.add(new Text(o.title || 'ダメージ計算', 12, '#c4b5fd')); title.y = 18;
+      const num = st.add(new Counter(Number(o.base) || 0, 34));
+      const sub = st.add(new Text(o.baseLabel || '', 10, '#cbd5e1')); sub.y = 104;
+      Sound.play('whoosh');
+      await pop(st, num, 240);
+      let formula = fmtNum(num.v);
+      const line = st.add(new Text(formula, 10, '#e2e8f0')); line.y = 160;
+      await st.wait(260);
+      for (let i = 0; i < steps.length; i++) {
+        const k = steps[i], mul = Number(k.mul);
+        const chip = st.add(new Text('×' + (Math.round(mul * 10) / 10), 22, '#fde047', '#7c2d12'));
+        chip.x = 360; chip.y = 78;
+        sub.text = k.label || '';
+        Sound.play('whoosh');
+        await st.tween(chip, { x: 236 }, 200, E.outQuad);
+        await st.wait(120);
+        await st.tween(chip, { x: 182, sx: 0.6, sy: 0.6 }, 110, E.inQuad);
+        st.remove(chip);
+        const to = num.v * mul;
+        const tier = MUL_TIERS.findIndex(([lim]) => to < lim);
+        const big = tier < 0 ? 4 : tier;
+        st.hitstop(50 + big * 15); st.shake(2 + big * 2); Sound.play(big >= 3 ? 'hit' : 'land');
+        st.burst(160, 82, { n: 14 + big * 10, colors: big >= 3 ? ['#ffffff', '#fde047', '#f97316', '#ef4444'] : ['#ffffff', '#fde047'], speed: 2 + big, up: 1.2 + big * 0.4, g: -0.03, drag: 0.95, life: 500 + big * 120, size: 2 });
+        num.sx = num.sy = 1.35;
+        await Promise.all([st.tween(num, { v: to }, 320, E.outCubic), st.tween(num, { sx: 1, sy: 1 }, 360, E.outBack)]);
+        formula += ' ×' + (Math.round(mul * 10) / 10);
+        line.text = formula;
+        await st.wait(180);
+      }
+      if (o.total !== undefined) num.v = Number(o.total) || 0;   // 四捨五入のずれは、画面が計算した値に合わせる
+      line.text = formula + ' ＝ ' + fmtNum(num.v);
+      sub.text = '';
+      const huge = num.v >= 1000;
+      if (huge) { st.flash('#ffffff', 0.4); st.speedLines(500, 160, 78); st.impact(); }
+      await slam(st, fmtNum(num.v) + ' ダメージ！', huge ? 'OVERKILL!' : (steps.length >= 3 ? 'COMBO!' : ''), huge ? '#dc2626' : '#7c3aed');
+      await st.wait(200);
+    } finally {
+      if (!o.keep) st.destroy();
+    }
+  }
+
   // ---------- 総攻撃・フィニッシュ：キャラの一枚絵が画面をおおうカットイン ----------
   class CutIn {
     constructor(img) { this.img = img; this.k = 0; this.z = 7; this.shift = 0; }
@@ -1787,6 +1855,8 @@
     diceDuel: diceDuel,
     gachaOpen: gachaOpen,
     treasure: treasure,
+    multiply: multiply,
+    jankenBanner: true,   // janken() の opts.banner（上の帯の文字）に対応している印
     roulette: roulette,
     misfortune: misfortune,
     bossIntro: bossIntro,
@@ -1794,7 +1864,7 @@
     awaken: awaken,
     raidStage: raidStage,
     attackFx: (host, hand) => { const st = new Stage(host, { theme: 'arena' }); return attackFx(st, hand, 160, 90).then(() => st.wait(300)).finally(() => st.destroy()); },
-    version: '2026-10-27',
+    version: '2026-10-28',
     enableTapSparkles: enableTapSparkles,
     preload: (urls) => Promise.all((urls || []).map((u) => loadImage(u))),
     setSound: (on) => { Sound.on = !!on; try { localStorage.setItem('kanji_fx_sound', on ? 'on' : 'off'); } catch (e) {} },
