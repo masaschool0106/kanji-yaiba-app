@@ -640,7 +640,7 @@
       g.fillStyle = this.color; g.fillRect(-240, -18, 480, 36);
       g.fillStyle = 'rgba(255,255,255,0.25)';
       for (let i = -12; i < 12; i++) g.fillRect(i * 20, -18, 6, 36);
-      outlinedText(g, this.main, -6, -2, 26, '#ffffff', '#000');
+      outlinedText(g, this.main, -6, -2, this.main.length > 11 ? Math.max(14, Math.round(26 * 11 / this.main.length)) : 26, '#ffffff', '#000');   // 長い数は字を小さく
       if (this.sub) outlinedText(g, this.sub, 96, 14, 11, '#fde047', '#000');
     }
   }
@@ -995,7 +995,7 @@
         if (p.hand) await attackFx(st, p.hand, boss.x, boss.y);
         await damageNumber(st, boss.x, boss.y + 6, o.damage);
         if (o.critical) await slam(st, 'CRITICAL!', '会心の一撃！', '#ea580c');
-        else if (o.damage >= 40) await slam(st, 'こうかばつぐん！', 'WEAK!', '#dc2626');
+        else if (o.damage >= (o.weakAt || 2000)) await slam(st, 'こうかばつぐん！', 'WEAK!', '#dc2626');
       } else if (res === -1) {
         const beam = st.add(new Beam(d2.x, d2.y, 72, 50, '#f87171'));
         Sound.play('beam');
@@ -1344,7 +1344,8 @@
 
   async function damageNumber(st, x, y, dmg) {
     if (!dmg) return;
-    const t = st.add(new Text(`-${dmg}`, 26, '#ffffff', '#b91c1c'));
+    const label = `-${fmtNum(dmg)}`;
+    const t = st.add(new Text(label, label.length > 8 ? Math.max(14, Math.round(26 * 8 / label.length)) : 26, '#ffffff', '#b91c1c'));
     t.x = x; t.y = y;
     await pop(st, t, 220);
     await st.tween(t, { y: y - 10 }, 160, E.outQuad);
@@ -1611,9 +1612,25 @@
 
   // ---------- ダメージの掛け算（Balatro 風）：×3 や ×2 が飛んできて数字にぶつかり、大きくなるほど燃え上がる ----------
   //   o.base … かける前の数（出目の差×10）、o.baseLabel … その説明、o.steps … [{ label, mul }]（かける順）
-  //   数字の色：100 まで白 → 300 まで黄 → 1000 まで橙 → 3000 まで赤 → それより上は虹色。光るのは最後の1回だけ
-  const MUL_TIERS = [[100, '#ffffff'], [300, '#fde047'], [1000, '#fb923c'], [3000, '#f43f5e']];
-  const fmtNum = (v) => Math.round(v).toLocaleString('ja-JP');
+  //   数字の色：1,000 まで白 → 1万 まで黄 → 10万 まで橙 → 100万 まで赤 → それより上は虹色。光るのは最後の1回だけ
+  //   大きな数は「1億2,345万」のように見せる（9,999兆より大きいと ∞）。長いときは字を小さくする
+  const MUL_TIERS = [[1000, '#ffffff'], [10000, '#fde047'], [100000, '#fb923c'], [1000000, '#f43f5e']];
+  function fmtNum(v) {
+    v = Math.round(Number(v) || 0);
+    const neg = v < 0; v = Math.abs(v);
+    if (v > 9.999e15) return '∞';
+    const units = [[1e12, '兆'], [1e8, '億'], [1e4, '万']];
+    for (let i = 0; i < units.length; i++) {
+      const u = units[i][0];
+      if (v >= u) {
+        const rest = Math.floor((v % u) / (u / 1e4));
+        return (neg ? '-' : '') + Math.floor(v / u).toLocaleString('ja-JP') + units[i][1] + (rest ? rest.toLocaleString('ja-JP') + (units[i + 1] ? units[i + 1][1] : '') : '');
+      }
+    }
+    return (neg ? '-' : '') + v.toLocaleString('ja-JP');
+  }
+  const fitSize = (text, size, max) => (String(text).length > max ? Math.max(8, Math.round(size * max / String(text).length)) : size);
+  const fmtMul = (m) => (m >= 10000 ? fmtNum(m) : String(Math.round(m * 10) / 10));
   class Counter {
     constructor(v, size) { this.v = v; this.size = size; this.x = 160; this.y = 78; this.sx = 1; this.sy = 1; this.z = 6; this.hue = 0; }
     color() {
@@ -1621,7 +1638,7 @@
       return `hsl(${Math.round(this.hue) % 360}, 95%, 62%)`;
     }
     update(dt) { this.hue += dt * 0.25; }
-    draw(g) { g.translate(Math.round(this.x), Math.round(this.y)); g.scale(this.sx, this.sy); outlinedText(g, fmtNum(this.v), 0, 0, this.size, this.color(), '#000'); }
+    draw(g) { const t = fmtNum(this.v); g.translate(Math.round(this.x), Math.round(this.y)); g.scale(this.sx, this.sy); outlinedText(g, t, 0, 0, fitSize(t, this.size, 9), this.color(), '#000'); }
   }
   async function multiply(host, o) {
     o = o || {};
@@ -1638,7 +1655,8 @@
       await st.wait(260);
       for (let i = 0; i < steps.length; i++) {
         const k = steps[i], mul = Number(k.mul);
-        const chip = st.add(new Text('×' + (Math.round(mul * 10) / 10), 22, '#fde047', '#7c2d12'));
+        const chipText = '×' + fmtMul(mul);
+        const chip = st.add(new Text(chipText, fitSize(chipText, 22, 6), '#fde047', '#7c2d12'));
         chip.x = 360; chip.y = 78;
         sub.text = k.label || '';
         Sound.play('whoosh');
@@ -1653,14 +1671,16 @@
         st.burst(160, 82, { n: 14 + big * 10, colors: big >= 3 ? ['#ffffff', '#fde047', '#f97316', '#ef4444'] : ['#ffffff', '#fde047'], speed: 2 + big, up: 1.2 + big * 0.4, g: -0.03, drag: 0.95, life: 500 + big * 120, size: 2 });
         num.sx = num.sy = 1.35;
         await Promise.all([st.tween(num, { v: to }, 320, E.outCubic), st.tween(num, { sx: 1, sy: 1 }, 360, E.outBack)]);
-        formula += ' ×' + (Math.round(mul * 10) / 10);
+        formula += ' ×' + fmtMul(mul);
         line.text = formula;
+        line.size = fitSize(formula, 10, 48);
         await st.wait(180);
       }
       if (o.total !== undefined) num.v = Number(o.total) || 0;   // 四捨五入のずれは、画面が計算した値に合わせる
       line.text = formula + ' ＝ ' + fmtNum(num.v);
+      line.size = fitSize(line.text, 10, 48);
       sub.text = '';
-      const huge = num.v >= 1000;
+      const huge = num.v >= 100000;
       if (huge) { st.flash('#ffffff', 0.4); st.speedLines(500, 160, 78); st.impact(); }
       await slam(st, fmtNum(num.v) + ' ダメージ！', huge ? 'OVERKILL!' : (steps.length >= 3 ? 'COMBO!' : ''), huge ? '#dc2626' : '#7c3aed');
       await st.wait(200);
@@ -1864,7 +1884,7 @@
     awaken: awaken,
     raidStage: raidStage,
     attackFx: (host, hand) => { const st = new Stage(host, { theme: 'arena' }); return attackFx(st, hand, 160, 90).then(() => st.wait(300)).finally(() => st.destroy()); },
-    version: '2026-10-28',
+    version: '2026-10-29',
     enableTapSparkles: enableTapSparkles,
     preload: (urls) => Promise.all((urls || []).map((u) => loadImage(u))),
     setSound: (on) => { Sound.on = !!on; try { localStorage.setItem('kanji_fx_sound', on ? 'on' : 'off'); } catch (e) {} },
