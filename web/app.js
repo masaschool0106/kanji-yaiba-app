@@ -400,8 +400,8 @@
     box.innerHTML = r.defeated
       ? `<div class="raid-title">🎉 ${escapeHtml(r.boss)} をクラスみんなで倒した！</div><div class="raid-sub">${escapeHtml(r.label)}・次の襲来を待とう</div>`
       : `<div class="raid-title">⚠️ ${escapeHtml(r.label)}「${escapeHtml(r.boss)}」襲来！</div>
-         <div class="raid-hp"><i style="width:${pct}%"></i><span>HP ${left} / ${r.maxHp || '?'}</span></div>
-         <div class="raid-sub">じゃんけんでは勝てない…！ 漢字クイズに正解するたび「漢字ミサイル」でダメージ！ クラスみんなで倒そう</div>
+         <div class="raid-hp"><i style="width:${pct}%"></i><span>HP ${left.toLocaleString('ja-JP')} / ${r.maxHp ? r.maxHp.toLocaleString('ja-JP') : '?'}</span></div>
+         <div class="raid-sub">${r.dice ? '漢字クイズに正解すると、カードで「じゃんけん＋サイコロ」の攻撃！' : '漢字クイズに正解するたび「漢字ミサイル」でダメージ！'} クラスみんなで倒そう</div>
          <button type="button" class="raid-go" id="raidGo">🚀 漢字ミサイルで攻撃！</button>`;
     const go = $('raidGo');
     if (go) go.addEventListener('click', openRaid);

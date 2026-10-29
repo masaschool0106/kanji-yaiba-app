@@ -1,12 +1,17 @@
 /* ===============================================================
    漢字の刃｜巨大レイドボス（週末・月末だけ。マイページの知らせを押すと app.js が読み込む）
-   ・漢字クイズ（漢字ミサイル）に正解するたび、ボスに1ダメージ。クラスみんなのダメージで HP をけずる
-   ・正解・ダメージ・ごほうびは、すべてサーバー（Api.gs の raid.*）が決める。この画面は見せるだけ
+   ・攻撃に使うカードを3枚えらぶ → 問題ごとに1枚えらんでから答える → 正解すると、じゃんけん＋サイコロで攻撃
+     ダメージ＝（出目×100 ＋ カードの ATK）× じゃんけん（勝ち×3・あいこ×1.5・負け×1）× 役（3回の手の並び）
+   ・正解・ボスの手・サイコロ・ダメージ・ごほうびは、すべてサーバー（Api.gs の raid.*）が決める。この画面は見せるだけ
+   ・前の版で来たボス（サーバーが dice: false と返す）は、前のとおり 1問1ダメージ
    ・ボスの絵とレーザーは fx/fx.js の raidStage（読めないときは絵文字のボスで動く）
    =============================================================== */
 (function () {
   'use strict';
   let app = null, root = null, stage = null, token = null, busy = false, combo = 0, hits = 0, last = null;
+  let deck = null, rest = -1, pickIdx = -1, fav = '';
+  const CARDS_KEY = 'kanji_raid_cards_v1';   // えらんだ3枚（このブラウザだけ。持っているかはサーバーが毎回確かめる）
+  const ICON = { 'グー': '✊', 'チョキ': '✌️', 'パー': '🖐️' };
 
   const CSS = `
   body.view-raid { padding: 14px 12px 60px; }
@@ -32,7 +37,22 @@
   .rd-top { margin-top: 12px; text-align: left; font-size: 0.9rem; }
   .rd-top li { padding: 3px 0; }
   .rd-top li.me { color: #fde047; font-weight: 900; }
-  @media (max-width: 480px) { .rd-choices { grid-template-columns: 1fr; } }
+  .rd-hint { font-size: 0.85rem; color: #fcd34d; margin: 4px 0 8px; line-height: 1.5; }
+  .rd-hand { display: flex; gap: 8px; justify-content: center; margin: 6px 0 10px; }
+  .rd-card { position: relative; flex: 1 1 0; max-width: 150px; min-width: 0; padding: 8px 6px; border-radius: 12px; border: 2px solid #475569; background: rgba(15, 23, 42, 0.7); color: #fff; font: inherit; cursor: pointer; text-align: center; }
+  .rd-card.on { border-color: #fde047; box-shadow: 0 0 0 3px rgba(253, 224, 71, 0.35); }
+  .rd-card:disabled { opacity: 0.4; cursor: default; }
+  .rd-card .h { font-size: 1.6rem; line-height: 1.2; }
+  .rd-card .n { font-size: 0.78rem; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rd-card .a { font-size: 0.72rem; color: #fcd34d; }
+  .rd-card .r { position: absolute; top: 4px; right: 6px; font-size: 0.65rem; color: #fca5a5; font-weight: 900; }
+  .rd-card img { width: 100%; max-width: 72px; aspect-ratio: 1; object-fit: cover; border-radius: 8px; display: block; margin: 0 auto 4px; }
+  .rd-hit { margin: 6px 0 2px; padding: 8px 10px; border-radius: 10px; background: rgba(0, 0, 0, 0.35); font-size: 0.95rem; line-height: 1.6; }
+  .rd-hit b { color: #fde047; font-size: 1.15rem; }
+  .rd-yaku { color: #f0abfc; font-weight: 900; }
+  .rd-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; max-height: 50vh; overflow-y: auto; margin: 8px 0; }
+  .rd-pick .rd-card { max-width: none; }
+  @media (max-width: 480px) { .rd-choices { grid-template-columns: 1fr; } .rd-card .n { font-size: 0.7rem; } }
   `;
 
   function el(tag, attrs, children) {
@@ -47,6 +67,28 @@
     return e;
   }
   const $ = (id) => document.getElementById(id);
+
+  // 大きな数：1万2,345・1億2,345万
+  function fmt(v) {
+    v = Math.max(0, Math.round(Number(v) || 0));
+    const units = [[1e12, '兆'], [1e8, '億'], [1e4, '万']];
+    for (let i = 0; i < units.length; i++) {
+      const u = units[i][0];
+      if (v >= u) {
+        const top = Math.floor(v / u), rest = Math.floor((v % u) / (u / 1e4));
+        return top.toLocaleString('ja-JP') + units[i][1] + (rest ? rest.toLocaleString('ja-JP') + (units[i + 1] ? units[i + 1][1] : '') : '');
+      }
+    }
+    return v.toLocaleString('ja-JP');
+  }
+  function mulText(m) { return '×' + (Math.round(m * 10) / 10); }
+
+  function savedCards() {
+    try { const v = JSON.parse(localStorage.getItem(CARDS_KEY) || '[]'); return Array.isArray(v) ? v.map(String).slice(0, 3) : []; } catch (e) { return []; }
+  }
+  function saveCards(ids) {
+    try { localStorage.setItem(CARDS_KEY, JSON.stringify(ids)); } catch (e) { /* 保存できなくても、そのまま遊べる */ }
+  }
 
   function build() {
     if (root) return;
@@ -76,7 +118,7 @@
     last = Object.assign(last || {}, d);
     const left = Math.max(0, (last.maxHp || 0) - (last.damage || 0));
     $('rdHpBar').style.width = (last.maxHp ? Math.round(left / last.maxHp * 100) : 100) + '%';
-    $('rdHpText').textContent = 'HP ' + left + ' / ' + (last.maxHp || '?') + '（クラスのダメージ ' + (last.damage || 0) + '）';
+    $('rdHpText').textContent = 'HP ' + fmt(left) + ' / ' + (last.maxHp ? fmt(last.maxHp) : '?') + '（クラスのダメージ ' + fmt(last.damage || 0) + '）';
   }
 
   function startStage(name) {
@@ -98,7 +140,14 @@
 
   function renderTop(s) {
     if (!s.top || !s.top.length) return null;
-    return el('ol', { class: 'rd-top' }, s.top.map((p) => el('li', { class: p.isMe ? 'me' : '', text: p.nickname + '：' + p.damage + ' ダメージ' + (p.isMe ? '（あなた）' : '') })));
+    return el('ol', { class: 'rd-top' }, s.top.map((p) => el('li', {
+      class: p.isMe ? 'me' : '',
+      text: p.nickname + '：' + fmt(p.damage) + ' ダメージ' + (p.hits ? '（正解 ' + p.hits + '問）' : '') + (p.isMe ? '（あなた）' : '')
+    })));
+  }
+
+  function hintText() {
+    return (fav ? 'ボスは ' + ICON[fav] + ' をよく出すぞ！ ' : 'ボスの手は気まぐれ… ') + '3回の手の並びで役（✊→✌️→🖐️ 正順の輪 ×10 など）';
   }
 
   function refresh() {
@@ -110,66 +159,168 @@
         panel([el('p', { text: '巨大ボスが来るのは、週末（金・土・日）と月末だけ。次の襲来を待とう！' })]);
         return;
       }
+      fav = s.fav || '';
       $('rdTitle').textContent = '⚠️ ' + s.label + '「' + s.boss + '」';
       $('rdSub').textContent = '参加した人 ' + s.participants + '人・倒したら1問でも正解した人に ' + s.reward + 'pt（トドメは +' + s.finishReward + 'pt）';
-      $('rdMe').textContent = 'あなたのダメージ：' + s.my;
+      $('rdMe').textContent = 'あなたのダメージ：' + fmt(s.my) + (s.myHits ? '（正解 ' + s.myHits + '問）' : '');
       setHp(s);
       startStage(s.boss);
       if (s.defeated) {
         panel([el('div', { class: 'rd-q', text: '🎉 ' + s.boss + ' を倒した！' }), el('p', { text: (s.finisher ? 'トドメ：' + s.finisher + (s.finisherIsMe ? '（あなた！）' : '') : '') }), renderTop(s)]);
         return;
       }
+      if (!s.dice) {   // 前の版で来たボス
+        panel([
+          el('p', { text: '漢字クイズに正解するたび「漢字ミサイル」が命中！' }),
+          el('div', { class: 'rd-acts' }, [el('button', { type: 'button', class: 'go', text: '🚀 攻撃開始！', onclick: attack })]),
+          renderTop(s)
+        ]);
+        return;
+      }
       panel([
-        el('p', { text: 'じゃんけんでは勝てない…！ 漢字クイズに正解するたび「漢字ミサイル」が命中！' }),
-        el('div', { class: 'rd-acts' }, [el('button', { type: 'button', class: 'go', text: '🚀 攻撃開始！', onclick: attack })]),
+        el('p', { text: '問題の前に、攻撃するカードを1枚えらぼう。正解すると、じゃんけん＋サイコロで攻撃！（じゃんけんに負けても、正解ならダメージは入る）' }),
+        el('div', { class: 'rd-hint', text: hintText() }),
+        el('div', { class: 'rd-acts' }, [
+          el('button', { type: 'button', class: 'go', text: '🚀 攻撃開始！', onclick: attack }),
+          el('button', { type: 'button', text: '🃏 攻撃のカードをえらぶ', onclick: openPicker })
+        ]),
         renderTop(s)
       ]);
     }).catch((err) => { app.hideLoading(); panel([el('p', { class: 'rd-ng', text: '⚠️ ' + (err.message || '読みこめませんでした') })]); });
   }
 
+  // 攻撃に使う3枚をえらぶ（持っているカードはサーバーから）
+  function openPicker() {
+    if (busy) return;
+    busy = true;
+    app.showLoading('カードを読みこんでいます...');
+    app.call('raid.cards').then((r) => {
+      busy = false; app.hideLoading();
+      const max = r.max || 3;
+      const chosen = savedCards().filter((id) => r.cards.some((c) => c.id === id));
+      const msg = el('div', { class: 'rd-msg', text: '' });
+      const grid = el('div', { class: 'rd-pick' });
+      const draw = () => {
+        grid.replaceChildren(...r.cards.map((c) => {
+          const on = chosen.indexOf(c.id) >= 0;
+          return cardButton(c, on, false, () => {
+            const i = chosen.indexOf(c.id);
+            if (i >= 0) chosen.splice(i, 1);
+            else if (chosen.length < max) chosen.push(c.id);
+            msg.textContent = chosen.length + ' / ' + max + ' 枚';
+            draw();
+          });
+        }));
+        msg.textContent = chosen.length + ' / ' + max + ' 枚';
+      };
+      draw();
+      panel([
+        el('div', { class: 'rd-q', text: '🃏 攻撃に使うカードを ' + max + ' 枚えらぼう' }),
+        el('div', { class: 'rd-hint', text: 'ちがう手（✊✌️🖐️）を入れると役が作りやすい。' + max + '枚より少ないときは、強いカードやお試しカードで自動でうめるよ' }),
+        r.cards.length ? grid : el('p', { text: 'まだカードを持っていないので、お試しカードで戦うよ。' }),
+        msg,
+        el('div', { class: 'rd-acts' }, [
+          el('button', { type: 'button', class: 'go', text: 'このカードで攻撃！', onclick: () => { saveCards(chosen); attack(); } }),
+          el('button', { type: 'button', text: 'もどる', onclick: refresh })
+        ])
+      ]);
+    }).catch((err) => { busy = false; app.hideLoading(); panel([el('p', { class: 'rd-ng', text: '⚠️ ' + (err.message || '読みこめませんでした') })]); });
+  }
+
+  function cardButton(c, on, disabled, onclick) {
+    const kids = [];
+    if (c.image) {
+      const img = el('img', { src: c.image, alt: '', loading: 'lazy' });
+      img.onerror = () => img.remove();
+      kids.push(img);
+    }
+    kids.push(el('div', { class: 'h', text: ICON[c.hand] || '❓' }));
+    kids.push(el('div', { class: 'n', text: c.name }));
+    kids.push(el('div', { class: 'a', text: (c.trial ? 'お試し' : c.rarity) + '・ATK ' + c.atk }));
+    if (disabled) kids.push(el('div', { class: 'r', text: '休み' }));
+    const b = el('button', { type: 'button', class: 'rd-card' + (on ? ' on' : '') }, kids);
+    b.disabled = !!disabled;
+    b.addEventListener('click', onclick);
+    return b;
+  }
+
   function attack() {
     if (busy) return;
     busy = true;
-    app.call('raid.start').then((q) => {
+    app.call('raid.start', { cards: savedCards() }).then((q) => {
       busy = false;
       token = q.token; combo = 0;
+      deck = q.dice ? q.deck : null; rest = q.last === undefined ? -1 : q.last; pickIdx = -1;
+      if (q.fav !== undefined) fav = q.fav;
+      if (deck) saveCards(deck.filter((c) => !c.trial).map((c) => c.id));
       setHp(q);
       question(q, '');
     }).catch((err) => { busy = false; panel([el('p', { class: 'rd-ng', text: '⚠️ ' + (err.message || 'はじめられませんでした') })]); });
   }
 
-  function question(q, msg, cls) {
+  // 問題で使えるカード（前の問題で使ったカードは休み）
+  function handRow() {
+    if (!deck) return null;
+    if (pickIdx < 0 || pickIdx === rest) pickIdx = deck.findIndex((c, i) => i !== rest);
+    const row = el('div', { class: 'rd-hand' });
+    const draw = () => row.replaceChildren(...deck.map((c, i) => cardButton(c, i === pickIdx, i === rest, () => { pickIdx = i; draw(); })));
+    draw();
+    return row;
+  }
+
+  function question(q, msg, cls, extra) {
     const box = el('div', { class: 'rd-choices' });
     q.choices.forEach((c) => box.appendChild(el('button', { type: 'button', text: c, onclick: () => answer(c, box) })));
     panel([
-      el('div', { class: 'rd-msg ' + (cls || ''), text: msg || (combo >= 2 ? '🔥 ' + combo + ' 連続命中中！' : '漢字ミサイル発射よーい！') }),
+      el('div', { class: 'rd-msg ' + (cls || ''), text: msg || (combo >= 2 ? '🔥 ' + combo + ' 連続命中中！' : (deck ? '攻撃するカードをえらんで、答えよう！' : '漢字ミサイル発射よーい！')) }),
+      extra || null,
+      deck ? el('div', { class: 'rd-hint', text: hintText() }) : null,
+      handRow(),
       el('div', { class: 'rd-q', text: q.question }),
       box,
       el('div', { class: 'rd-acts' }, [el('button', { type: 'button', text: '⏸ ひと休み', onclick: refresh })])
     ]);
   }
 
+  // 攻撃の結果：「✊ vs ✌️ 勝ち！ 出目5 →（500＋300）×3 ＝ 2,400」
+  function hitBox(h) {
+    const jw = h.jr === 1 ? '勝ち！' : (h.jr === 0 ? 'あいこ' : '負け…でも命中！');
+    const lines = [
+      el('div', { text: (ICON[h.hand] || '') + ' ' + h.name + '  vs  ボス ' + (ICON[h.bossHand] || '') + '  → ' + jw })
+    ];
+    if (h.yaku) lines.push(el('div', { class: 'rd-yaku', text: h.yaku.icon + ' ' + h.yaku.name + (h.yaku.fired ? ' ' + mulText(h.yaku.mul) + '！' : '（そろわなかった）') }));
+    const mul = mulText(h.jankenMul) + (h.yaku && h.yaku.fired ? ' ' + mulText(h.yaku.mul) : '');
+    lines.push(el('div', {}, ['🎲 出目' + h.dice + ' →（' + (h.dice * 100) + '＋ATK ' + h.atk + '）' + mul + ' ＝ ', el('b', { text: fmt(h.damage) })]));
+    return el('div', { class: 'rd-hit' }, lines);
+  }
+
   function answer(choice, box) {
     if (busy) return;
     busy = true;
     box.querySelectorAll('button').forEach((b) => { b.disabled = true; });
-    app.call('raid.answer', { token: token, choice: choice }).then((r) => {
+    const params = { token: token, choice: choice };
+    if (deck) params.card = pickIdx;
+    app.call('raid.answer', params).then((r) => {
       busy = false;
       setHp(r);
+      if (r.last !== undefined) rest = r.last;
+      const dmg = r.hit ? r.hit.damage : 1;
       if (r.correct) { combo++; hits++; $('rdMe').textContent = 'この挑戦での命中：' + hits; }
       else combo = 0;
-      const fx = r.correct ? stage.hit(combo >= 3 ? '-1 ×' + combo + '連続' : '-1') : stage.miss();
+      const fx = r.correct ? stage.hit('-' + fmt(dmg) + (r.hit && r.hit.yaku && r.hit.yaku.fired ? ' ' + r.hit.yaku.icon : '')) : stage.miss();
+      const extra = r.hit ? hitBox(r.hit) : null;
       if (r.defeated) {
         fx.then(() => stage.defeat()).then(() => {
           panel([
             el('div', { class: 'rd-q', text: r.finishedByMe ? '⚡ あなたがトドメをさした！' : '🎉 クラスのみんなでボスを倒した！' }),
+            r.finishedByMe ? extra : null,
             el('p', { text: r.finishedByMe && r.reward ? 'ごほうび ' + r.reward + 'pt！（参加した人みんなにもポイント）' : '1問でも正解した人には、ポイントのごほうび！' }),
             el('div', { class: 'rd-acts' }, [el('button', { type: 'button', class: 'go', text: '活やくランキングを見る', onclick: refresh })])
           ]);
         });
         return;
       }
-      question(r, r.correct ? '💥 命中！ ボスに 1 ダメージ！' : '🛡️ はずれ…（正解は「' + r.answer + '」）', r.correct ? 'rd-ok' : 'rd-ng');
+      question(r, r.correct ? '💥 命中！ ボスに ' + fmt(dmg) + ' ダメージ！' : '🛡️ はずれ…（正解は「' + r.answer + '」）', r.correct ? 'rd-ok' : 'rd-ng', extra);
     }).catch((err) => {
       busy = false;
       panel([el('p', { class: 'rd-ng', text: '⚠️ ' + (err.message || 'うまくいきませんでした') }), el('div', { class: 'rd-acts' }, [el('button', { type: 'button', class: 'go', text: 'もう一度', onclick: refresh })])]);
