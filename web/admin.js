@@ -236,6 +236,14 @@
   //   消すことはできない（持っている子がいるため）。ガチャに出したくないときは、ガチャの種類を「なし」にする
   let cardData = null, cardFilter = { q: '', rarity: '', hand: '', gacha: '' };
   function effectName(d, id) { const e = (d.effects || []).find((x) => x.id === id); return e ? e.name : ''; }
+  // ステップアップのスキルの段（段階4）：ふつう（N〜R+）・つよい（SR〜SR+）・イカサマ（SSR〜LEGEND）。レアリティに合う段のスキルだけえらべる
+  function tierOfRarity(d, rarity) { return (d.tiers || {})[rarity] || ''; }
+  function tierName(d, tier) { return (d.tierNames || {})[tier] || ''; }
+  function skillsFor(d, hand, rarity) {
+    const t = tierOfRarity(d, rarity);
+    return (d.effects || []).filter((e) => e.hand === hand && (!t || !e.tier || e.tier === t));
+  }
+  function skillWords(desc) { return String(desc || '').replace(/\{S(\d*)\}/g, (m, n) => n ? '強さ×' + n : '強さ').replace(/\{H\}/g, '強さの半分').replace(/\{Q\}/g, '（1＋強さ×0.25）'); }
   function thumbOf(c) {
     const base = (window.KANJI_CONFIG && KANJI_CONFIG.assetBase) || '';
     return base ? base + 'assets/cards/thumb/' + encodeURIComponent(c.no) + '.webp' : c.image;
@@ -267,7 +275,7 @@
         return el('button', { type: 'button', class: 'adm-cl-item', onclick: () => drawCardEdit(c) }, [
           img, el('b', { text: 'No.' + c.no + ' ' + c.name }), el('br'),
           c.rarity + '・' + c.hand + '・' + (c.gachaType || '-'), el('br'),
-          '効果：' + (c.effect ? effectName(d, c.effect) : effectName(d, c.autoEffect) + '（自動）'), el('br'),
+          'スキル：' + (c.effect ? effectName(d, c.effect) : effectName(d, c.autoEffect) + '（自動）') + (tierName(d, tierOfRarity(d, c.rarity)) ? '・' + tierName(d, tierOfRarity(d, c.rarity)) : ''), el('br'),
           '持っている子：' + c.owners + '人'
         ]);
       }));
@@ -288,15 +296,18 @@
     const handIn = el('select', {}, opt(d.hands, c.hand));
     const effIn = el('select', {});
     const fillEff = (h, selId) => {
-      const auto = h === c.hand ? effectName(d, c.autoEffect || c.effect) : '';
-      effIn.replaceChildren(...[el('option', { value: '', text: '自動' + (auto && !c.effect ? '（今：' + auto + '）' : '') })].concat((d.effects || []).filter((e) => e.hand === h).map((e) => {
-        const o = el('option', { value: e.id, text: e.name + (e.auto ? '' : '（ぶっとび）') });
+      const same = h === c.hand && rarIn.value === c.rarity;
+      const auto = same ? effectName(d, c.autoEffect || c.effect) : '';
+      const t = tierName(d, tierOfRarity(d, rarIn.value));
+      effIn.replaceChildren(...[el('option', { value: '', text: '自動' + (t ? '（' + t + 'の段）' : '') + (auto && !c.effect ? '（今：' + auto + '）' : '') })].concat(skillsFor(d, h, rarIn.value).map((e) => {
+        const o = el('option', { value: e.id, text: e.name + '（' + (tierName(d, e.tier) || '') + '）：' + skillWords(e.desc) });
         if (e.id === selId) o.selected = true;
         return o;
       })));
     };
     fillEff(c.hand, c.effect);
     handIn.addEventListener('change', () => fillEff(handIn.value, ''));
+    rarIn.addEventListener('change', () => fillEff(handIn.value, effIn.value));   // レアリティの段が変わったら、その段のスキルにえらび直す
     const lineIn = el('input', { type: 'text', maxlength: '30', value: c.line });
     const warn = el('div', { class: 'adm-warn' });
     const showWarn = () => {
@@ -615,19 +626,22 @@
     const opt = (list, val) => list.map((v) => { const o = el('option', { value: v, text: v }); if (v === val) o.selected = true; return o; });
     const nameIn = el('input', { type: 'text', maxlength: '12', value: r.name });
     const handIn = el('select', {}, opt(d.hands, r.hand));
-    // ステップアップの効果：子どもが選んだものが最初に入る（空＝おまかせ）。手を変えたら、その手の効果にえらび直す
+    const rarIn = el('select', {}, [el('option', { value: '', text: 'えらぶ' })].concat(opt(d.rarities, '')));
+    // ステップアップのスキル：空＝おまかせ（レアリティの段で自動）。手を変えたら、その手のスキルにえらび直す
     const effIn = el('select', {});
+    //   段階4：子どもはえらばない。レアリティをえらぶと、その段（ふつう・つよい・イカサマ）のスキルだけ出る
     const fillEff = (h, sel) => {
-      effIn.replaceChildren(...[el('option', { value: '', text: 'おまかせ（自動）' })].concat((d.effects || []).filter((e) => e.hand === h).map((e) => {
-        const o = el('option', { value: e.id, text: e.name + (e.auto ? '' : '（ぶっとび）') + '：' + e.desc.replace(/\{S(\d*)\}/g, (m, n) => n ? '強さ×' + n : '強さ').replace(/\{H\}/g, '強さの半分') });
+      const t = tierName(d, tierOfRarity(d, rarIn.value));
+      effIn.replaceChildren(...[el('option', { value: '', text: 'おまかせ（自動' + (t ? '・' + t + 'の段' : '') + '）' })].concat(skillsFor(d, h, rarIn.value).map((e) => {
+        const o = el('option', { value: e.id, text: e.name + '（' + (tierName(d, e.tier) || '') + '）：' + skillWords(e.desc) });
         if (e.id === sel) o.selected = true;
         return o;
       })));
     };
     fillEff(r.hand, r.effect);
     handIn.addEventListener('change', () => fillEff(handIn.value, ''));
+    rarIn.addEventListener('change', () => fillEff(handIn.value, effIn.value));
     const lineIn = el('input', { type: 'text', maxlength: '30', value: r.line });
-    const rarIn = el('select', {}, [el('option', { value: '', text: 'えらぶ' })].concat(opt(d.rarities, '')));
     const gachaIn = el('select', {}, [el('option', { value: '', text: 'えらぶ' })].concat(opt(d.gachaTypes, '')));
     const comIn = el('input', { type: 'text', maxlength: '100', placeholder: '子どもへのひとこと（なくてもよい）' });
     const msgEl = el('div', { class: 'adm-note' });

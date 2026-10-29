@@ -3,11 +3,12 @@
    ・画像はこの Chromebook の中でカードの形（600×849）に切りぬき、小さくしてから送る
    ・先生が承認すると、カードリストに入り、作った子に1枚プレゼントされる
    ・審査中の申請は1人1枚まで
+   ・ステップアップのスキルはえらばない（段階4：レアリティの段で自動。先生が承認のときに変えられる）
    =============================================================== */
 (function () {
   'use strict';
   const FULL_W = 600, FULL_H = 849, THUMB_W = 240, THUMB_H = 340;
-  let app = null, root = null, picked = null, hand = '', effects = [], effect = '';
+  let app = null, root = null, picked = null, hand = '';
 
   const CSS = `
   body.view-cardmake { padding: 16px 14px 110px; }
@@ -37,13 +38,7 @@
   .cm-badge.ng { background: rgba(248, 113, 113, 0.2); color: #fca5a5; }
   .cm-msg { margin-top: 10px; font-size: 14px; font-weight: 800; min-height: 1.4em; }
   .cm-msg.error { color: #fca5a5; } .cm-msg.ok { color: #86efac; }
-  .cm-effects { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
-  .cm-eff { font: inherit; text-align: left; cursor: pointer; padding: 10px 12px; border-radius: 12px; color: #e2e8f0; background: rgba(15, 23, 42, 0.8); border: 2px solid rgba(56, 189, 248, 0.25); }
-  .cm-eff.active { border-color: #fbbf24; background: rgba(251, 191, 36, 0.16); }
-  .cm-eff .n { font-size: 16px; font-weight: 900; color: #fde68a; }
-  .cm-eff .d { font-size: 13px; line-height: 1.5; margin-top: 2px; }
-  .cm-eff .wild { display: inline-block; margin-left: 6px; font-size: 11px; padding: 1px 8px; border-radius: 999px; background: #db2777; color: #fff; vertical-align: 2px; }
-  .cm-eff-note { font-size: 13px; color: #94a3b8; margin-top: 6px; }
+  .cm-eff-note { font-size: 13px; color: #94a3b8; margin: 6px 0 12px; line-height: 1.6; }
   @media (max-width: 600px) { .cm-grid { grid-template-columns: 1fr; } .cm-preview { margin: 0 auto; } }
   `;
 
@@ -89,14 +84,10 @@
                   el('button', { type: 'button', class: 'cm-hand', 'data-hand': h[0], text: h[1], onclick: () => pickHand(h[0]) })))
               ]),
               el('div', { class: 'cm-field' }, [
-                el('span', { class: 'cm-label', text: '④ ステップアップバトルの効果' }),
-                el('div', { class: 'cm-effects', id: 'cmEffects' }),
-                el('div', { class: 'cm-eff-note', text: '「強さ」はカードのレアリティで決まるよ（レアリティは先生が決める）。' })
-              ]),
-              el('div', { class: 'cm-field' }, [
-                el('label', { for: 'cmLine', text: '⑤ セリフ（なくてもよい・30文字まで）' }),
+                el('label', { for: 'cmLine', text: '④ セリフ（なくてもよい・30文字まで）' }),
                 el('input', { type: 'text', id: 'cmLine', maxlength: '30', placeholder: '例：雷のように、すばやく！', autocomplete: 'off' })
               ]),
+              el('div', { class: 'cm-eff-note', text: '⚔️ ステップアップバトルのスキルは、先生が決めるレアリティで自動で決まるよ（ふつう・つよい・⚡イカサマ）。図鑑で見てみよう！' }),
               el('button', { type: 'button', class: 'cm-send', id: 'cmSend', text: '📮 先生に送る', onclick: send }),
               el('div', { class: 'cm-msg', id: 'cmMsg', role: 'status' })
             ])
@@ -111,26 +102,8 @@
   function msg(text, type) { const m = $('cmMsg'); m.textContent = text || ''; m.className = 'cm-msg' + (type ? ' ' + type : ''); }
 
   function pickHand(h) {
-    if (h !== hand) effect = '';   // 手を変えたら、効果はおまかせにもどす
     hand = h;
     document.querySelectorAll('#cmHands .cm-hand').forEach((b) => b.classList.toggle('active', b.getAttribute('data-hand') === h));
-    renderEffects();
-  }
-
-  // 効果の説明の {S} などを、ことばにする（強さはまだ決まっていないため）
-  function effectWords(desc) {
-    return String(desc || '').replace(/\{S(\d*)\}/g, (m, n) => n ? '強さ×' + n : '強さ').replace(/\{H\}/g, '強さの半分');
-  }
-
-  function renderEffects() {
-    const box = $('cmEffects');
-    if (!box) return;
-    if (!hand) { box.replaceChildren(el('div', { class: 'cm-eff-note', text: '③で手をえらぶと、効果をえらべるよ。' })); return; }
-    const items = [{ id: '', name: 'おまかせ', desc: 'カードの番号で、ふつうの効果から自動で決まる' }].concat(effects.filter((e) => e.hand === hand));
-    box.replaceChildren(...items.map((e) => el('button', { type: 'button', class: 'cm-eff' + (e.id === effect ? ' active' : ''), onclick: () => { effect = e.id; renderEffects(); } }, [
-      el('div', { class: 'n' }, [e.name, e.id && !e.auto ? el('span', { class: 'wild', text: 'ぶっとび' }) : null]),
-      el('div', { class: 'd', text: effectWords(e.desc) })
-    ])));
   }
 
   // 画像を読みこんで、カードの形にまん中から切りぬく
@@ -176,7 +149,7 @@
     if (!hand) { msg('③ 手をえらんでね。', 'error'); return; }
     $('cmSend').disabled = true;
     msg('送っています...');
-    app.call('card.submit', { name: name, hand: hand, effect: effect, line: $('cmLine').value.trim(), image: picked.full, thumb: picked.thumb })
+    app.call('card.submit', { name: name, hand: hand, line: $('cmLine').value.trim(), image: picked.full, thumb: picked.thumb })
       .then(() => { msg('送ったよ！先生が見るまで待ってね。', 'ok'); return loadStatus(); })
       .catch((err) => { msg(err.message || '送れませんでした。', 'error'); })
       .finally(() => { $('cmSend').disabled = false; });
@@ -185,8 +158,6 @@
   function loadStatus() {
     app.showLoading('読み込み中...');
     return app.call('card.myStatus').then((d) => {
-      effects = Array.isArray(d.effects) ? d.effects : [];
-      renderEffects();
       const box = $('cmStatus');
       const req = d.request;
       const pending = req && req.status === '審査中';
@@ -201,8 +172,7 @@
       const badge = req.status === '承認' ? el('span', { class: 'cm-badge ok', text: '🎉 承認されたよ！' })
         : req.status === '見送り' ? el('span', { class: 'cm-badge ng', text: '今回は見送り' })
         : el('span', { class: 'cm-badge wait', text: '⏳ 先生が見ているところ' });
-      const ef = effects.find((x) => x.id === req.effect);
-      const lines = [badge, el('div', { class: 'cm-note', text: '「' + req.name + '」（' + req.hand + (ef ? '・' + ef.name : '') + '）　' + req.time })];
+      const lines = [badge, el('div', { class: 'cm-note', text: '「' + req.name + '」（' + req.hand + '）　' + req.time })];
       if (req.status === '承認') lines.push(el('div', { class: 'cm-note', text: 'カード No.' + req.rank + ' になったよ。図鑑を見てみよう！ ガチャからも出るよ。（絵が出るまで10分ほどかかることがあるよ）' }));
       if (req.status === '見送り' && req.comment) lines.push(el('div', { class: 'cm-note', text: '先生から：' + req.comment }));
       if (req.status !== '審査中') lines.push(el('div', { class: 'cm-note', text: '下から、新しいカードを送れるよ。' }));
@@ -218,7 +188,7 @@
       app = api;
       build();
       app.showView('cardmake');
-      picked = null; hand = ''; effect = '';
+      picked = null; hand = '';
       $('cmFile').value = ''; $('cmName').value = ''; $('cmLine').value = '';
       $('cmPreview').replaceChildren(document.createTextNode('ここに絵が出るよ'));
       pickHand('');
