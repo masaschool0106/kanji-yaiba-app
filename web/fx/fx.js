@@ -177,7 +177,6 @@
       // 画面をタップすると早送り。ただし「タップを待っている」とき（ガチャのパックなど）はそちらを優先
       this.onTap = null;
       this.skipHandler = () => {
-        if (this.holdTaps) return;   // スワイプを待っているとき
         if (this.onTap) { const f = this.onTap; this.onTap = null; f(); }
         else this.speed = 4;
       };
@@ -288,29 +287,6 @@
         const finish = (how) => { if (done) return; done = true; if (this.onTap === tapped) this.onTap = null; resolve(how); };
         const tapped = () => finish('tap');
         this.onTap = tapped;
-        setTimeout(() => finish('timeout'), ms);
-      });
-    }
-    // スワイプ（なぞる）を待つ。なぞれたら 'swipe'。タップだけのときは onMiss を呼ぶ。ms たったら先へ進む
-    waitSwipe(ms, onMiss) {
-      return new Promise((resolve) => {
-        let done = false, start = null;
-        const pos = (e) => { const r = this.canvas.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; };
-        const down = (e) => { start = pos(e); };
-        const move = (e) => {
-          if (!start || done) return;
-          const p = pos(e);
-          if (Math.hypot(p.x - start.x, p.y - start.y) > 40) finish('swipe', start, p);
-        };
-        const up = () => { if (start && !done && onMiss) onMiss(); start = null; };
-        const finish = (how, a, b) => {
-          if (done) return;
-          done = true; this.holdTaps = false;
-          this.canvas.removeEventListener('pointerdown', down); this.canvas.removeEventListener('pointermove', move); this.canvas.removeEventListener('pointerup', up);
-          resolve({ how, from: a, to: b });
-        };
-        this.holdTaps = true;
-        this.canvas.addEventListener('pointerdown', down); this.canvas.addEventListener('pointermove', move); this.canvas.addEventListener('pointerup', up);
         setTimeout(() => finish('timeout'), ms);
       });
     }
@@ -1139,15 +1115,16 @@
       pack.glow = shownTier >= 2 ? 1 : 0.5; pack.glowColor = TIER_COLOR[shownTier]; pack.rainbow = shownTier >= 4;
       Sound.play('whoosh');
       await st.tween(pack, { y: 88 }, 520, E.outBack);
-      const hint = st.add(new Text('👉 なぞってパックをやぶろう！', 11, '#fde68a'));
+      const hint = st.add(new Text('👆 タップしてパックをやぶろう！', 11, '#fde68a'));
       hint.y = 166; hint.update = function (dt, s) { this.alpha = 0.55 + 0.45 * Math.sin(performance.now() / 260); };
-      // 横になぞる（スワイプ）とやぶれる。タップだけのときはパックがゆれて教える。10秒たったら自動で開く
-      const sw = await st.waitSwipe(10000, () => { st.tween(pack, { rot: 0.08 }, 60).then(() => st.tween(pack, { rot: -0.08 }, 60)).then(() => st.tween(pack, { rot: 0 }, 80)); hint.text = '👉 よこに なぞってね！'; });
-      if (sw.how === 'swipe') {
-        const cut = st.add(new Beam(Math.min(sw.from.x, sw.to.x) - 20, 64, Math.max(sw.from.x, sw.to.x) + 20, 64, '#ffffff'));
+      // タップすると、切れ目が左から右へ横に走ってやぶれる。10秒たったら自動で開く
+      //   （前は横になぞる操作だったが、iPad などでブラウザの「戻る」になってしまうので、タップにした）
+      if (await st.waitTap(10000) === 'tap') {
+        const cut = st.add(new Beam(pack.x - pack.w / 2 - 20, 64, pack.x + pack.w / 2 + 20, 64, '#ffffff'));
         cut.w = 3; cut.z = 9;
-        await st.tween(cut, { k: 1 }, 90, E.linear);
-        st.burst(160, 64, { n: 24, colors: ['#ffffff', '#fde68a'], speed: 3, g: 0.05, life: 400 });
+        Sound.play('whoosh');
+        await st.tween(cut, { k: 1 }, 220, E.outQuad);
+        st.burst(pack.x + pack.w / 2 + 20, 64, { n: 24, colors: ['#ffffff', '#fde68a'], speed: 3, g: 0.05, life: 400 });
         fadeOut(st, cut, 200);
       }
       st.remove(hint);
@@ -1884,7 +1861,7 @@
     awaken: awaken,
     raidStage: raidStage,
     attackFx: (host, hand) => { const st = new Stage(host, { theme: 'arena' }); return attackFx(st, hand, 160, 90).then(() => st.wait(300)).finally(() => st.destroy()); },
-    version: '2026-10-29',
+    version: '2026-10-30',
     enableTapSparkles: enableTapSparkles,
     preload: (urls) => Promise.all((urls || []).map((u) => loadImage(u))),
     setSound: (on) => { Sound.on = !!on; try { localStorage.setItem('kanji_fx_sound', on ? 'on' : 'off'); } catch (e) {} },
