@@ -1,0 +1,70 @@
+/* ===============================================================
+   漢字の刃｜ドット絵の見た目（FxBridge の画面用）
+   FxBridge が読み込み、fx/pixel.js の PAGES にある画面だけ、html と body に .px-theme を付ける
+   （そのとき未来風の theme.css は止める）。.px-theme がない画面には何も効かない（クイズ・ランナーにも効かない）
+   ・色は PICO-8 の16色（クイズ・ランナーと同じ名前）。角は四角・太い黒のふち・グラデーションとぼかしは使わない
+   ・字は DotGothic16（pixel.js があとから読みこむ）。問題と答えの漢字・長い説明は、読みやすいふつうの字（--px-font-read）
+   ・動きはコマ送り（steps）。動かすのは transform と opacity だけ
+   マイページ・ログインは app.css（同じ色と形）
+   =============================================================== */
+.px-theme {
+  --k: #000000; --navy: #1d2b53; --plum: #7e2553; --green: #008751; --brown: #ab5236; --gray: #5f574f;
+  --lgray: #c2c3c7; --white: #fff1e8; --red: #ff004d; --orange: #ffa300; --yellow: #ffec27; --lime: #00e436;
+  --blue: #29adff; --lav: #83769c; --pink: #ff77a8; --peach: #ffccaa; --dblue: #065ab5;
+  --px: 4px;
+  --px-font: 'DotGothic16', 'Hiragino Sans', 'Yu Gothic', sans-serif;
+  --px-font-read: 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic', sans-serif;
+}
+body.px-theme {
+  background: #0b0f24 !important; color: var(--white);
+  font-family: var(--px-font) !important;
+  touch-action: manipulation;
+}
+
+/* ---------- 部品（新しく作る画面は、これを使う） ---------- */
+.px-theme .pxbox {
+  background: var(--navy); color: var(--white); border: none; border-radius: 0;
+  box-shadow: 0 calc(var(--px) * -1) 0 0 var(--k), 0 var(--px) 0 0 var(--k), calc(var(--px) * -1) 0 0 0 var(--k), var(--px) 0 0 0 var(--k),
+              inset 0 var(--px) 0 0 rgba(255, 255, 255, 0.18), inset 0 calc(var(--px) * -1) 0 0 rgba(0, 0, 0, 0.35);
+}
+.px-theme .pxbtn {
+  font: inherit; font-size: 18px; color: var(--white); background: var(--blue); border: none; border-radius: 0;
+  min-height: 56px; padding: 10px 18px; cursor: pointer; text-shadow: 2px 2px 0 var(--k);
+  box-shadow: 0 4px 0 var(--k), inset 0 -4px 0 rgba(0, 0, 0, 0.25), inset 0 4px 0 rgba(255, 255, 255, 0.25);
+}
+.px-theme .pxbtn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--k), inset 0 -4px 0 rgba(0, 0, 0, 0.25); }
+.px-theme .pxbtn:disabled { opacity: 0.45; cursor: default; }
+.px-theme .pxbtn.red { background: var(--red); } .px-theme .pxbtn.green { background: var(--green); }
+.px-theme .pxbtn.gray { background: var(--gray); } .px-theme .pxbtn.plum { background: var(--plum); }
+.px-theme .px-read { font-family: var(--px-font-read); }
+/* キーのしるし。iPad など、キーボードのない端末では出さない */
+.px-theme .kbd { display: inline-block; font-size: 12px; line-height: 1.5; padding: 0 5px; margin-right: 4px; background: var(--k); color: var(--lgray); text-shadow: none; vertical-align: middle; }
+@media (hover: none) { .px-theme .kbd { display: none; } }
+/* キーボードで選んだところ：黄色の点線 */
+.px-theme :focus-visible { outline: 4px dashed var(--yellow) !important; outline-offset: 3px; }
+
+/* ---------- 右下のメニュー（SubMenu） ---------- */
+.px-theme .global-nav-toggle {
+  font-family: var(--px-font); font-weight: normal; font-size: 18px; color: var(--white); border: none; border-radius: 0;
+  min-height: 56px; padding: 12px 20px; background: var(--plum); text-shadow: 2px 2px 0 var(--k); transition: none;
+  box-shadow: 0 4px 0 var(--k), inset 0 -4px 0 rgba(0, 0, 0, 0.25), inset 0 4px 0 rgba(255, 255, 255, 0.25);
+}
+.px-theme .global-nav-toggle:hover { transform: none; filter: brightness(1.1); }
+.px-theme .global-nav-toggle:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--k); }
+.px-theme .global-nav-menu {
+  bottom: 88px; border-radius: 0; padding: 6px; background: var(--navy); min-width: 250px; transition: none;
+  box-shadow: 0 -4px 0 0 var(--k), 0 4px 0 0 var(--k), -4px 0 0 0 var(--k), 4px 0 0 0 var(--k), 0 8px 0 4px rgba(0, 0, 0, 0.4);
+}
+.px-theme .global-nav-menu:not(.show) { visibility: hidden; }
+.px-theme .global-nav-menu button { font-family: var(--px-font); font-weight: normal; font-size: 18px; min-height: 52px; padding: 8px 14px; color: var(--white); border-bottom: 2px solid var(--k); display: flex; align-items: center; gap: 10px; }
+.px-theme .global-nav-menu button:hover, .px-theme .global-nav-menu button:focus-visible { background: var(--blue); color: var(--white); outline: none !important; }
+
+/* ---------- 画面に入るとき：板が4コマで上から落ちてくる ---------- */
+.px-theme .kpx-enter { animation: kpxEnter 0.28s steps(4) both; }
+@keyframes kpxEnter { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .px-theme .kpx-enter { animation: none; }
+}
+
+/* ---------- 画面ごと（段階2から足していく） ---------- */

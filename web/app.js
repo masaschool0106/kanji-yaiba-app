@@ -82,6 +82,11 @@
     document.body.className = 'view-' + name;
     $('globalNav').hidden = (name === 'login');
     $('globalNavMenu').classList.remove('show');
+    // 城下町の背景は、ログイン・マイページのときだけ（雲が流れるのはマイページだけ）
+    if (pixelBg) {
+      if (name === 'mypage' || name === 'login') { pixelBg.show(); pixelBg.set({ clouds: name === 'mypage' }); }
+      else pixelBg.hide();
+    }
     if (name !== 'mypage') stopRefresh();
     window.scrollTo(0, 0);
   }
@@ -130,7 +135,6 @@
   // ==================== マイページ ====================
   function openMypage() {
     showView('mypage');
-    requestAnimationFrame(czLayout);   // 表示されてから大きさを測る
     if (state.player) renderPlayer(state.player);
     loadMypage(true);
     startRefresh();
@@ -225,6 +229,7 @@
     }
     $('newSpecialMove').value = state.player ? state.player.finisher : '';
     $('editModal').classList.add('show');
+    $('newSpecialMove').focus();
   }
   function closeFinisherEditor() { $('editModal').classList.remove('show'); }
   function saveFinisher() {
@@ -253,118 +258,135 @@
     $('loginNumber').focus();
   }
 
-  // ==================== 3Dカルーセル（行き先を選ぶ） ====================
-  //   まん中のカードをタップ → その画面へ移動。横のカードをタップ → そのカードがまん中へ回ってくる
-  //   左右の矢印・下の点・左右へのスワイプ・キーボードの ← → でも回せる。最後に選んだカードを覚えておく
-  const CAROUSEL_KEY = 'kanji_carousel';
-  const cz = { cards: [], n: 0, pos: 0, step: 60, drag: null, moved: false };
+  // ==================== 行き先のタイル（2026-10-30 から。前は 3D の回転） ====================
+  //   タップ1回でその画面へ移動する。スワイプはしない（iPad では、なぞる操作がブラウザの「戻る」と取りあいになるため）
+  //   キーボード：数字キー（1〜8）でその行き先へ・矢印キーでとなりのタイルへ・Enter で決める
+  //   App.html の .cz-card（前の 3D の部品）をそのまま使い、見た目は app.css で大きなタイルにする
+  const TILE_COLORS = { gacha: '#7e2553', battle: '#ff004d', roguelike: '#1d2b53', quiz: '#008751', zukan: '#065ab5',
+    quizrunner: '#5f574f', jamaica: '#ab5236', cardmake: '#83769c' };
+  const tiles = [];
 
-  function czActive() { return ((Math.round(cz.pos) % cz.n) + cz.n) % cz.n; }
-  function czCardWidth() { return $('carouselRing').offsetWidth || 200; }
-
-  function setupCarousel() {
+  function setupTiles() {
     const ring = $('carouselRing');
     if (!ring) return;
-    // 7〜9枚目（GAS の App.html が前の版でも出るように、ここで足す）。決め技・柱名とバグ報告は、フォームを新しいタブで開く
-    [['cardmake', 'カードを作る', '#14b8a6', '🎨', '自分の絵を<br>カードにしよう！', true],
-     ['finisherform', '決め技・柱名', '#f97316', '✏️', '決め技や柱名を<br>変えたいときはここ', false],
-     ['bugreport', 'バグ報告', '#64748b', '🐞', 'おかしなところを<br>先生に知らせよう', false]].forEach(([page, label, color, icon, desc, isNew]) => {
-      if (ring.querySelector('[data-page="' + page + '"]')) return;
+    // 「カードを作る」は GAS の App.html にないので、ここで足す
+    if (!ring.querySelector('[data-page="cardmake"]')) {
       const b = document.createElement('button');
-      b.type = 'button'; b.className = 'cz-card'; b.setAttribute('data-page', page); b.setAttribute('aria-label', label);
-      b.style.setProperty('--c', color);
-      b.innerHTML = (isNew ? '<span class="cz-badge">NEW</span>' : '') + '<span class="cz-icon">' + icon + '</span><span class="cz-name">' + label + '</span><span class="cz-desc">' + desc + '</span>';
+      b.type = 'button'; b.className = 'cz-card'; b.setAttribute('data-page', 'cardmake'); b.setAttribute('aria-label', 'カードを作る');
+      b.innerHTML = '<span class="cz-icon">🎨</span><span class="cz-name">カードを作る</span><span class="cz-desc">自分の絵をカードにしよう！</span>';
       ring.appendChild(b);
+    }
+    ring.querySelectorAll('.cz-card').forEach((card, i) => {
+      tiles.push(card);
+      card.style.setProperty('--c', TILE_COLORS[card.dataset.page] || '#065ab5');
+      const desc = card.querySelector('.cz-desc');
+      if (desc) card.title = desc.textContent;
+      if (i < 9) { const k = document.createElement('span'); k.className = 'kbd'; k.textContent = String(i + 1); card.insertBefore(k, card.firstChild); }
+      card.addEventListener('click', () => navigate(card.dataset.page));
     });
-    cz.cards = Array.from(ring.querySelectorAll('.cz-card'));
-    cz.n = cz.cards.length;
-    cz.step = 360 / cz.n;
-    const saved = parseInt(storeGet(CAROUSEL_KEY), 10);
-    cz.pos = (saved >= 0 && saved < cz.n) ? saved : 0;
+    const title = document.querySelector('#view-mypage .carousel-title');
+    if (title) { const k = document.createElement('span'); k.className = 'kbd'; k.textContent = '1〜' + Math.min(9, tiles.length); title.appendChild(k); }
+    // 決め技・柱名とバグ報告は、フォームを新しいタブで開く（小さなボタン）
+    const sub = document.createElement('div');
+    sub.className = 'tile-sub';
+    [['finisherform', '✏️ 決め技・柱名の変更'], ['bugreport', '🐞 バグ報告']].forEach(([page, label]) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.setAttribute('data-page', page); b.textContent = label;
+      b.addEventListener('click', () => navigate(page));
+      sub.appendChild(b);
+    });
+    $('carousel').appendChild(sub);
+    document.addEventListener('keydown', onMypageKey);
+  }
 
-    const dots = $('carouselDots');
-    cz.cards.forEach((card, i) => {
-      card.style.setProperty('--a', (i * cz.step) + 'deg');
-      card.addEventListener('click', () => {
-        if (cz.moved) return;   // ドラッグして回したあとの指はなしでは、移動しない
-        if (i === czActive()) navigate(card.dataset.page);
-        else czRotateTo(i);
-      });
-      const dot = document.createElement('button');
-      dot.type = 'button';
-      dot.setAttribute('aria-label', card.getAttribute('aria-label'));
-      dot.addEventListener('click', () => czRotateTo(i));
-      dots.appendChild(dot);
-    });
-    $('carouselPrev').addEventListener('click', () => czRotateBy(-1));
-    $('carouselNext').addEventListener('click', () => czRotateBy(1));
-    $('carouselGo').addEventListener('click', () => navigate(cz.cards[czActive()].dataset.page));
+  function tileCols() { return getComputedStyle($('carouselRing')).gridTemplateColumns.split(' ').length || 1; }
 
-    // スワイプ：指（マウス）の動きに合わせて回し、はなしたら近いカードにぴたっと止める
-    const stage = $('carouselStage');
-    stage.addEventListener('pointerdown', (e) => {
-      cz.drag = { x: e.clientX, pos: cz.pos, id: e.pointerId };
-      cz.moved = false;
-    });
-    stage.addEventListener('pointermove', (e) => {
-      if (!cz.drag || e.pointerId !== cz.drag.id) return;
-      const dx = e.clientX - cz.drag.x;
-      if (!cz.moved && Math.abs(dx) > 8) {
-        cz.moved = true;
-        stage.classList.add('dragging');
-        try { stage.setPointerCapture(e.pointerId); } catch (err) {}
-      }
-      if (cz.moved) { cz.pos = cz.drag.pos - dx / czCardWidth(); czRender(); }
-    });
-    const end = () => {
-      if (!cz.drag) return;
-      stage.classList.remove('dragging');
-      cz.drag = null;
-      if (cz.moved) {
-        cz.pos = Math.round(cz.pos);
-        czRender();
-        setTimeout(() => { cz.moved = false; }, 0);
-      }
-    };
-    stage.addEventListener('pointerup', end);
-    stage.addEventListener('pointercancel', end);
+  function onMypageKey(e) {
+    if (state.view !== 'mypage' || e.ctrlKey || e.metaKey || e.altKey) return;
+    if ($('editModal').classList.contains('show')) { if (e.key === 'Escape') closeFinisherEditor(); return; }
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    if ($('globalNavMenu').classList.contains('show')) return;   // メニューを開いているときは、メニューのキー
+    if (/^[1-9]$/.test(e.key) && tiles[+e.key - 1]) {
+      e.preventDefault();
+      tiles[+e.key - 1].focus();
+      navigate(tiles[+e.key - 1].dataset.page);
+      return;
+    }
+    const i = tiles.indexOf(document.activeElement);
+    const onPage = !document.activeElement || document.activeElement === document.body;
+    if (i < 0) {   // まだタイルを選んでいないとき：← → で1つ目のタイルへ（↑↓ はふつうに画面を動かす）
+      if (onPage && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { tiles[0].focus(); e.preventDefault(); }
+      return;
+    }
+    const step = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: tileCols(), ArrowUp: -tileCols() }[e.key];
+    if (!step) return;
+    const n = i + step;
+    if (n >= 0 && n < tiles.length) { tiles[n].focus(); e.preventDefault(); }
+  }
 
-    // キーボード（← →）
+  // ==================== 右下のメニュー（キーボード：M で開く・Esc でとじる・↑↓ でえらぶ） ====================
+  function toggleMenu(focusFirst, force) {
+    const menu = $('globalNavMenu');
+    const open = (force === undefined) ? !menu.classList.contains('show') : force;
+    menu.classList.toggle('show', open);
+    $('globalNavToggle').setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open && focusFirst) { const first = menu.querySelector('button'); if (first) first.focus(); }
+  }
+  function setupMenu() {
+    const toggle = $('globalNavToggle'), menu = $('globalNavMenu');
+    // GAS の App.html の「☰ メニュー」は div なので、ボタンとして使えるようにする
+    toggle.setAttribute('role', 'button'); toggle.tabIndex = 0; toggle.setAttribute('aria-expanded', 'false'); toggle.title = 'メニュー（M）';
+    const k = document.createElement('span'); k.className = 'kbd'; k.textContent = 'M'; toggle.appendChild(k);
+    toggle.addEventListener('click', () => toggleMenu(false));
+    toggle.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleMenu(true); } });
     document.addEventListener('keydown', (e) => {
-      if (state.view !== 'mypage' || $('editModal').classList.contains('show')) return;
-      const tag = document.activeElement && document.activeElement.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-      if (e.key === 'ArrowLeft') { czRotateBy(-1); e.preventDefault(); }
-      if (e.key === 'ArrowRight') { czRotateBy(1); e.preventDefault(); }
+      if ($('globalNav').hidden || e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      if ($('editModal').classList.contains('show')) return;
+      const open = menu.classList.contains('show');
+      if (e.key === 'm' || e.key === 'M') { e.preventDefault(); toggleMenu(true); if (open) toggle.focus(); return; }
+      if (!open) return;
+      if (e.key === 'Escape') { e.preventDefault(); toggleMenu(false, false); toggle.focus(); return; }
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        const list = Array.from(menu.querySelectorAll('button'));
+        const i = list.indexOf(document.activeElement);
+        list[(i < 0) ? 0 : (i + (e.key === 'ArrowDown' ? 1 : -1) + list.length) % list.length].focus();
+        e.preventDefault();
+      }
+    }, true);
+  }
+
+  // ==================== ドット絵の部品（fx/pixel.js：点のアイコン・城下町の背景・画面を出るときのタイル） ====================
+  //   読み込めなくても、絵文字のアイコンと無地の背景で動く
+  let pixelBg = null;
+  function loadPixel() {
+    if (!document.getElementById('kpx-font')) {   // 字（DotGothic16）。描くのを止めないように、あとから読みこむ
+      const l = document.createElement('link');
+      l.id = 'kpx-font'; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=DotGothic16&display=swap';
+      document.head.appendChild(l);
+    }
+    if (window.KanjiPixel) { decoratePixel(); return; }
+    const sc = document.createElement('script');
+    sc.src = assetUrl('fx/pixel.js');
+    sc.onload = decoratePixel;
+    document.head.appendChild(sc);
+  }
+  function decoratePixel() {
+    const P = window.KanjiPixel;
+    if (!P) return;
+    tiles.forEach((card) => {
+      const ic = card.querySelector('.cz-icon'), cv = P.icon(card.dataset.page, 48);
+      if (ic && cv) ic.replaceChildren(cv);
     });
-    window.addEventListener('resize', czLayout);
-    czRender();   // 前回のカードを最初から正面に置く（画面が隠れているうちに置くので、読み込み直後に回るアニメは出ない）
-  }
-
-  // カードの幅から、カード同士が重ならない円の半径を決める（画面の幅が変わったら作り直す）
-  function czLayout() {
-    const w = $('carouselRing').offsetWidth;
-    if (!cz.n || !w) return;   // 隠れていて測れないときは、CSS の初期値（--r0）のまま
-    const r = Math.round((w / 2) / Math.tan(Math.PI / cz.n) * 1.3);
-    $('carouselRing').style.setProperty('--r', r + 'px');
-    czRender();
-  }
-
-  function czRender() {
-    $('carouselRing').style.transform = 'translateZ(calc(var(--r, var(--r0)) * -1)) rotateY(' + (-cz.pos * cz.step) + 'deg)';
-    const a = czActive();
-    cz.cards.forEach((c, i) => { c.classList.toggle('active', i === a); c.tabIndex = (i === a) ? 0 : -1; });
-    Array.from($('carouselDots').children).forEach((d, i) => d.classList.toggle('active', i === a));
-    $('carouselGoLabel').textContent = cz.cards[a].getAttribute('aria-label');
-    try { localStorage.setItem(CAROUSEL_KEY, String(a)); } catch (e) {}
-  }
-
-  function czRotateBy(d) { cz.pos = Math.round(cz.pos) + d; czRender(); }
-  function czRotateTo(i) {
-    let diff = i - czActive();
-    if (diff > cz.n / 2) diff -= cz.n;
-    if (diff < -cz.n / 2) diff += cz.n;   // 近い向きに回す
-    czRotateBy(diff);
+    // メニューと小さなボタン：前の絵文字を、点のアイコンにかえる
+    document.querySelectorAll('#globalNavMenu button, #view-mypage .tile-sub button').forEach((b) => {
+      const cv = P.icon(b.getAttribute('data-nav') || b.getAttribute('data-page'), 24);
+      if (cv) b.replaceChildren(cv, document.createTextNode(b.textContent.replace(/^\S+\s*/, '')));
+    });
+    pixelBg = P.background('castle', { clouds: state.view === 'mypage', raid: document.documentElement.classList.contains('raid-on') });
+    if (state.view !== 'mypage' && state.view !== 'login') pixelBg.hide();
   }
 
   // ==================== カードを作る（cardmake.js は開いたときだけ読み込む） ====================
@@ -387,6 +409,7 @@
   function renderRaid(r) {
     const on = !!(r && r.active);
     document.documentElement.classList.toggle('raid-on', on && !r.defeated);
+    if (pixelBg) pixelBg.set({ raid: on && !r.defeated });   // 城下町の空が赤くなる
     let box = $('raidBanner');
     if (!on) { if (box) box.remove(); return; }
     if (!box) {
@@ -477,6 +500,7 @@
     if (page === 'bugreport') { window.open(BUG_FORM_URL, '_blank', 'noopener'); return; }
     if (page === 'finisherform') { window.open(FINISHER_FORM_URL, '_blank', 'noopener'); return; }
     showLoading('移動中...');
+    if (window.KanjiPixel) window.KanjiPixel.wipe();   // 黒いタイルで閉じる（飾り。移動は待たない）
     const direct = legacyUrl(page);
     if (direct) { moveTop(direct); return; }
     call('nav.legacyUrl', { page: page })   // 移動先が用意されていないとき（GAS が前の版など）は、今までどおりサーバーに聞く
@@ -490,8 +514,8 @@
   // ==================== 起動 ====================
   function setupEvents() {
     setupLogin();
-    // メニューに「カードを作る」「バグ報告」を足す（GAS の App.html が前の版でも出るように、ここで足す）
-    [['cardmake', '🎨 カードを作る'], ['finisherform', '✏️ 決め技・柱名の変更'], ['bugreport', '🐞 バグ報告']].forEach(([key, label]) => {
+    // メニューに「クイズ・ランナー」「カードを作る」「バグ報告」などを足す（GAS の App.html が前の版でも出るように、ここで足す）
+    [['quizrunner', '🏃 クイズ・ランナー'], ['cardmake', '🎨 カードを作る'], ['finisherform', '✏️ 決め技・柱名の変更'], ['bugreport', '🐞 バグ報告']].forEach(([key, label]) => {
       if ($('globalNavMenu') && !$('globalNavMenu').querySelector('[data-nav="' + key + '"]')) {
         const nb = document.createElement('button');
         nb.type = 'button'; nb.setAttribute('data-nav', key); nb.textContent = label;
@@ -500,10 +524,11 @@
     });
     document.querySelectorAll('[data-nav]').forEach((el) => el.addEventListener('click', () => navigate(el.getAttribute('data-nav'))));
     document.querySelectorAll('#view-mypage .ranking-tab').forEach((tab) => tab.addEventListener('click', () => switchRanking(tab.getAttribute('data-ranking'), tab)));
-    $('globalNavToggle').addEventListener('click', () => $('globalNavMenu').classList.toggle('show'));
+    setupMenu();
     $('specialMoveBox').addEventListener('click', openFinisherEditor);
     $('specialMoveBox').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openFinisherEditor(); } });
-    setupCarousel();
+    setupTiles();
+    $('newSpecialMove').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveFinisher(); } });
     $('saveSpecialMoveBtn').addEventListener('click', saveFinisher);
     $('cancelSpecialMoveBtn').addEventListener('click', closeFinisherEditor);
     $('editModal').addEventListener('click', function (e) { if (e.target === this) closeFinisherEditor(); });
@@ -513,6 +538,7 @@
   function start() {
     setupEvents();
     hideLoading();
+    loadPixel();
     // タップの粒（fx.js が読み込めたときだけ。App.html で fx.js を先に読み込んでいる）
     if (window.KanjiFX && window.KanjiFX.enableTapSparkles) window.KanjiFX.enableTapSparkles();
     const saved = loadSession();
