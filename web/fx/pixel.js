@@ -16,7 +16,7 @@
   // ドット絵にする画面（FxBridge が見分けた名前）。ここに足して Push すると、その画面がドット絵になる。
   //   gacha・randombattle・privatebattle・battle・zukan・quiz・stepup
   //   （マイページ・ログインは app.js と app.css がドット絵にしている）
-  const PAGES = [];
+  const PAGES = ['gacha', 'randombattle', 'privatebattle', 'battle', 'zukan', 'quiz', 'stepup'];
 
   const REDUCED = !!(global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const PAL = { k: '#000000', n: '#1d2b53', p: '#7e2553', G: '#008751', b: '#ab5236', g: '#5f574f', l: '#c2c3c7', w: '#fff1e8',
@@ -93,6 +93,59 @@
         const cx = Math.round((x + (o.t || 0)) % 190) - 20;
         R(g, cx, y, w, 3, cloud); R(g, cx + 3, y - 2, w - 8, 2, cloud);
       });
+    },
+    // 夜の神社（ガチャ）：大きな鳥居・ちょうちん・石の道
+    shrine(g) {
+      const sky = ['#000000', '#1d2b53', '#7e2553'];
+      sky.forEach((c, i) => R(g, 0, i * 16, W, 16, c));
+      for (let i = 1; i < sky.length; i++) for (let y = i * 16; y < i * 16 + 3; y++) for (let x = y % 2; x < W; x += 2) R(g, x, y, 1, 1, sky[i - 1]);
+      R(g, 0, 48, W, 42, '#7e2553');
+      for (let i = 0; i < 24; i++) R(g, (i * 53) % W, (i * 29) % 30, 1, 1, '#fff1e8');   // 星
+      R(g, 128, 8, 8, 8, '#fff1e8'); R(g, 126, 10, 12, 4, '#fff1e8'); R(g, 131, 9, 4, 3, '#c2c3c7');   // 月
+      for (let x = 0; x < W; x += 10) { const h = 10 + (x * 7) % 9; R(g, x - 2, 54 - h, 14, h + 4, '#000000'); }   // 森
+      R(g, 0, 58, W, 32, '#000000');
+      R(g, 66, 58, 28, 32, '#5f574f'); for (let y = 60; y < H; y += 5) R(g, 66, y, 28, 1, '#000000');   // 石の道
+      // 鳥居
+      R(g, 38, 20, 84, 4, '#ff004d'); R(g, 34, 18, 92, 2, '#000000'); R(g, 44, 28, 72, 3, '#ff004d');
+      R(g, 50, 24, 5, 40, '#ff004d'); R(g, 105, 24, 5, 40, '#ff004d'); R(g, 49, 62, 7, 2, '#000000'); R(g, 104, 62, 7, 2, '#000000');
+      R(g, 77, 24, 6, 4, '#000000'); R(g, 78, 25, 4, 2, '#ffec27');
+      // ちょうちん
+      [[20, 44], [136, 44]].forEach(([x, y]) => { R(g, x + 2, y - 4, 1, 4, '#000000'); R(g, x, y, 6, 8, '#ffa300'); R(g, x + 1, y + 2, 4, 1, '#ff004d'); R(g, x + 1, y + 5, 4, 1, '#ff004d'); R(g, x, y + 8, 6, 1, '#000000'); });
+    },
+    // 道場（バトル）：板の壁・まど・板の床
+    dojo(g) {
+      R(g, 0, 0, W, 58, '#ab5236');
+      for (let x = 0; x < W; x += 12) R(g, x, 0, 1, 58, '#7e2553');
+      R(g, 0, 0, W, 6, '#1d2b53'); R(g, 0, 6, W, 2, '#000000');
+      [[16, 14], [118, 14]].forEach(([x, y]) => { R(g, x, y, 26, 22, '#000000'); R(g, x + 2, y + 2, 22, 18, '#ffccaa'); R(g, x + 12, y + 2, 2, 18, '#000000'); R(g, x + 2, y + 10, 22, 2, '#000000'); });
+      R(g, 66, 10, 28, 36, '#000000'); R(g, 68, 12, 24, 32, '#fff1e8'); R(g, 66, 8, 28, 2, '#5f574f');   // かけじく
+      R(g, 76, 18, 8, 2, '#000000'); R(g, 79, 16, 2, 22, '#000000'); R(g, 72, 26, 16, 2, '#000000'); R(g, 74, 34, 4, 4, '#ff004d');
+      R(g, 0, 56, W, 2, '#000000'); R(g, 0, 58, W, 32, '#5f574f');
+      for (let y = 60; y < H; y += 6) { R(g, 0, y, W, 1, '#000000'); for (let x = (y % 12) * 2; x < W; x += 24) R(g, x, y, 1, 6, '#000000'); }
+    },
+    // 書庫（図鑑）：本だなに色とりどりの本
+    library(g) {
+      R(g, 0, 0, W, H, '#1d2b53');
+      const spines = ['#ff004d', '#29adff', '#00e436', '#ffa300', '#ff77a8', '#83769c', '#ffec27', '#ab5236'];
+      for (let row = 0; row < 4; row++) {
+        const y = 6 + row * 18;
+        R(g, 0, y + 14, W, 3, '#ab5236'); R(g, 0, y + 17, W, 1, '#000000');
+        let x = 2, i = row * 3;
+        while (x < W - 2) { const w = 3 + (i * 7) % 3, h = 9 + (i * 5) % 5; R(g, x, y + 14 - h, w, h, spines[i % spines.length]); R(g, x, y + 14 - h, 1, h, '#000000'); x += w + ((i % 5) === 0 ? 3 : 0); i++; }
+      }
+      R(g, 0, 78, W, 12, '#000000');
+    },
+    // 寺子屋（クイズ）：しょうじ・たたみ・つくえ
+    terakoya(g) {
+      R(g, 0, 0, W, 56, '#ffccaa');
+      for (let x = 0; x < W; x += 20) R(g, x, 0, 2, 56, '#ab5236');
+      for (let y = 0; y < 56; y += 14) R(g, 0, y, W, 2, '#ab5236');
+      for (let x = 10; x < W; x += 20) R(g, x, 0, 1, 56, '#c2c3c7');
+      R(g, 0, 54, W, 3, '#000000');
+      R(g, 0, 57, W, 33, '#008751');
+      for (let x = 0; x < W; x += 32) R(g, x, 57, 2, 33, '#000000');
+      R(g, 0, 72, W, 1, '#000000');
+      [[24, 66], [70, 70], [116, 66]].forEach(([x, y]) => { R(g, x, y, 24, 4, '#ab5236'); R(g, x, y, 24, 1, '#000000'); R(g, x + 2, y + 4, 2, 6, '#000000'); R(g, x + 20, y + 4, 2, 6, '#000000'); R(g, x + 8, y - 2, 8, 2, '#fff1e8'); });
     }
   };
 
@@ -169,7 +222,57 @@
 
   // ---------- FxBridge の画面をドット絵にする ----------
   //   FxBridge が、画面を見分けたあとに呼ぶ。未来風の見た目（theme.css）はやめて、pixel.css の見た目にする
-  const SCENE_OF = {};   // 画面ごとの背景（足していく）。ないときは城下町
+  const SCENE_OF = { gacha: 'shrine', battle: 'dojo', randombattle: 'dojo', privatebattle: 'dojo', zukan: 'library', quiz: 'terakoya', stepup: 'castle' };
+
+  // 画面ごとのキー操作：数字キー（1〜9）で choices の n 番目（見えていて押せるもの）を押す。Enter で next を押す。
+  //   focus は Tab で選べるようにするもの（今は div で作られているボタン）。押したときの動きは、タップと同じ（その画面の関数）
+  //   ポイントを使うボタン（ガチャを引く など）は、数字キーにしない（押しまちがえ防止）
+  const KEYS = {
+    quiz: { choices: '#choicesArea .choice-btn', next: '#btnNext' },
+    zukan: { choices: '#trialModal.show .trial-choices button' },
+    gacha: { choices: '#dupeModal.show .quiz-choices button' },
+    battle: { choices: '#battleMenu .battle-card', focus: '#battleMenu .battle-card' },
+    randombattle: { choices: '#pvpHand .pvp-card' },
+    privatebattle: { choices: '#pvpHand .pvp-card' },
+    stepup: { choices: '#quizModal.show #qChoices button, #bossQuizModal.show #bqChoices button, #bossBattleScreen.show #handPanel .hp-cards button', focus: '.route-card' }
+  };
+  function shown(el) { return !!(el && el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden'); }
+  function setupKeys(page) {
+    const k = KEYS[page];
+    if (!k) return;
+    if (k.focus) {   // div のボタンを、Tab で選んで Enter・スペースで押せるようにする
+      const mark = () => document.querySelectorAll(k.focus).forEach((el) => {
+        if (el.tagName === 'BUTTON' || el.hasAttribute('tabindex')) return;
+        el.tabIndex = 0; el.setAttribute('role', 'button');
+      });
+      mark(); setTimeout(mark, 1500);
+      document.addEventListener('keydown', (e) => {
+        const t = e.target;
+        if ((e.key === 'Enter' || e.key === ' ') && t && t.matches && t.matches(k.focus)) { e.preventDefault(); t.click(); }
+      });
+    }
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+      const t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      const menu = document.getElementById('globalNavMenu');
+      if (menu && menu.classList.contains('show')) return;   // メニューを開いているときは、メニューのキー
+      if (/^[1-9]$/.test(e.key) && k.choices) {
+        // 小窓が開いているときは、小窓の中のものだけ（うしろの手札などを押さない）
+        const modal = Array.prototype.filter.call(document.querySelectorAll('.modal-overlay.show, .card-viewer.show, .trial.show'), (m) => getComputedStyle(m).display !== 'none').pop();
+        //   番号は、画面に出ている番号のしるし（pixel.css）と同じ数え方：押せない（休みの）ものも数えて、押せないときは何もしない
+        const list = Array.prototype.filter.call(document.querySelectorAll(k.choices), (el) => shown(el) && (!modal || modal.contains(el)));
+        const el = list[+e.key - 1];
+        if (el && !el.disabled) { e.preventDefault(); el.focus(); el.click(); }
+        return;
+      }
+      if (e.key === 'Enter' && k.next && !(t && t.closest && t.closest('button, a, [role="button"]'))) {
+        const nx = document.querySelector(k.next);
+        if (shown(nx) && !nx.disabled) { e.preventDefault(); nx.click(); }
+      }
+    });
+  }
+
   function wants(page) { return !!page && PAGES.indexOf(page) >= 0; }
   function apply(page, opts) {
     opts = opts || {};
@@ -181,6 +284,7 @@
     document.body.classList.add('px-theme');
     document.body.setAttribute('data-page', page);
     background(SCENE_OF[page] || 'castle');
+    setupKeys(page);
     if (opts.enter) document.querySelectorAll(opts.enter).forEach((el, n) => { el.classList.add('kpx-enter'); el.style.animationDelay = (Math.min(n, 8) * 0.05) + 's'; });
     document.addEventListener('click', (e) => {   // メニューからほかの画面へ移るとき（新しいタブで開くものは除く）
       const t = e.target.closest ? e.target.closest('.global-nav-menu button') : null;

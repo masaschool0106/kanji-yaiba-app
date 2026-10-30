@@ -150,23 +150,32 @@
     return (fav ? 'ボスは ' + ICON[fav] + ' をよく出すぞ！ ' : 'ボスの手は気まぐれ… ') + '3回の手の並びで役（✊→✌️→🖐️ 正順の輪 ×10 など）';
   }
 
+  // 上の行：参加した人・正解のポイント（今日のぶん）・倒したときのごほうび
+  let sub = null;
+  function subText() {
+    if (!sub) return;
+    $('rdSub').textContent = '参加した人 ' + sub.participants + '人・正解1問 ' + sub.hitPt + 'pt（今日 ' + sub.dayPt + ' / ' + sub.dayMax + 'pt）・倒したら1問でも正解した人に ' + sub.reward + 'pt（トドメは +' + sub.finishReward + 'pt）';
+  }
+
   function refresh() {
     app.showLoading('ボスのようすを見ています...');
     return app.call('raid.status').then((s) => {
       app.hideLoading();
       if (!s.active) {
         $('rdTitle').textContent = 'ボスは来ていないよ';
-        panel([el('p', { text: '巨大ボスが来るのは、週末（金・土・日）と月末だけ。次の襲来を待とう！' })]);
+        panel([el('p', { text: '巨大ボスが来るのは、土・日と月末の3日間（' + (s.next && s.next.hours ? s.next.hours : '朝から夜まで') + '）。' }),
+          el('div', { class: 'rd-q', text: s.next ? '次は ' + s.next.text + ' から！' : '次の襲来を待とう！' })]);
         return;
       }
       fav = s.fav || '';
       $('rdTitle').textContent = '⚠️ ' + s.label + '「' + s.boss + '」';
-      $('rdSub').textContent = '参加した人 ' + s.participants + '人・倒したら1問でも正解した人に ' + s.reward + 'pt（トドメは +' + s.finishReward + 'pt）';
+      sub = s; subText();
       $('rdMe').textContent = 'あなたのダメージ：' + fmt(s.my) + (s.myHits ? '（正解 ' + s.myHits + '問）' : '');
       setHp(s);
       startStage(s.boss);
       if (s.defeated) {
-        panel([el('div', { class: 'rd-q', text: '🎉 ' + s.boss + ' を倒した！' }), el('p', { text: (s.finisher ? 'トドメ：' + s.finisher + (s.finisherIsMe ? '（あなた！）' : '') : '') }), renderTop(s)]);
+        panel([el('div', { class: 'rd-q', text: '🎉 ' + s.boss + ' を倒した！' }), el('p', { text: (s.finisher ? 'トドメ：' + s.finisher + (s.finisherIsMe ? '（あなた！）' : '') : '') }),
+          s.next ? el('p', { text: '次の巨大ボスは ' + s.next.text + ' から！' }) : null, renderTop(s)]);
         return;
       }
       if (!s.dice) {   // 前の版で来たボス
@@ -320,7 +329,9 @@
         });
         return;
       }
-      question(r, r.correct ? '💥 命中！ ボスに ' + fmt(dmg) + ' ダメージ！' : '🛡️ はずれ…（正解は「' + r.answer + '」）', r.correct ? 'rd-ok' : 'rd-ng', extra);
+      if (sub && r.dayPt !== undefined) { sub.dayPt = r.dayPt; subText(); }
+      const pt = r.point === undefined ? '' : (r.point > 0 ? ' ＋' + r.point + 'pt（今日 ' + r.dayPt + ' / ' + r.dayMax + 'pt）' : '（今日のポイントは上限。攻撃はできるよ）');
+      question(r, r.correct ? '💥 命中！ ボスに ' + fmt(dmg) + ' ダメージ！' + pt : '🛡️ はずれ…（正解は「' + r.answer + '」）', r.correct ? 'rd-ok' : 'rd-ng', extra);
     }).catch((err) => {
       busy = false;
       panel([el('p', { class: 'rd-ng', text: '⚠️ ' + (err.message || 'うまくいきませんでした') }), el('div', { class: 'rd-acts' }, [el('button', { type: 'button', class: 'go', text: 'もう一度', onclick: refresh })])]);

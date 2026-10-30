@@ -12,6 +12,10 @@
   --lgray: #c2c3c7; --white: #fff1e8; --red: #ff004d; --orange: #ffa300; --yellow: #ffec27; --lime: #00e436;
   --blue: #29adff; --lav: #83769c; --pink: #ff77a8; --peach: #ffccaa; --dblue: #065ab5;
   --px: 4px;
+  --px-edge: 0 -4px 0 0 #000, 0 4px 0 0 #000, -4px 0 0 0 #000, 4px 0 0 0 #000;
+  --px-bevel: inset 0 4px 0 0 rgba(255, 255, 255, 0.18), inset 0 -4px 0 0 rgba(0, 0, 0, 0.35);
+  --px-btn: 0 4px 0 #000, -3px 0 0 #000, 3px 0 0 #000, 0 -3px 0 #000, inset 0 -4px 0 rgba(0, 0, 0, 0.25), inset 0 4px 0 rgba(255, 255, 255, 0.25);
+  --px-btn-down: 0 1px 0 #000, -3px 0 0 #000, 3px 0 0 #000, 0 -3px 0 #000, inset 0 -3px 0 rgba(0, 0, 0, 0.25);
   --px-font: 'DotGothic16', 'Hiragino Sans', 'Yu Gothic', sans-serif;
   --px-font-read: 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic', sans-serif;
 }
@@ -67,4 +71,383 @@ body.px-theme {
   .px-theme .kpx-enter { animation: none; }
 }
 
-/* ---------- 画面ごと（段階2から足していく） ---------- */
+/* ===============================================================
+   ドット絵の画面 ぜんぶに
+   =============================================================== */
+/* 角は四角・ぼかしなし（重さもへる）。DotGothic16 には太字がないので、にせの太字は作らない */
+body.px-theme *, body.px-theme *::before, body.px-theme *::after { border-radius: 0 !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+body.px-theme { font-synthesis: none; }
+body.px-theme button, body.px-theme input, body.px-theme select, body.px-theme textarea { font-family: inherit; }
+body.px-theme h1 {
+  font-weight: normal !important; color: var(--yellow) !important; -webkit-text-fill-color: currentColor !important; background: none !important;
+  text-shadow: 3px 3px 0 var(--red), 6px 6px 0 var(--k) !important; letter-spacing: 2px;
+}
+body.px-theme h2, body.px-theme h3 { font-weight: normal; }
+/* 読みこみ中のくるくる：ドットが回る（コマ送り） */
+body.px-theme .spinner {
+  width: 32px !important; height: 32px !important; border: none !important;
+  background: conic-gradient(var(--yellow) 0 25%, var(--k) 0 50%, var(--yellow) 0 75%, var(--k) 0) !important;
+  box-shadow: 0 0 0 4px var(--k); animation: kpxSpin 0.8s steps(4) infinite !important;
+}
+@keyframes kpxSpin { to { transform: rotate(360deg); } }
+/* 演出（fx.js）の枠 */
+body.px-theme .fx-overlay { background: rgba(0, 0, 0, 0.85) !important; }
+body.px-theme .fx-overlay .fx-stage, body.px-theme .fx-stage { border: none !important; box-shadow: var(--px-edge) !important; }
+/* 画像はなめらかなまま（児童が作った絵・写真）。わくだけ黒 */
+body.px-theme img { image-rendering: auto; }
+
+/* 番号のしるし（数字キーで押せるもの）。キーボードのない端末では出さない */
+@media (hover: hover) {
+  body.px-theme #choicesArea, body.px-theme .trial-choices, body.px-theme #dupeChoices, body.px-theme #battleMenu,
+  body.px-theme #pvpHand, body.px-theme #qChoices, body.px-theme #bqChoices, body.px-theme .hp-cards { counter-reset: kpx; }
+  body.px-theme #choicesArea .choice-btn, body.px-theme .trial-choices button, body.px-theme #dupeChoices button, body.px-theme #battleMenu .battle-card,
+  body.px-theme #pvpHand .pvp-card, body.px-theme #qChoices button, body.px-theme #bqChoices button, body.px-theme .hp-cards button { counter-increment: kpx; position: relative; }
+  body.px-theme #choicesArea .choice-btn::before, body.px-theme .trial-choices button::before, body.px-theme #dupeChoices button::before, body.px-theme #battleMenu .battle-card::before,
+  body.px-theme #pvpHand .pvp-card::before, body.px-theme #qChoices button::before, body.px-theme #bqChoices button::before, body.px-theme .hp-cards button::before {
+    content: counter(kpx); position: absolute; left: 4px; top: 4px; z-index: 2; font-family: var(--px-font); font-size: 12px; line-height: 1.5;
+    padding: 0 5px; background: var(--k); color: var(--lgray); text-shadow: none; pointer-events: none;
+  }
+}
+
+/* 小窓（どの画面も .modal-overlay ＋ .modal-box） */
+body.px-theme .modal-overlay { background: rgba(0, 0, 0, 0.8) !important; }
+body.px-theme .modal-box {
+  background: var(--navy) !important; color: var(--white) !important; border: none !important;
+  box-shadow: var(--px-edge), var(--px-bevel) !important; animation: kpxEnter 0.2s steps(3) both;
+}
+body.px-theme .modal-box h2 { text-shadow: 2px 2px 0 var(--k) !important; }
+body.px-theme .glow-effect { display: none !important; }   /* 回りつづける光（重い）はやめる */
+
+/* 問題と答えの漢字は、読みやすいふつうの字（ドット絵の字だと、画数の多い字の線がつぶれる） */
+body.px-theme .q-text, body.px-theme .choice-btn, body.px-theme .trial-q, body.px-theme .trial-choices button,
+body.px-theme #dupeQuestion, body.px-theme .quiz-choice-btn, body.px-theme #qText, body.px-theme #qChoices button,
+body.px-theme #bqQuestion, body.px-theme #bqChoices button, body.px-theme .input-field { font-family: var(--px-font-read) !important; }
+
+/* 答えのボタン（白い札）：クイズ・覚醒の試練・ダブり交換・ステップアップのクイズ */
+body.px-theme .choice-btn, body.px-theme .trial-choices button, body.px-theme .quiz-choice-btn, body.px-theme #qChoices button, body.px-theme #bqChoices button {
+  min-height: 60px; padding: 12px 14px 12px 30px !important; border: none !important; cursor: pointer;
+  background: var(--white) !important; color: var(--k) !important; font-size: 20px !important; font-weight: bold;
+  box-shadow: 0 5px 0 var(--k), -3px 0 0 var(--k), 3px 0 0 var(--k), 0 -3px 0 var(--k), inset 0 -5px 0 var(--lgray) !important;
+  transition: none !important; transform: none;
+}
+body.px-theme .choice-btn:hover:not(:disabled), body.px-theme .trial-choices button:hover, body.px-theme .quiz-choice-btn:hover:not(:disabled),
+body.px-theme #qChoices button:hover, body.px-theme #bqChoices button:hover { background: var(--peach) !important; transform: none; }
+body.px-theme .choice-btn:active:not(:disabled), body.px-theme .trial-choices button:active, body.px-theme .quiz-choice-btn:active:not(:disabled),
+body.px-theme #qChoices button:active, body.px-theme #bqChoices button:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--k), -3px 0 0 var(--k), 3px 0 0 var(--k), 0 -3px 0 var(--k) !important; }
+body.px-theme #qChoices button, body.px-theme #bqChoices button { width: 100%; }
+
+/* ===============================================================
+   図鑑（zukan）
+   =============================================================== */
+body.px-theme[data-page="zukan"] { color: var(--white); }
+[data-page="zukan"].px-theme .wrap { background: var(--navy) !important; color: var(--white); box-shadow: var(--px-edge), var(--px-bevel) !important; }
+[data-page="zukan"].px-theme #message { color: var(--pink); }
+[data-page="zukan"].px-theme .stats, [data-page="zukan"].px-theme .filter-bar { background: var(--k) !important; border: none !important; }
+[data-page="zukan"].px-theme .filter-bar h3, [data-page="zukan"].px-theme .stats h3 { color: var(--white) !important; }
+[data-page="zukan"].px-theme .stat-item { background: var(--plum) !important; box-shadow: var(--px-edge) !important; }
+[data-page="zukan"].px-theme .stat-label { color: var(--peach) !important; }
+[data-page="zukan"].px-theme .stat-value { color: var(--yellow) !important; font-weight: normal; font-size: 2rem; }
+[data-page="zukan"].px-theme .filter-btn {
+  min-height: 44px; padding: 8px 14px; border: none !important; color: var(--white) !important; background: var(--gray) !important;
+  box-shadow: var(--px-btn) !important; text-shadow: 2px 2px 0 var(--k); transform: none !important; transition: none; font-size: 1rem; margin: 0.4rem;
+}
+[data-page="zukan"].px-theme .filter-btn.active { background: var(--dblue) !important; color: var(--yellow) !important; }
+[data-page="zukan"].px-theme .filter-btn:active { transform: translateY(3px) !important; box-shadow: var(--px-btn-down) !important; }
+[data-page="zukan"].px-theme .zukan-hint { color: var(--lgray) !important; }
+[data-page="zukan"].px-theme .card {
+  background: var(--navy) !important; border: none !important; color: var(--white);
+  box-shadow: 0 0 0 4px var(--k), inset 0 0 0 3px var(--gray) !important; transition: none; padding: 0.8rem;
+}
+[data-page="zukan"].px-theme .card.owned { box-shadow: 0 0 0 4px var(--k), inset 0 0 0 3px var(--green) !important; }
+[data-page="zukan"].px-theme .card.owned:hover { transform: translateY(-3px); }
+[data-page="zukan"].px-theme .card.not-owned { background: #11183a !important; }
+[data-page="zukan"].px-theme .card.awakened { animation: none !important; box-shadow: 0 0 0 4px var(--k), inset 0 0 0 4px var(--yellow) !important; }
+[data-page="zukan"].px-theme .card img, [data-page="zukan"].px-theme .mystery { border: none !important; box-shadow: 0 0 0 3px var(--k); background: var(--k) !important; }
+[data-page="zukan"].px-theme .card-name { color: var(--white) !important; font-weight: normal; }
+[data-page="zukan"].px-theme .card-rank, [data-page="zukan"].px-theme .card-hand { color: var(--lgray) !important; }
+[data-page="zukan"].px-theme .card.owned .card-status { color: var(--lime) !important; }
+[data-page="zukan"].px-theme .card.not-owned .card-status { color: var(--lgray) !important; }
+[data-page="zukan"].px-theme .card-effect, [data-page="zukan"].px-theme .viewer-effect, [data-page="zukan"].px-theme .viewer-line { background: var(--k) !important; color: var(--white) !important; }
+[data-page="zukan"].px-theme .card-effect .ef-label, [data-page="zukan"].px-theme .viewer-effect .ef-label { color: var(--lgray) !important; }
+[data-page="zukan"].px-theme .card-effect .ef-name { color: var(--yellow) !important; }
+[data-page="zukan"].px-theme .rarity-N { color: var(--lgray) !important; } [data-page="zukan"].px-theme .rarity-R { color: var(--blue) !important; }
+[data-page="zukan"].px-theme .rarity-SR { color: var(--pink) !important; } [data-page="zukan"].px-theme .rarity-SSR { color: var(--orange) !important; }
+[data-page="zukan"].px-theme .rarity-UR { color: var(--yellow) !important; } [data-page="zukan"].px-theme .rarity-LEGEND { color: var(--red) !important; text-shadow: 1px 1px 0 var(--k) !important; }
+[data-page="zukan"].px-theme .card-viewer { background: rgba(0, 0, 0, 0.82) !important; }
+[data-page="zukan"].px-theme .viewer-box { background: var(--navy) !important; border: none !important; box-shadow: var(--px-edge), var(--px-bevel) !important; animation: kpxEnter 0.2s steps(3) both !important; }
+[data-page="zukan"].px-theme .viewer-box.awakened { box-shadow: var(--px-edge), inset 0 0 0 4px var(--yellow) !important; }
+[data-page="zukan"].px-theme .viewer-box img { background: var(--k) !important; }
+[data-page="zukan"].px-theme .viewer-name { font-weight: normal; color: var(--yellow); text-shadow: 2px 2px 0 var(--k); }
+[data-page="zukan"].px-theme .viewer-rarity { background: var(--k) !important; color: var(--yellow) !important; font-weight: normal; }
+[data-page="zukan"].px-theme .viewer-close { width: 48px !important; height: 48px !important; background: var(--red) !important; box-shadow: var(--px-btn) !important; }
+[data-page="zukan"].px-theme .viewer-tip { color: var(--lgray) !important; }
+[data-page="zukan"].px-theme .awaken-badge { background: var(--yellow) !important; color: var(--k) !important; font-weight: normal; }
+[data-page="zukan"].px-theme .awaken-btn, [data-page="zukan"].px-theme .trial-acts .go {
+  min-height: 56px; border: none !important; background: var(--red) !important; color: var(--white) !important; box-shadow: var(--px-btn) !important; text-shadow: 2px 2px 0 var(--k); font-weight: normal;
+}
+[data-page="zukan"].px-theme .trial { background: rgba(0, 0, 0, 0.88) !important; }
+[data-page="zukan"].px-theme .trial-box { background: var(--navy) !important; border: none !important; box-shadow: var(--px-edge), var(--px-bevel) !important; }
+[data-page="zukan"].px-theme .trial-letter img { border: none !important; box-shadow: 0 0 0 3px var(--yellow); }
+[data-page="zukan"].px-theme .trial-say { background: var(--white) !important; color: var(--k) !important; box-shadow: 0 0 0 3px var(--k); font-weight: normal; }
+[data-page="zukan"].px-theme .trial-say::before { border-right-color: var(--white) !important; }
+[data-page="zukan"].px-theme .trial-title { color: var(--yellow) !important; font-weight: normal; text-shadow: 2px 2px 0 var(--k); }
+[data-page="zukan"].px-theme .trial-dots i { background: var(--gray) !important; border: none !important; box-shadow: 0 0 0 2px var(--k) !important; }
+[data-page="zukan"].px-theme .trial-dots i.on { background: var(--yellow) !important; }
+[data-page="zukan"].px-theme .trial-acts button { min-height: 52px; border: none !important; background: var(--gray); color: var(--white); box-shadow: var(--px-btn) !important; font-weight: normal; }
+
+/* ===============================================================
+   漢字クイズ（quiz）
+   =============================================================== */
+[data-page="quiz"].px-theme .status-panel, [data-page="quiz"].px-theme .start-screen, [data-page="quiz"].px-theme .question-box {
+  background: var(--navy) !important; border: none !important; box-shadow: var(--px-edge), var(--px-bevel) !important;
+}
+[data-page="quiz"].px-theme .status-label { color: var(--lgray) !important; font-weight: normal; }
+[data-page="quiz"].px-theme .status-value { font-weight: normal; }
+[data-page="quiz"].px-theme .rule-box, [data-page="quiz"].px-theme .streak-container { background: var(--k) !important; border: none !important; }
+[data-page="quiz"].px-theme .rule-box h3 { color: var(--blue) !important; border-bottom: 3px solid var(--dblue) !important; }
+[data-page="quiz"].px-theme .rule-list li::before { content: "▶"; color: var(--yellow); }
+[data-page="quiz"].px-theme .rule-list strong { color: var(--yellow); font-weight: normal; }
+[data-page="quiz"].px-theme .streak-count { color: var(--yellow) !important; }
+[data-page="quiz"].px-theme .streak-bar-bg { background: var(--gray) !important; height: 16px !important; box-shadow: 0 0 0 3px var(--k); }
+[data-page="quiz"].px-theme .streak-bar-fill { background: repeating-linear-gradient(90deg, var(--yellow) 0 14px, var(--orange) 14px 16px) !important; transition: width 0.4s steps(4) !important; }
+[data-page="quiz"].px-theme .q-number { background: var(--plum) !important; box-shadow: 0 0 0 3px var(--k); font-weight: normal; }
+[data-page="quiz"].px-theme .q-text { font-size: 30px; color: var(--white); }
+[data-page="quiz"].px-theme .choices { gap: 18px !important; }
+[data-page="quiz"].px-theme .choice-btn.checking { box-shadow: 0 0 0 4px var(--yellow), 0 5px 0 var(--k) !important; }
+[data-page="quiz"].px-theme .choice-btn.correct { background: var(--lime) !important; color: var(--k) !important; box-shadow: 0 5px 0 var(--k), -3px 0 0 var(--k), 3px 0 0 var(--k), 0 -3px 0 var(--k), inset 0 -5px 0 var(--green) !important; }
+[data-page="quiz"].px-theme .choice-btn.incorrect { background: var(--red) !important; color: var(--white) !important; box-shadow: 0 5px 0 var(--k), -3px 0 0 var(--k), 3px 0 0 var(--k), 0 -3px 0 var(--k), inset 0 -5px 0 var(--plum) !important; }
+[data-page="quiz"].px-theme .feedback-box { background: var(--k) !important; border: none !important; animation: kpxEnter 0.2s steps(3) both !important; font-weight: normal; }
+[data-page="quiz"].px-theme .feedback-box.ok { color: var(--lime) !important; box-shadow: 0 0 0 4px var(--green) !important; }
+[data-page="quiz"].px-theme .feedback-box.ng { color: var(--pink) !important; box-shadow: 0 0 0 4px var(--red) !important; }
+[data-page="quiz"].px-theme .feedback-box.bonus { color: var(--yellow) !important; box-shadow: 0 0 0 4px var(--orange) !important; }
+[data-page="quiz"].px-theme .earned-point { color: var(--yellow); }
+[data-page="quiz"].px-theme .btn-main {
+  min-height: 64px; border: none !important; background: var(--red) !important; color: var(--white) !important; font-weight: normal; font-size: 22px;
+  box-shadow: var(--px-btn) !important; text-shadow: 2px 2px 0 var(--k); transition: none !important; transform: none !important;
+}
+[data-page="quiz"].px-theme .btn-main:active:not(:disabled) { transform: translateY(3px) !important; box-shadow: var(--px-btn-down) !important; }
+[data-page="quiz"].px-theme .btn-main:disabled { background: var(--gray) !important; opacity: 0.7; }
+[data-page="quiz"].px-theme .result-big { color: var(--yellow) !important; font-weight: normal; text-shadow: 3px 3px 0 var(--red), 6px 6px 0 var(--k); }
+[data-page="quiz"].px-theme .start-note, [data-page="quiz"].px-theme .status-sub { color: var(--lgray) !important; }
+[data-page="quiz"].px-theme .loading-overlay { background: rgba(0, 0, 0, 0.8) !important; }
+
+/* ===============================================================
+   バトルの入口（battle）
+   =============================================================== */
+[data-page="battle"].px-theme .container { background: var(--navy) !important; color: var(--white) !important; box-shadow: var(--px-edge), var(--px-bevel) !important; }
+[data-page="battle"].px-theme .battle-menu { gap: 22px !important; }
+[data-page="battle"].px-theme .battle-card {
+  border: none !important; color: var(--white) !important; padding: 22px 22px 18px 22px; transition: none;
+  box-shadow: 0 6px 0 var(--k), -4px 0 0 var(--k), 4px 0 0 var(--k), 0 -4px 0 var(--k), inset 0 -6px 0 rgba(0, 0, 0, 0.3), inset 0 4px 0 rgba(255, 255, 255, 0.2) !important;
+}
+[data-page="battle"].px-theme .battle-card:hover { transform: none !important; }
+[data-page="battle"].px-theme .battle-card:active { transform: translateY(4px) !important; }
+[data-page="battle"].px-theme .battle-card.random { background: var(--red) !important; }
+[data-page="battle"].px-theme .battle-card.private { background: var(--green) !important; }
+[data-page="battle"].px-theme .battle-card.defense { background: var(--plum) !important; }
+[data-page="battle"].px-theme .battle-card.disabled { background: var(--gray) !important; opacity: 0.7; }
+[data-page="battle"].px-theme .battle-title { color: var(--white) !important; font-weight: normal; text-shadow: 2px 2px 0 var(--k); }
+[data-page="battle"].px-theme .battle-description { color: var(--white) !important; font-size: 15px; }
+[data-page="battle"].px-theme .battle-description strong { color: var(--yellow); font-weight: normal; }
+[data-page="battle"].px-theme .battle-info { border-top: 3px solid rgba(0, 0, 0, 0.35) !important; }
+[data-page="battle"].px-theme .info-item { color: var(--white) !important; }
+[data-page="battle"].px-theme .info-item.warning { color: var(--yellow) !important; font-weight: normal; }
+[data-page="battle"].px-theme .back-button {
+  min-height: 56px; border: none !important; background: var(--gray) !important; color: var(--white); box-shadow: var(--px-btn) !important; text-shadow: 2px 2px 0 var(--k); transform: none !important;
+}
+[data-page="battle"].px-theme .back-button:active { transform: translateY(3px) !important; box-shadow: var(--px-btn-down) !important; }
+[data-page="battle"].px-theme .loading { color: var(--yellow) !important; }
+[data-page="battle"].px-theme .warning-box { background: var(--orange) !important; border: none !important; box-shadow: 0 0 0 4px var(--k) !important; }
+[data-page="battle"].px-theme .warning-title, [data-page="battle"].px-theme .warning-text { color: var(--k) !important; font-weight: normal; }
+[data-page="battle"].px-theme .error-message { background: var(--red) !important; color: var(--white) !important; border: none !important; box-shadow: 0 0 0 4px var(--k) !important; }
+
+/* ===============================================================
+   ガチャ（gacha）
+   =============================================================== */
+[data-page="gacha"].px-theme .header, [data-page="gacha"].px-theme .section {
+  background: var(--navy) !important; border: none !important; box-shadow: var(--px-edge), var(--px-bevel) !important; margin-bottom: 22px;
+}
+[data-page="gacha"].px-theme .subtitle { color: var(--peach); }
+[data-page="gacha"].px-theme .status-card { background: var(--k) !important; border: none !important; }
+[data-page="gacha"].px-theme .status-label { color: var(--lgray); opacity: 1; }
+[data-page="gacha"].px-theme .status-value { color: var(--yellow); font-weight: normal; }
+[data-page="gacha"].px-theme .section-title { color: var(--yellow); font-weight: normal; text-shadow: 2px 2px 0 var(--k); }
+[data-page="gacha"].px-theme .gacha-card { background: var(--k) !important; border: none !important; box-shadow: inset 0 0 0 3px var(--gray) !important; transition: none; transform: none !important; }
+[data-page="gacha"].px-theme .gacha-name { color: var(--white); font-weight: normal; }
+[data-page="gacha"].px-theme .gacha-desc { color: var(--lgray); }
+[data-page="gacha"].px-theme .gacha-cost { color: var(--yellow); font-weight: normal; }
+[data-page="gacha"].px-theme .btn-row { gap: 12px !important; }
+[data-page="gacha"].px-theme .btn-row button, [data-page="gacha"].px-theme .modal-box button, [data-page="gacha"].px-theme .dupe-modal-btns button {
+  min-height: 52px; border: none !important; color: var(--white) !important; font-weight: normal; font-size: 16px; text-shadow: 2px 2px 0 var(--k);
+  box-shadow: var(--px-btn) !important; transition: none !important; transform: none !important;
+}
+[data-page="gacha"].px-theme .btn-row button:active:not(:disabled), [data-page="gacha"].px-theme .modal-box button:active:not(:disabled) { transform: translateY(3px) !important; box-shadow: var(--px-btn-down) !important; }
+[data-page="gacha"].px-theme .btn-row button:disabled { opacity: 0.45; }
+[data-page="gacha"].px-theme .btn-normal { background: var(--green) !important; }
+[data-page="gacha"].px-theme .btn-rare { background: var(--orange) !important; }
+[data-page="gacha"].px-theme .btn-kira { background: var(--plum) !important; }
+[data-page="gacha"].px-theme .btn-latest { background: var(--red) !important; }
+[data-page="gacha"].px-theme .btn-allin { background: var(--dblue) !important; }
+[data-page="gacha"].px-theme .modal-box button:not([class]) { background: var(--gray) !important; }
+[data-page="gacha"].px-theme .result-card { background: var(--k) !important; border: none !important; box-shadow: inset 0 0 0 3px var(--gray) !important; animation: kpxEnter 0.28s steps(4) both !important; }
+[data-page="gacha"].px-theme .result-card img, [data-page="gacha"].px-theme .card-modal-img { box-shadow: 0 0 0 3px var(--k), 0 0 0 6px var(--white) !important; background: var(--k) !important; }
+[data-page="gacha"].px-theme .result-name { font-weight: normal; }
+[data-page="gacha"].px-theme .result-meta { color: var(--lgray); }
+[data-page="gacha"].px-theme .result-rarity { font-weight: normal !important; box-shadow: 0 0 0 2px var(--k); }
+[data-page="gacha"].px-theme .rarity-N, [data-page="gacha"].px-theme .rarity-N\+ { background: var(--gray) !important; color: var(--white) !important; }
+[data-page="gacha"].px-theme .rarity-R, [data-page="gacha"].px-theme .rarity-R\+ { background: var(--dblue) !important; color: var(--white) !important; }
+[data-page="gacha"].px-theme .rarity-SR, [data-page="gacha"].px-theme .rarity-SR\+ { background: var(--plum) !important; color: var(--white) !important; }
+[data-page="gacha"].px-theme .rarity-SSR { background: var(--orange) !important; color: var(--k) !important; }
+[data-page="gacha"].px-theme .rarity-UR, [data-page="gacha"].px-theme .rarity-UR\+ { background: var(--pink) !important; color: var(--k) !important; }
+[data-page="gacha"].px-theme .rarity-LEGEND { background: var(--red) !important; color: var(--yellow) !important; }
+[data-page="gacha"].px-theme .miss-card { background: var(--k) !important; color: var(--lgray) !important; }
+[data-page="gacha"].px-theme .message.success { background: var(--green) !important; color: var(--white) !important; border: none !important; box-shadow: 0 0 0 4px var(--k); }
+[data-page="gacha"].px-theme .message.error { background: var(--red) !important; color: var(--white) !important; border: none !important; box-shadow: 0 0 0 4px var(--k); }
+[data-page="gacha"].px-theme .modal-box h2 { color: var(--yellow) !important; font-weight: normal; }
+[data-page="gacha"].px-theme .modal-box p { color: var(--lgray) !important; }
+[data-page="gacha"].px-theme .dupe-progress, [data-page="gacha"].px-theme .dupe-count { color: var(--yellow); font-weight: normal; }
+
+/* ===============================================================
+   ランダムバトル・プライベートバトル（randombattle・privatebattle）と、対人の画面（PvpArena。pvp- の部品）
+   =============================================================== */
+[data-page="randombattle"].px-theme header, [data-page="privatebattle"].px-theme header,
+[data-page="randombattle"].px-theme .main-box, [data-page="privatebattle"].px-theme .main-box {
+  background: var(--navy) !important; border: none !important; box-shadow: var(--px-edge), var(--px-bevel) !important; margin-bottom: 22px;
+}
+[data-page="randombattle"].px-theme .chip, [data-page="privatebattle"].px-theme .chip { background: var(--k) !important; border: none !important; font-weight: normal; }
+[data-page="randombattle"].px-theme .chip span, [data-page="privatebattle"].px-theme .chip span { color: var(--yellow) !important; }
+[data-page="randombattle"].px-theme .box-title, [data-page="privatebattle"].px-theme .box-title, .px-theme .pvp-title { font-weight: normal; border-left: 6px solid var(--red) !important; color: var(--yellow); }
+[data-page="privatebattle"].px-theme .box-title { border-left-color: var(--lime) !important; }
+[data-page="randombattle"].px-theme .slot, [data-page="privatebattle"].px-theme .slot { background: var(--k) !important; border: 3px dashed var(--gray) !important; transition: none; }
+[data-page="randombattle"].px-theme .slot.filled, [data-page="privatebattle"].px-theme .slot.filled { background: #11183a !important; border: 3px solid var(--blue) !important; }
+[data-page="randombattle"].px-theme .slot img, [data-page="privatebattle"].px-theme .slot img { box-shadow: 0 0 0 3px var(--k) !important; }
+[data-page="randombattle"].px-theme .card-list, [data-page="privatebattle"].px-theme .card-list { background: var(--k) !important; border: none !important; }
+[data-page="randombattle"].px-theme .mini-card, [data-page="privatebattle"].px-theme .mini-card {
+  background: var(--navy) !important; border: none !important; box-shadow: inset 0 0 0 3px var(--gray) !important; transform: none !important; transition: none;
+}
+[data-page="randombattle"].px-theme .mini-card.selected, [data-page="privatebattle"].px-theme .mini-card.selected { box-shadow: inset 0 0 0 4px var(--yellow) !important; }
+[data-page="randombattle"].px-theme .c-name, [data-page="privatebattle"].px-theme .c-name { font-weight: normal; font-size: 12px; }
+[data-page="randombattle"].px-theme .c-badge, [data-page="privatebattle"].px-theme .c-badge { font-weight: normal; box-shadow: 0 0 0 2px var(--k); }
+.px-theme .c-badge.rarity-N, .px-theme .c-badge.rarity-N\+ { background: var(--gray) !important; } .px-theme .c-badge.rarity-R, .px-theme .c-badge.rarity-R\+ { background: var(--dblue) !important; }
+.px-theme .c-badge.rarity-SR, .px-theme .c-badge.rarity-SR\+ { background: var(--plum) !important; } .px-theme .c-badge.rarity-SSR { background: var(--orange) !important; color: var(--k) !important; }
+.px-theme .c-badge.rarity-UR, .px-theme .c-badge.rarity-UR\+ { background: var(--pink) !important; color: var(--k) !important; } .px-theme .c-badge.rarity-LEGEND { background: var(--red) !important; }
+[data-page="randombattle"].px-theme .btn, [data-page="privatebattle"].px-theme .btn { font-weight: normal; transition: none !important; }
+[data-page="randombattle"].px-theme .btn-battle, [data-page="privatebattle"].px-theme .btn-battle {
+  min-height: 64px; background: var(--red) !important; color: var(--white) !important; box-shadow: var(--px-btn) !important; text-shadow: 2px 2px 0 var(--k); transform: none !important; font-size: 22px;
+}
+[data-page="privatebattle"].px-theme .btn-battle { background: var(--green) !important; }
+[data-page="randombattle"].px-theme .btn-battle:disabled, [data-page="privatebattle"].px-theme .btn-battle:disabled { background: var(--gray) !important; opacity: 0.6; }
+[data-page="randombattle"].px-theme .btn-sub, [data-page="privatebattle"].px-theme .btn-sub {
+  min-height: 52px; background: var(--gray) !important; color: var(--white) !important; border: none !important; box-shadow: var(--px-btn) !important; text-shadow: 2px 2px 0 var(--k);
+}
+[data-page="randombattle"].px-theme .btn:active:not(:disabled), [data-page="privatebattle"].px-theme .btn:active:not(:disabled) { transform: translateY(3px) !important; box-shadow: var(--px-btn-down) !important; }
+[data-page="privatebattle"].px-theme .input-field {
+  min-height: 60px; background: var(--white) !important; color: var(--k) !important; border: none !important;
+  box-shadow: var(--px-edge), inset 0 4px 0 var(--lgray) !important;
+}
+[data-page="privatebattle"].px-theme .input-field:focus { box-shadow: 0 -4px 0 0 var(--yellow), 0 4px 0 0 var(--yellow), -4px 0 0 0 var(--yellow), 4px 0 0 0 var(--yellow), inset 0 4px 0 var(--lgray) !important; }
+[data-page="randombattle"].px-theme #loadingOverlay, [data-page="privatebattle"].px-theme #loadingOverlay { background: rgba(0, 0, 0, 0.82) !important; }
+/* 対人の画面（PvpArena） */
+.px-theme .pvp-arena { background: var(--navy) !important; border: none !important; box-shadow: var(--px-edge), var(--px-bevel) !important; }
+.px-theme .pvp-round { color: var(--yellow) !important; font-weight: normal; text-shadow: 2px 2px 0 var(--k); }
+.px-theme .pvp-side { background: var(--k) !important; border: none !important; }
+.px-theme .pvp-side.me .pvp-who { color: var(--blue) !important; } .px-theme .pvp-side.op .pvp-who { color: var(--pink) !important; }
+.px-theme .pvp-who, .px-theme .pvp-hp, .px-theme .pvp-big, .px-theme .pvp-yaku, .px-theme .pvp-charge { font-weight: normal !important; }
+.px-theme .pvp-bar { height: 16px !important; background: var(--gray) !important; box-shadow: 0 0 0 3px var(--navy); }
+.px-theme .pvp-bar > div { transition: width 0.4s steps(4) !important; }
+.px-theme .pvp-side.me .pvp-bar > div { background: var(--lime) !important; }
+.px-theme .pvp-side.op .pvp-bar > div { background: var(--red) !important; }
+.px-theme .pvp-small { color: var(--lgray) !important; }
+.px-theme .pvp-box, .px-theme .pvp-final, .px-theme .pvp-log { background: var(--k) !important; border: none !important; }
+.px-theme .pvp-big.win { color: var(--lime) !important; } .px-theme .pvp-big.lose { color: var(--pink) !important; } .px-theme .pvp-big.even { color: var(--yellow) !important; }
+.px-theme .pvp-yaku, .px-theme .pvp-charge { color: var(--yellow) !important; }
+.px-theme .pvp-final .ttl { font-weight: normal !important; color: var(--yellow); text-shadow: 3px 3px 0 var(--red), 6px 6px 0 var(--k); }
+.px-theme .pvp-hand { gap: 14px !important; }
+.px-theme .pvp-card {
+  background: var(--dblue) !important; border: none !important; color: var(--white) !important; transition: none !important; min-height: 120px;
+  box-shadow: 0 5px 0 var(--k), -3px 0 0 var(--k), 3px 0 0 var(--k), 0 -3px 0 var(--k), inset 0 -5px 0 rgba(0, 0, 0, 0.3) !important;
+}
+.px-theme .pvp-card:hover:not(:disabled) { transform: translateY(-3px); }
+.px-theme .pvp-card:active:not(:disabled) { transform: translateY(3px); }
+.px-theme .pvp-card:disabled { background: var(--gray) !important; }
+.px-theme .pvp-card img { box-shadow: 0 0 0 2px var(--k); }
+.px-theme .pvp-card .nm, .px-theme .pvp-card .at, .px-theme .pvp-card .sk, .px-theme .pvp-card .hint { font-weight: normal !important; }
+.px-theme .pvp-card .at, .px-theme .pvp-card .hint { color: var(--yellow) !important; }
+.px-theme .pvp-card .sk, .px-theme .pvp-card .skt { color: var(--peach) !important; }
+.px-theme .pvp-card .rest { background: rgba(0, 0, 0, 0.7) !important; font-weight: normal !important; }
+.px-theme .pvp-btn { min-height: 52px; font-weight: normal !important; box-shadow: var(--px-btn) !important; text-shadow: 2px 2px 0 var(--k); }
+.px-theme .pvp-btn.main { background: var(--red) !important; }
+.px-theme .pvp-btn.sub { background: var(--gray) !important; border: none !important; }
+.px-theme .pvp-btn:active { transform: translateY(3px); box-shadow: var(--px-btn-down) !important; }
+.px-theme .pvp-log { color: var(--lgray) !important; }
+.px-theme .pvp-wait { color: var(--lgray) !important; }
+
+/* ===============================================================
+   ステップアップ（stepup）。色は画面の変数を16色にかえる（裏ルートは黒と桃色）
+   すごろく・ボス戦の時代の背景（fx/eras.js）は、もともとドット絵なのでそのまま
+   =============================================================== */
+body.px-theme[data-page="stepup"] {
+  --bg-main: #0b0f24; --bg-card: #1d2b53; --border-glow: #29adff; --text-main: #fff1e8; --text-neon: #fff1e8;
+  --accent-gold: #ffec27; --btn-grad: #ff004d; --hp-fill: #00e436; --enemy-hp-fill: #ff004d; --board-line: #5f574f;
+}
+body.px-theme.theme-ura[data-page="stepup"] { --bg-card: #000000; --border-glow: #ff77a8; --btn-grad: #7e2553; --hp-fill: #83769c; }
+[data-page="stepup"].px-theme header, [data-page="stepup"].px-theme .main-box {
+  background: var(--bg-card) !important; border: none !important; box-shadow: var(--px-edge), var(--px-bevel) !important; margin-bottom: 22px;
+}
+[data-page="stepup"].px-theme.has-era-bg .main-box { background: rgba(29, 43, 83, 0.9) !important; }
+[data-page="stepup"].px-theme.theme-ura.has-era-bg .main-box { background: rgba(0, 0, 0, 0.85) !important; }
+[data-page="stepup"].px-theme .btn { font-weight: normal; transition: none !important; }
+[data-page="stepup"].px-theme .btn-action {
+  min-height: 56px; color: var(--white) !important; box-shadow: var(--px-btn) !important; text-shadow: 2px 2px 0 var(--k); filter: none !important; transform: none;
+}
+[data-page="stepup"].px-theme #btnContinue { background: var(--green) !important; box-shadow: var(--px-btn) !important; }
+[data-page="stepup"].px-theme .btn-action:disabled { background: var(--gray) !important; }
+[data-page="stepup"].px-theme .btn-sub { min-height: 48px; background: var(--gray) !important; color: var(--white) !important; border: none !important; box-shadow: var(--px-btn) !important; text-shadow: 2px 2px 0 var(--k); }
+[data-page="stepup"].px-theme .btn:active:not(:disabled), [data-page="stepup"].px-theme .si-buy:active:not(:disabled) { transform: translateY(3px) !important; box-shadow: var(--px-btn-down) !important; }
+[data-page="stepup"].px-theme .route-card { border: none !important; transition: none; transform: none !important; }
+[data-page="stepup"].px-theme .route-omote { background: var(--peach) !important; color: var(--k) !important; box-shadow: 0 6px 0 var(--k), -4px 0 0 var(--k), 4px 0 0 var(--k), 0 -4px 0 var(--k), inset 0 -6px 0 var(--orange) !important; }
+[data-page="stepup"].px-theme .route-ura { background: var(--k) !important; color: var(--white) !important; box-shadow: 0 6px 0 var(--pink), -4px 0 0 var(--pink), 4px 0 0 var(--pink), 0 -4px 0 var(--pink), inset 0 -6px 0 var(--plum) !important; }
+[data-page="stepup"].px-theme .route-card:active { transform: translateY(4px) !important; }
+[data-page="stepup"].px-theme .route-card h2 { font-weight: normal; }
+[data-page="stepup"].px-theme .slot { background: var(--k) !important; border: 3px dashed var(--gray) !important; }
+[data-page="stepup"].px-theme .slot.active { border: 3px solid var(--yellow) !important; background: #11183a !important; }
+[data-page="stepup"].px-theme .card-list { background: var(--k) !important; border: none !important; }
+[data-page="stepup"].px-theme .mini-card { background: var(--navy) !important; border: none !important; box-shadow: inset 0 0 0 3px var(--gray) !important; }
+[data-page="stepup"].px-theme .mini-card:hover { box-shadow: inset 0 0 0 3px var(--yellow) !important; }
+[data-page="stepup"].px-theme .c-name, [data-page="stepup"].px-theme .mini-card .c-ab, [data-page="stepup"].px-theme .mini-card .c-desc { font-weight: normal !important; }
+[data-page="stepup"].px-theme .partner-card { background: var(--navy) !important; border: none !important; box-shadow: inset 0 0 0 3px var(--border-glow) !important; transform: none !important; }
+[data-page="stepup"].px-theme .partner-card.selected { box-shadow: inset 0 0 0 4px var(--yellow) !important; }
+[data-page="stepup"].px-theme .partner-card img, [data-page="stepup"].px-theme .slot .partner-face, [data-page="stepup"].px-theme .boss-img { border: none !important; box-shadow: 0 0 0 3px var(--k), 0 0 0 6px var(--yellow) !important; }
+[data-page="stepup"].px-theme .partner-card .pc-name, [data-page="stepup"].px-theme .partner-card .pc-skill, [data-page="stepup"].px-theme .partner-card .pc-desc { font-weight: normal; }
+[data-page="stepup"].px-theme .mass { box-shadow: 0 0 0 2px var(--k); }
+[data-page="stepup"].px-theme .mass.current { background: var(--yellow) !important; color: var(--k) !important; box-shadow: 0 0 0 3px var(--k), 0 0 0 6px var(--white) !important; }
+[data-page="stepup"].px-theme .status-panel, [data-page="stepup"].px-theme .dice-result, [data-page="stepup"].px-theme .hand-panel { background: var(--k) !important; border: none !important; font-weight: normal; }
+[data-page="stepup"].px-theme .hand-panel.need { box-shadow: 0 0 0 4px var(--red) !important; }
+[data-page="stepup"].px-theme .hp-bar { background: var(--gray) !important; border: none !important; box-shadow: 0 0 0 3px var(--k) !important; }
+[data-page="stepup"].px-theme .hp-fill { transition: width 0.4s steps(4) !important; }
+[data-page="stepup"].px-theme .hp-text { text-shadow: 2px 2px 0 var(--k) !important; font-weight: normal; }
+[data-page="stepup"].px-theme .btn-skill { border: none !important; box-shadow: var(--px-btn) !important; font-weight: normal; text-shadow: 2px 2px 0 var(--k); filter: none !important; transform: none !important; }
+[data-page="stepup"].px-theme .btn-skill.gu { background: var(--red) !important; } [data-page="stepup"].px-theme .btn-skill.choki { background: var(--green) !important; }
+[data-page="stepup"].px-theme .btn-skill.pa { background: var(--dblue) !important; } [data-page="stepup"].px-theme .btn-skill:disabled { background: var(--gray) !important; }
+[data-page="stepup"].px-theme .vs-text { color: var(--red) !important; text-shadow: 3px 3px 0 var(--k) !important; font-style: normal; font-weight: normal; }
+[data-page="stepup"].px-theme .battle-log, [data-page="stepup"].px-theme .buff-line { font-weight: normal; text-shadow: 2px 2px 0 var(--k); }
+[data-page="stepup"].px-theme .arena-cards .ac img { border: none !important; box-shadow: 0 0 0 2px var(--k) !important; }
+[data-page="stepup"].px-theme .arena-cards .ac.main img { box-shadow: 0 0 0 2px var(--k), 0 0 0 5px var(--yellow) !important; }
+[data-page="stepup"].px-theme .hp-cards button { background: var(--navy) !important; border: none !important; box-shadow: inset 0 0 0 3px var(--border-glow), 0 4px 0 var(--k) !important; min-height: 60px; }
+[data-page="stepup"].px-theme .hp-cards button.sel { box-shadow: inset 0 0 0 4px var(--yellow), 0 4px 0 var(--k) !important; }
+[data-page="stepup"].px-theme .hp-cards button:disabled { opacity: 0.5; }
+[data-page="stepup"].px-theme .hp-cards button .hc-atk, [data-page="stepup"].px-theme .hp-cards button .hc-yaku { font-weight: normal; }
+[data-page="stepup"].px-theme .item-tile, [data-page="stepup"].px-theme .shop-item { background: var(--navy) !important; border: none !important; box-shadow: inset 0 0 0 3px var(--border-glow) !important; }
+[data-page="stepup"].px-theme .item-tile:hover { box-shadow: inset 0 0 0 3px var(--yellow) !important; }
+[data-page="stepup"].px-theme .item-tile .it-name, [data-page="stepup"].px-theme .shop-item .si-name { font-weight: normal; }
+[data-page="stepup"].px-theme .item-tile .it-count { background: var(--yellow) !important; color: var(--k) !important; font-weight: normal; }
+[data-page="stepup"].px-theme .item-tile .it-tag, [data-page="stepup"].px-theme .shop-item .si-tags span, [data-page="stepup"].px-theme .im-tags span { background: var(--k) !important; font-weight: normal; }
+[data-page="stepup"].px-theme .shop-item .si-tags span.mul, [data-page="stepup"].px-theme .relic-chip .rc-mul { background: var(--orange) !important; color: var(--k) !important; }
+[data-page="stepup"].px-theme .relic-chip { background: var(--k) !important; border: none !important; box-shadow: inset 0 0 0 3px var(--border-glow) !important; font-weight: normal; }
+[data-page="stepup"].px-theme .relic-chip.active { box-shadow: inset 0 0 0 3px var(--yellow) !important; }
+[data-page="stepup"].px-theme .si-buy { min-height: 48px; box-shadow: var(--px-btn) !important; font-weight: normal; text-shadow: 2px 2px 0 var(--k); }
+[data-page="stepup"].px-theme .si-buy:disabled { background: var(--gray) !important; }
+[data-page="stepup"].px-theme .im-short { font-weight: normal; }
+[data-page="stepup"].px-theme .lane.chosen { background: rgba(255, 236, 39, 0.2) !important; }
+[data-page="stepup"].px-theme .quiz-explain { background: var(--k) !important; }
+[data-page="stepup"].px-theme #qTitle { text-shadow: 2px 2px 0 var(--k); }
