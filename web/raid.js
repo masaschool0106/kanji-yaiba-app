@@ -1,15 +1,19 @@
 /* ===============================================================
-   漢字の刃｜巨大レイドボス（週末・月末だけ。マイページの知らせを押すと app.js が読み込む）
+   漢字の刃｜巨大レイドボス（毎週金曜 8:30〜16:00。月の最後の金曜は月末の超巨大ボス。マイページの知らせを押すと app.js が読み込む）
    ・攻撃に使うカードを3枚えらぶ → 問題ごとに1枚えらんでから答える → 正解すると、じゃんけん＋サイコロで攻撃
      ダメージ＝（出目×100 ＋ カードの ATK）× じゃんけん（勝ち×3・あいこ×1.5・負け×1）× 役（3回の手の並び）
    ・正解・ボスの手・サイコロ・ダメージ・ごほうびは、すべてサーバー（Api.gs の raid.*）が決める。この画面は見せるだけ
-   ・前の版で来たボス（サーバーが dice: false と返す）は、前のとおり 1問1ダメージ
+   ・大業（10/31）：正解3問でゲージがたまる →「サイコロをふる」。目とダメージはサーバー（raid.special）が決め、
+     画面は fx/fx.js の dice で、返事が来るまで転がして、その目で止めて見せるだけ
+   ・ボスの名前・見た目（色・王冠）・ポイントは、サーバーのボスの表（Api.gs の RAID_BOSSES_）から来る
+   ・前の版で来たボス（サーバーが dice: false と返す）は、前のとおり 1問1ダメージ（大業なし）
    ・ボスの絵とレーザーは fx/fx.js の raidStage（読めないときは絵文字のボスで動く）
    =============================================================== */
 (function () {
   'use strict';
   let app = null, root = null, stage = null, token = null, busy = false, combo = 0, hits = 0, last = null;
   let deck = null, rest = -1, pickIdx = -1, fav = '';
+  let boss = null, gauge = 0, spNeed = 3, spName = '', curQ = null;   // ボスのようす・大業ゲージ・大業の名前（自分の決め技）・今の問題
   const CARDS_KEY = 'kanji_raid_cards_v1';   // えらんだ3枚（このブラウザだけ。持っているかはサーバーが毎回確かめる）
   const ICON = { 'グー': '✊', 'チョキ': '✌️', 'パー': '🖐️' };
 
@@ -22,7 +26,20 @@
   .rd-hp { position: relative; height: 24px; margin-top: 10px; border-radius: 999px; background: rgba(0, 0, 0, 0.55); border: 2px solid #7f1d1d; overflow: hidden; }
   .rd-hp i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #dc2626, #f97316); transition: width 0.4s ease; }
   .rd-hp span { position: relative; font-size: 0.85rem; font-weight: 900; color: #fff; line-height: 20px; text-shadow: 0 1px 2px #000; }
-  .rd-stage { width: 100%; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: #1c0505; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; font-size: 80px; }
+  .rd-stage { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: #1c0505; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; font-size: 80px; }
+  .rd-dice { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.6); }
+  .rd-dice .kfx-canvas { position: absolute; inset: 0; }
+  .rd-face { font-size: 88px; line-height: 1; color: #fff; }
+  .rd-face-t { font-size: 1.2rem; font-weight: 900; color: #fde047; margin-top: 8px; }
+  .rd-head.monthend { border-color: #fbbf24 !important; box-shadow: 0 0 18px rgba(251, 191, 36, 0.5); }
+  .rd-head.monthend .rd-title { color: #fde68a; }
+  .rd-boss { font-size: 0.9rem; color: #fde68a; margin: 2px 0 6px; line-height: 1.5; }
+  .rd-gauge { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; margin: 6px 0; font-size: 0.9rem; font-weight: 800; color: #f0abfc; }
+  .rd-gauge i { display: inline-block; width: 24px; height: 12px; border: 2px solid #a855f7; border-radius: 3px; background: rgba(0, 0, 0, 0.4); }
+  .rd-gauge i.on { background: linear-gradient(90deg, #a855f7, #f0abfc); }
+  .rd-acts .sp { background: linear-gradient(135deg, #7c3aed, #db2777); border-color: #fde047; animation: rdGlow 0.9s ease-in-out infinite alternate; }
+  @keyframes rdGlow { from { box-shadow: 0 0 0 rgba(253, 224, 71, 0); } to { box-shadow: 0 0 16px rgba(253, 224, 71, 0.85); } }
+  @media (prefers-reduced-motion: reduce) { .rd-acts .sp { animation: none; } }
   .rd-panel { padding: 14px 16px; text-align: center; color: #e2e8f0; }
   .rd-q { font-size: 1.35rem; font-weight: 900; margin: 6px 0 12px; line-height: 1.5; }
   .rd-choices { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
@@ -121,15 +138,15 @@
     $('rdHpText').textContent = 'HP ' + fmt(left) + ' / ' + (last.maxHp ? fmt(last.maxHp) : '?') + '（クラスのダメージ ' + fmt(last.damage || 0) + '）';
   }
 
-  function startStage(name) {
+  function startStage(name, look) {
     if (stage) return;
     const box = $('rdStage');
     box.textContent = '';
     if (window.KanjiFX && typeof KanjiFX.raidStage === 'function') {
-      try { stage = KanjiFX.raidStage(box, { name: name }); return; } catch (e) { console.error('raidStage', e); }
+      try { stage = KanjiFX.raidStage(box, { name: name, look: look || {} }); return; } catch (e) { console.error('raidStage', e); }
     }
     // 演出が読めないとき：絵文字のボス（攻撃はゆれで知らせる）
-    box.textContent = '🦖';
+    box.textContent = (look && look.emoji) || '🦖';
     stage = {
       hit: () => { box.animate([{ transform: 'translateX(-8px)' }, { transform: 'translateX(8px)' }, { transform: 'none' }], 240); return Promise.resolve(); },
       miss: () => Promise.resolve(), defeat: () => { box.textContent = '💥'; return Promise.resolve(); }, destroy: () => {}
@@ -157,22 +174,45 @@
     $('rdSub').textContent = '参加した人 ' + sub.participants + '人・正解1問 ' + sub.hitPt + 'pt（今日 ' + sub.dayPt + ' / ' + sub.dayMax + 'pt）・倒したら1問でも正解した人に ' + sub.reward + 'pt（トドメは +' + sub.finishReward + 'pt）';
   }
 
+  // 大業ゲージ（正解 spNeed 問でたまる）。たまったら「サイコロをふる」ボタン
+  function gaugeRow() {
+    if (!deck) return null;
+    const full = gauge >= spNeed;
+    const cells = [];
+    for (let i = 0; i < spNeed; i++) cells.push(el('i', { class: i < gauge ? 'on' : '' }));
+    const bar = el('div', { class: 'rd-gauge' }, [el('span', { text: '大業ゲージ' })].concat(cells, [el('span', { text: full ? 'たまった！' : '（正解であと ' + (spNeed - gauge) + '）' })]));
+    if (!full) return bar;
+    return el('div', {}, [bar, el('div', { class: 'rd-acts' }, [
+      el('button', { type: 'button', class: 'sp', text: '🎲 大業「' + (spName || '必殺！漢字の一撃') + '」！ サイコロをふる', onclick: special })
+    ])]);
+  }
+
+  function spRule() {
+    return '正解 ' + spNeed + '問で「大業」がたまる。大業はサイコロ2つ（出た目の合計 × 1,000・ゾロ目なら2倍）！';
+  }
+
   function refresh() {
     app.showLoading('ボスのようすを見ています...');
     return app.call('raid.status').then((s) => {
       app.hideLoading();
       if (!s.active) {
         $('rdTitle').textContent = 'ボスは来ていないよ';
-        panel([el('p', { text: '巨大ボスが来るのは、土・日と月末の3日間（' + (s.next && s.next.hours ? s.next.hours : '朝から夜まで') + '）。' }),
-          el('div', { class: 'rd-q', text: s.next ? '次は ' + s.next.text + ' から！' : '次の襲来を待とう！' })]);
+        $('rdSub').textContent = ''; $('rdMe').textContent = '';
+        panel([el('p', { text: '巨大ボスが来るのは、毎週金曜日の ' + (s.hours || '8:30〜16:00') + '。月の最後の金曜日は、ポイントが多い「月末の超巨大ボス」が来る！' }),
+          el('div', { class: 'rd-q', text: s.next ? '次は ' + s.next.text + ' から！' : '次の襲来を待とう！' }),
+          s.next && s.next.boss ? el('p', { class: 'rd-boss', text: (s.next.kind === 'monthend' ? '👑 ' + s.next.label + '：' : '来るボス：') + (s.next.emoji ? s.next.emoji + ' ' : '') + s.next.boss }) : null]);
         return;
       }
       fav = s.fav || '';
-      $('rdTitle').textContent = '⚠️ ' + s.label + '「' + s.boss + '」';
+      boss = s.bossInfo || null;
+      const mon = s.kind === 'monthend';
+      $('rdTitle').textContent = (mon ? '👑 ' : '⚠️ ') + s.label + '「' + s.boss + '」' + (boss && boss.emoji ? boss.emoji : '') + (s.defeated ? '' : '襲来！');
+      root.querySelector('.rd-head').classList.toggle('monthend', mon);
       sub = s; subText();
       $('rdMe').textContent = 'あなたのダメージ：' + fmt(s.my) + (s.myHits ? '（正解 ' + s.myHits + '問）' : '');
+      if (s.dice) { gauge = s.gauge || 0; spNeed = s.spNeed || spNeed; spName = s.spName || spName; }
       setHp(s);
-      startStage(s.boss);
+      startStage(s.boss, boss && boss.look);
       if (s.defeated) {
         panel([el('div', { class: 'rd-q', text: '🎉 ' + s.boss + ' を倒した！' }), el('p', { text: (s.finisher ? 'トドメ：' + s.finisher + (s.finisherIsMe ? '（あなた！）' : '') : '') }),
           s.next ? el('p', { text: '次の巨大ボスは ' + s.next.text + ' から！' }) : null, renderTop(s)]);
@@ -187,7 +227,10 @@
         return;
       }
       panel([
+        boss && boss.text ? el('p', { class: 'rd-boss', text: (boss.emoji ? boss.emoji + ' ' : '') + s.boss + '：' + boss.text }) : null,
+        mon ? el('p', { class: 'rd-boss', text: '👑 月末のボスは、正解1問 ' + s.hitPt + 'pt・倒したら ' + s.reward + 'pt（トドメは +' + s.finishReward + 'pt）！' }) : null,
         el('p', { text: '問題の前に、攻撃するカードを1枚えらぼう。正解すると、じゃんけん＋サイコロで攻撃！（じゃんけんに負けても、正解ならダメージは入る）' }),
+        el('div', { class: 'rd-hint', text: spRule() }),
         el('div', { class: 'rd-hint', text: hintText() }),
         el('div', { class: 'rd-acts' }, [
           el('button', { type: 'button', class: 'go', text: '🚀 攻撃開始！', onclick: attack }),
@@ -261,6 +304,8 @@
       token = q.token; combo = 0;
       deck = q.dice ? q.deck : null; rest = q.last === undefined ? -1 : q.last; pickIdx = -1;
       if (q.fav !== undefined) fav = q.fav;
+      if (q.bossInfo) boss = q.bossInfo;
+      if (q.gauge !== undefined) { gauge = q.gauge; spNeed = q.spNeed || spNeed; spName = q.spName || spName; }
       if (deck) saveCards(deck.filter((c) => !c.trial).map((c) => c.id));
       setHp(q);
       question(q, '');
@@ -278,11 +323,13 @@
   }
 
   function question(q, msg, cls, extra) {
+    curQ = q;
     const box = el('div', { class: 'rd-choices' });
     q.choices.forEach((c) => box.appendChild(el('button', { type: 'button', text: c, onclick: () => answer(c, box) })));
     panel([
       el('div', { class: 'rd-msg ' + (cls || ''), text: msg || (combo >= 2 ? '🔥 ' + combo + ' 連続命中中！' : (deck ? '攻撃するカードをえらんで、答えよう！' : '漢字ミサイル発射よーい！')) }),
       extra || null,
+      gaugeRow(),
       deck ? el('div', { class: 'rd-hint', text: hintText() }) : null,
       handRow(),
       el('div', { class: 'rd-q', text: q.question }),
@@ -313,28 +360,87 @@
       busy = false;
       setHp(r);
       if (r.last !== undefined) rest = r.last;
+      const was = gauge;
+      if (r.gauge !== undefined) { gauge = r.gauge; spNeed = r.spNeed || spNeed; }
       const dmg = r.hit ? r.hit.damage : 1;
       if (r.correct) { combo++; hits++; $('rdMe').textContent = 'この挑戦での命中：' + hits; }
       else combo = 0;
       const fx = r.correct ? stage.hit('-' + fmt(dmg) + (r.hit && r.hit.yaku && r.hit.yaku.fired ? ' ' + r.hit.yaku.icon : '')) : stage.miss();
       const extra = r.hit ? hitBox(r.hit) : null;
       if (r.defeated) {
-        fx.then(() => stage.defeat()).then(() => {
-          panel([
-            el('div', { class: 'rd-q', text: r.finishedByMe ? '⚡ あなたがトドメをさした！' : '🎉 クラスのみんなでボスを倒した！' }),
-            r.finishedByMe ? extra : null,
-            el('p', { text: r.finishedByMe && r.reward ? 'ごほうび ' + r.reward + 'pt！（参加した人みんなにもポイント）' : '1問でも正解した人には、ポイントのごほうび！' }),
-            el('div', { class: 'rd-acts' }, [el('button', { type: 'button', class: 'go', text: '活やくランキングを見る', onclick: refresh })])
-          ]);
-        });
+        fx.then(() => stage.defeat()).then(() => defeatedPanel(r, extra));
         return;
       }
       if (sub && r.dayPt !== undefined) { sub.dayPt = r.dayPt; subText(); }
       const pt = r.point === undefined ? '' : (r.point > 0 ? ' ＋' + r.point + 'pt（今日 ' + r.dayPt + ' / ' + r.dayMax + 'pt）' : '（今日のポイントは上限。攻撃はできるよ）');
-      question(r, r.correct ? '💥 命中！ ボスに ' + fmt(dmg) + ' ダメージ！' + pt : '🛡️ はずれ…（正解は「' + r.answer + '」）', r.correct ? 'rd-ok' : 'rd-ng', extra);
+      const ready = deck && was < spNeed && gauge >= spNeed ? ' ⚡ 大業がたまった！' : '';
+      question(r, r.correct ? '💥 命中！ ボスに ' + fmt(dmg) + ' ダメージ！' + pt + ready : '🛡️ はずれ…（正解は「' + r.answer + '」）', r.correct ? 'rd-ok' : 'rd-ng', extra);
     }).catch((err) => {
       busy = false;
       panel([el('p', { class: 'rd-ng', text: '⚠️ ' + (err.message || 'うまくいきませんでした') }), el('div', { class: 'rd-acts' }, [el('button', { type: 'button', class: 'go', text: 'もう一度', onclick: refresh })])]);
+    });
+  }
+
+  function defeatedPanel(r, extra) {
+    panel([
+      el('div', { class: 'rd-q', text: r.finishedByMe ? '⚡ あなたがトドメをさした！' : '🎉 クラスのみんなでボスを倒した！' }),
+      r.finishedByMe ? extra : null,
+      el('p', { text: r.finishedByMe && r.reward ? 'ごほうび ' + r.reward + 'pt！（参加した人みんなにもポイント）' : '1問でも正解した人には、ポイントのごほうび！' }),
+      el('div', { class: 'rd-acts' }, [el('button', { type: 'button', class: 'go', text: '活やくランキングを見る', onclick: refresh })])
+    ]);
+  }
+
+  // 大業の結果：「出目 4 ＋ 4 ＝ 8 → 8 × 1,000 × 2（ゾロ目！）＝ 16,000」
+  function spBox(sp) {
+    return el('div', { class: 'rd-hit' }, [
+      el('div', { class: 'rd-yaku', text: '🎲 大業「' + sp.name + '」' }),
+      el('div', {}, ['出目 ' + sp.dice.join(' ＋ ') + ' ＝ ' + sp.sum + ' → ' + sp.sum + ' × ' + fmt(sp.perPip) + (sp.zoro ? ' × ' + sp.mul + '（ゾロ目！）' : '') + ' ＝ ', el('b', { text: fmt(sp.damage) })])
+    ]);
+  }
+
+  // サイコロを転がして、value（サーバーの目 [a, b] の Promise）で止める。text() は止まったあとの下の文字
+  function rollDice(box, value, text) {
+    if (window.KanjiFX && KanjiFX.diceText && typeof KanjiFX.dice === 'function') return KanjiFX.dice(box, { count: 2, value: value, text: text });
+    // 演出が読めないとき：文字のサイコロ（転がっている間の目は見せるだけ。止まる目はサーバーの目）
+    const F = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+    const face = el('div', { class: 'rd-face', text: '⚀ ⚀' });
+    box.appendChild(face);
+    const spin = setInterval(() => { face.textContent = F[Math.floor(Math.random() * 6)] + ' ' + F[Math.floor(Math.random() * 6)]; }, 90);
+    return Promise.resolve(value).then((d) => {
+      clearInterval(spin);
+      face.textContent = d.map((x) => F[x - 1] || '?').join(' ');
+      const t = text(); if (t) box.appendChild(el('div', { class: 'rd-face-t', text: t }));
+      return new Promise((ok) => setTimeout(ok, 1300));
+    }, (e) => { clearInterval(spin); throw e; });
+  }
+
+  // 大業：目とダメージはサーバー（raid.special）が決める。画面は返事が来るまで転がして、その目で止めるだけ
+  function special() {
+    if (busy || !token || !curQ) return;
+    busy = true;
+    const q = curQ;
+    let res = null;
+    const req = app.call('raid.special', { token: token }).then((r) => { res = r; return r; });
+    const box = el('div', { class: 'rd-dice' });
+    $('rdStage').appendChild(box);
+    panel([el('div', { class: 'rd-msg rd-ok', text: '🎲 大業「' + (spName || '必殺！漢字の一撃') + '」！ サイコロをふれ！' })]);
+    const faces = req.then((r) => (r.special ? r.special.dice : Promise.reject(new Error('ボスはもう倒されたよ！'))));
+    rollDice(box, faces, () => (res && res.special ? fmt(res.special.damage) + ' ダメージ！' : '')).then(() => {
+      box.remove();
+      busy = false;
+      const r = res, sp = r.special;
+      setHp(r);
+      gauge = r.gauge; spNeed = r.spNeed || spNeed;
+      const text = '-' + fmt(sp.damage);
+      const fx = stage.big ? stage.big(text, '大業！') : stage.hit(text);
+      const extra = spBox(sp);
+      if (r.defeated) { fx.then(() => stage.defeat()).then(() => defeatedPanel(r, extra)); return; }
+      question(q, '💥 大業「' + sp.name + '」！ ボスに ' + fmt(sp.damage) + ' ダメージ！' + (sp.zoro ? '（ゾロ目で ×' + sp.mul + '）' : '') + ' つづけて問題に答えよう', 'rd-ok', extra);
+    }).catch((err) => {
+      box.remove();
+      busy = false;
+      if (res && res.defeated) { setHp(res); defeatedPanel(res, null); return; }
+      panel([el('p', { class: 'rd-ng', text: '⚠️ ' + ((err && err.message) || '大業がうまくいきませんでした') }), el('div', { class: 'rd-acts' }, [el('button', { type: 'button', class: 'go', text: 'もう一度', onclick: refresh })])]);
     });
   }
 

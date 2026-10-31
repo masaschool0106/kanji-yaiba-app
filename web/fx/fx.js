@@ -823,6 +823,7 @@
   //   opts.count  … サイコロの数（1 か 2。ダブルダイスは 2）
   //   opts.golden … 確定6ダイスなら true（金色）
   //   opts.bonus  … 出目に足す数（アイテム・レリック）。表示だけ
+  //   opts.text   … 最後の下の文字（「○マス すすむ！」のかわり）。文字か、(合計, [出目…]) → 文字 の関数。'' なら出さない（レイドの大業）
   // ===============================================================
   async function dice(host, opts) {
     opts = opts || {};
@@ -894,7 +895,10 @@
       } else {
         await popText(st, String(value), { size: 44, color: '#ffffff', outline: '#4c1d95', y: 58 });
       }
-      if (opts.bonus) {
+      if (opts.text !== undefined) {
+        const after = typeof opts.text === 'function' ? opts.text(value, faces) : opts.text;
+        if (after) await popText(st, String(after), { size: 18, color: '#ffffff', outline: '#000', y: 100 });
+      } else if (opts.bonus) {
         await st.wait(220);
         Sound.play('tick');
         await popText(st, `+${opts.bonus}`, { size: 22, color: '#86efac', outline: '#14532d', x: 214 + (n === 2 ? 40 : 0), y: 58 });
@@ -1742,8 +1746,10 @@
   }
 
   // ---------- 巨大レイドボス：画面いっぱいの怪獣に「漢字ミサイル（レーザー）」を当てる ----------
-  //   raidStage(host, { name }) は、ずっと出しておく舞台。hit()・miss()・defeat() で動かす
-  function kaijuSprite(seedName) {
+  //   raidStage(host, { name, look }) は、ずっと出しておく舞台。hit()・big()・miss()・defeat() で動かす
+  //   look（サーバーのボスの表）：{ body, belly, spike（色）, crown（王冠） }。ないときは前の緑の怪獣
+  function kaijuSprite(seedName, look) {
+    look = look || {};
     const c = document.createElement('canvas'); c.width = 220; c.height = 170;
     const g = c.getContext('2d');
     // しっぽ・からだ・頭（ドット絵らしく、太い黒ふち）
@@ -1758,11 +1764,11 @@
     };
     g.save(); g.translate(0, 0);
     for (const [dx, dy] of [[-2, 0], [2, 0], [0, -2], [0, 2]]) { g.save(); g.translate(dx, dy); shape('#000'); g.restore(); }
-    shape('#14532d');
+    shape(look.body || '#14532d');
     g.restore();
-    g.fillStyle = '#4d7c0f'; g.beginPath(); g.ellipse(118, 124, 36, 30, -0.1, 0, Math.PI * 2); g.fill();   // おなか
-    // せなかのトゲ（紫に光る）
-    g.fillStyle = '#a855f7';
+    g.fillStyle = look.belly || '#4d7c0f'; g.beginPath(); g.ellipse(118, 124, 36, 30, -0.1, 0, Math.PI * 2); g.fill();   // おなか
+    // せなかのトゲ（ボスの色に光る）
+    g.fillStyle = look.spike || '#a855f7';
     for (let i = 0; i < 6; i++) { const x = 58 + i * 16, y = 64 - Math.sin(i / 5 * Math.PI) * 14; g.beginPath(); g.moveTo(x - 8, y + 12); g.lineTo(x, y - 8); g.lineTo(x + 8, y + 12); g.fill(); }
     // からだの「誤字」もよう
     g.font = `900 13px ${FONT}`; g.fillStyle = 'rgba(0,0,0,0.35)';
@@ -1771,11 +1777,18 @@
     // 目と歯
     g.fillStyle = '#fef08a'; g.fillRect(156, 40, 10, 7); g.fillStyle = '#dc2626'; g.fillRect(160, 41, 4, 5);
     g.fillStyle = '#fff'; for (let i = 0; i < 5; i++) g.fillRect(168 + i * 7, 68, 4, 5);
+    // 王冠（王さま・月末のボス）
+    if (look.crown) {
+      const crown = (fill) => { g.fillStyle = fill; g.beginPath(); g.moveTo(132, 28); g.lineTo(134, 8); g.lineTo(142, 18); g.lineTo(150, 4); g.lineTo(158, 18); g.lineTo(166, 8); g.lineTo(168, 28); g.closePath(); g.fill(); };
+      for (const [dx, dy] of [[-2, 0], [2, 0], [0, -2], [0, 2]]) { g.save(); g.translate(dx, dy); crown('#000'); g.restore(); }
+      crown('#fbbf24');
+      g.fillStyle = '#dc2626'; g.fillRect(148, 18, 5, 5); g.fillStyle = '#fef3c7'; g.fillRect(136, 22, 3, 3); g.fillRect(161, 22, 3, 3);
+    }
     return c;
   }
   class Kaiju {
-    constructor(name) {
-      this.spr = kaijuSprite(name); this.x = 214; this.y = 92; this.sx = 1; this.sy = 1; this.rot = 0; this.whiten = 0; this.t = 0; this.z = 3; this.alpha = 1;
+    constructor(name, look) {
+      this.spr = kaijuSprite(name, look); this.x = 214; this.y = 92; this.sx = 1; this.sy = 1; this.rot = 0; this.whiten = 0; this.t = 0; this.z = 3; this.alpha = 1;
       // 当たったときに白く光らせる形（怪獣の形だけ白い）
       this.white = document.createElement('canvas'); this.white.width = this.spr.width; this.white.height = this.spr.height;
       const wg = this.white.getContext('2d'); wg.drawImage(this.spr, 0, 0); wg.globalCompositeOperation = 'source-in'; wg.fillStyle = '#fff'; wg.fillRect(0, 0, this.spr.width, this.spr.height);
@@ -1792,7 +1805,7 @@
     o = o || {};
     const st = new Stage(host, { theme: 'arena' });
     st.add({ alpha: 1, z: 1, draw(g) { const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, 'rgba(220,38,38,0.55)'); gr.addColorStop(1, 'rgba(69,10,10,0.2)'); g.fillStyle = gr; g.fillRect(0, 0, W, H); } });
-    const boss = st.add(new Kaiju(o.name));
+    const boss = st.add(new Kaiju(o.name, o.look));
     const label = st.add(new Text(shortLabel(o.name || 'ボス', 10), 13, '#fecaca', '#450a0a')); label.x = 214; label.y = 14;
     const base = { x: 48, y: 150 };
     const ship = st.add(new Glyph('🚀', 18)); ship.x = base.x; ship.y = base.y; ship.rot = -0.6;
@@ -1815,6 +1828,29 @@
           const t = st.add(new Text(text || '-1', 18, '#ffffff', '#b91c1c')); t.x = boss.x - 30; t.y = boss.y - 40;
           await pop(st, t, 160);
           st.tween(t, { y: t.y - 14, alpha: 0 }, 500, E.linear).then(() => st.remove(t));
+        });
+      },
+      // 大業：「大業！」の帯 → 太いレーザー → 3回の爆発
+      big(text, title) {
+        return run(async () => {
+          st.flash('#fde047', 0.45);
+          await slam(st, title || '大業！', 'SPECIAL!', '#7c3aed');
+          const beam = st.add(new Beam(base.x + 6, base.y - 8, boss.x - 10, boss.y - 10, '#f0abfc'));
+          beam.w = 14; beam.z = 6;
+          Sound.play('beam');
+          await st.tween(beam, { k: 1 }, 220, E.inQuad);
+          for (let i = 0; i < 3; i++) {
+            st.impact(); st.shake(9); Sound.play('hit');
+            st.burst(boss.x - 10 + (i - 1) * 24, boss.y - 10 + (i % 2) * 16, { n: 30, colors: ['#ffffff', '#fde047', '#f0abfc', '#a855f7'], speed: 5, life: 650 });
+            await st.wait(130);
+          }
+          boss.whiten = 1; st.tween(boss, { whiten: 0 }, 420, E.linear);
+          st.tween(boss, { rot: 0.12 }, 90).then(() => st.tween(boss, { rot: 0 }, 500, E.outElastic));
+          fadeOut(st, beam, 260);
+          const t = st.add(new Text(text || '', 22, '#fde047', '#581c87')); t.x = boss.x - 30; t.y = boss.y - 44;
+          await pop(st, t, 180);
+          await st.wait(350);
+          st.tween(t, { y: t.y - 14, alpha: 0 }, 600, E.linear).then(() => st.remove(t));
         });
       },
       miss() {
@@ -1849,6 +1885,8 @@
     janken: janken,
     dice: dice,
     diceCount: 2,   // dice() が2個のサイコロ（ダブルダイス）に対応している印
+    diceText: true,   // dice() の opts.text（最後の文字）に対応している印（レイドの大業・2026-10-31）
+    raidLook: true,   // raidStage() の look（ボスの色・王冠）と big()（大業）に対応している印（2026-10-31）
     diceDuel: diceDuel,
     gachaOpen: gachaOpen,
     treasure: treasure,

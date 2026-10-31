@@ -470,8 +470,8 @@
   }
 
   // ==================== 巨大レイドボス ====================
-  // 土・日と月末だけ、マイページの空が赤くなり、ボスの知らせが出る。押すと raid.js を読みこんで、漢字ミサイルの画面へ
-  // 来ていないときは、次に来る日時（サーバーの r.next）だけを出す
+  // 毎週金曜 8:30〜16:00 だけ、マイページの空が赤くなり、ボスの知らせが出る（月の最後の金曜は月末の超巨大ボス）。押すと raid.js を読みこんで、漢字ミサイルの画面へ
+  // 来ていないときは、次に来る日時とボス（サーバーの r.next）だけを出す。開いているかはサーバーが決める
   function renderRaid(r) {
     const on = !!(r && r.active);
     document.documentElement.classList.toggle('raid-on', on && !r.defeated);
@@ -486,16 +486,17 @@
     }
     box.style.boxShadow = on ? '' : 'none';   // 来ていないときは、赤いふちなしで「次は○日」だけ
     if (!on) {
-      box.innerHTML = `<div class="raid-sub">👹 次の巨大ボスは <b>${escapeHtml(r.next.text)}</b> から（土・日と月末の3日間・${escapeHtml(r.next.hours || '')}）</div>`;
+      const nb = r.next.boss ? `「${escapeHtml(r.next.boss)}」` : '';
+      box.innerHTML = `<div class="raid-sub">${r.next.kind === 'monthend' ? '👑 次は月末の超巨大ボス' : '👹 次の巨大ボス'}${nb}は <b>${escapeHtml(r.next.text)}</b> から（毎週金曜 ${escapeHtml(r.next.hours || '')}）</div>`;
       return;
     }
     const left = Math.max(0, r.maxHp - r.damage);
     const pct = r.maxHp ? Math.round(left / r.maxHp * 100) : 100;
     box.innerHTML = r.defeated
       ? `<div class="raid-title">🎉 ${escapeHtml(r.boss)} をクラスみんなで倒した！</div><div class="raid-sub">${escapeHtml(r.label)}・${r.next ? '次は ' + escapeHtml(r.next.text) + ' から' : '次の襲来を待とう'}</div>`
-      : `<div class="raid-title">⚠️ ${escapeHtml(r.label)}「${escapeHtml(r.boss)}」襲来！</div>
+      : `<div class="raid-title">${r.kind === 'monthend' ? '👑' : '⚠️'} ${escapeHtml(r.label)}「${escapeHtml(r.boss)}」${r.bossInfo && r.bossInfo.emoji ? escapeHtml(r.bossInfo.emoji) : ''}襲来！</div>
          <div class="raid-hp"><i style="width:${pct}%"></i><span>HP ${left.toLocaleString('ja-JP')} / ${r.maxHp ? r.maxHp.toLocaleString('ja-JP') : '?'}</span></div>
-         <div class="raid-sub">${r.dice ? '漢字クイズに正解すると、カードで「じゃんけん＋サイコロ」の攻撃！' : '漢字クイズに正解するたび「漢字ミサイル」でダメージ！'} 正解1問 ${Number(r.hitPt) || 1}pt。クラスみんなで倒そう</div>
+         <div class="raid-sub">${r.dice ? '漢字クイズに正解すると、カードで「じゃんけん＋サイコロ」の攻撃！ 正解3問で大業（サイコロ2つ）！' : '漢字クイズに正解するたび「漢字ミサイル」でダメージ！'} 正解1問 ${Number(r.hitPt) || 1}pt${r.reward ? '・倒したら ' + Number(r.reward) + 'pt' : ''}。${r.hours ? '今日の ' + escapeHtml(r.hours) + ' のあいだに' : ''}クラスみんなで倒そう</div>
          <button type="button" class="raid-go" id="raidGo">🚀 漢字ミサイルで攻撃！</button>`;
     const go = $('raidGo');
     if (go) go.addEventListener('click', openRaid);
