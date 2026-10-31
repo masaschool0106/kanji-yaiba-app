@@ -47,6 +47,7 @@
     state.token = null;
     state.player = null;
     state.jamaicaDone = false;
+    resetPointLog();
     try { localStorage.removeItem(SESSION_STORE_KEY); } catch (e) {}
     storeRemove(LEGACY_NUM_KEY);
   }
@@ -151,6 +152,8 @@
         renderPlayer(data.player);
         renderRanking(data.ranking);
         renderRaid(data.raid);
+        // ポイントの記録：はじめてと、ポイントが変わったときだけ読む（マイページの読みこみとは別の通信）
+        if (pointLog.points !== data.player.points) { pointLog.points = data.player.points; loadPointLog(true); }
         if (!state.jamaicaDone) { state.jamaicaDone = true; syncJamaica(); }
       })
       .catch((err) => { if (err.code !== 'AUTH_EXPIRED') showMessage('mypageMessage', 'データの読み込みに失敗しました：' + err.message, 'error'); })
@@ -177,6 +180,8 @@
     $('totalPlayers').textContent = r.totalPlayers + '人';
     renderRankingList('streakRankingList', r.streak.top, (p) => p.value + ' 連勝', (p) => '累計戦績 ' + p.totalRecord);
     renderRankingList('stepupRankingList', r.stepup.top, (p) => '第' + p.value + '階層', (p) => (p.score > 0 ? 'ベストスコア ' + p.score : '挑戦中'));
+    // クイズ・ランナー：今月の正解の数（サーバーが答え合わせした数）。GAS が前の版のときは r.runner がない
+    if (r.runner && $('runnerRankingList')) renderRankingList('runnerRankingList', r.runner.top, (p) => '今月 ' + p.value + '問', (p) => (p.best > 0 ? '自己ベスト ' + Number(p.best).toLocaleString('ja-JP') + '点' : ''));
   }
 
   function renderRankingList(elId, list, valueText, subText) {
@@ -198,6 +203,65 @@
   function switchRanking(type, tab) {
     document.querySelectorAll('#view-mypage .ranking-tab').forEach((t) => t.classList.toggle('active', t === tab));
     document.querySelectorAll('#view-mypage .ranking-content').forEach((c) => c.classList.toggle('active', c.id === type + 'RankingContent'));
+  }
+
+  // ==================== ポイントの記録（2026-10-30） ====================
+  //   サーバーの 'point.history'（ログインしている本人の PointLog だけ・新しい順に20件）。「もっと見る」で続きを読む。
+  //   GAS の Api.gs が前の版で 'point.history' がないときは、板を出さない
+  const pointLog = { rows: [], next: 0, points: null, busy: false, off: false };
+
+  function pointLogBox() {
+    let box = $('pointLog');
+    if (box) return box;
+    box = document.createElement('section');
+    box.id = 'pointLog'; box.className = 'hud-panel point-log';
+    box.innerHTML = '<div class="section-title"><span class="hud-kicker">POINT</span>💰 ポイントの記録</div>' +
+      '<div class="pl-list" id="pointLogList"><div class="pl-empty">読み込み中...</div></div>' +
+      '<button type="button" class="pl-more" id="pointLogMore" hidden>▼ もっと見る</button>';
+    const anchor = document.querySelector('#view-mypage .ranking-section');
+    if (anchor) anchor.parentNode.insertBefore(box, anchor); else $('view-mypage').appendChild(box);
+    box.querySelector('#pointLogMore').addEventListener('click', () => loadPointLog(false));
+    return box;
+  }
+
+  function loadPointLog(first) {
+    if (pointLog.off || pointLog.busy || (!first && !pointLog.next)) return;
+    pointLog.busy = true;
+    pointLogBox();
+    $('pointLogMore').disabled = true;
+    const token = state.token;
+    call('point.history', first ? {} : { before: pointLog.next })
+      .then((res) => {
+        if (state.token !== token) return;   // とちゅうでログアウトしたときは出さない
+        pointLog.rows = first ? (res.rows || []) : pointLog.rows.concat(res.rows || []);
+        pointLog.next = res.next || 0;
+        renderPointLog();
+      })
+      .catch((err) => {
+        if (err.code === 'BAD_ACTION') { pointLog.off = true; const b = $('pointLog'); if (b) b.remove(); return; }
+        if (err.code !== 'AUTH_EXPIRED' && $('pointLogList')) $('pointLogList').innerHTML = '<div class="pl-empty">' + escapeHtml(err.message) + '</div>';
+      })
+      .finally(() => { pointLog.busy = false; if ($('pointLogMore')) $('pointLogMore').disabled = false; });
+  }
+
+  function renderPointLog() {
+    const list = $('pointLogList');
+    if (!list) return;
+    list.innerHTML = !pointLog.rows.length ? '<div class="pl-empty">' + (pointLog.next ? '最近の記録はありません' : 'まだ記録がありません') + '</div>' : pointLog.rows.map((r) => {
+      const d = Number(r.delta) || 0;
+      return '<div class="pl-row">' +
+        '<span class="pl-time">' + escapeHtml(r.time) + '</span>' +
+        '<span class="pl-reason">' + escapeHtml(r.reason) + '</span>' +
+        '<span class="pl-delta ' + (d > 0 ? 'up' : d < 0 ? 'down' : '') + '">' + (d > 0 ? '+' + d : d < 0 ? '−' + Math.abs(d) : '0') + '</span>' +
+        '<span class="pl-bal">' + (r.balance === null || r.balance === undefined ? '' : 'のこり ' + escapeHtml(r.balance)) + '</span></div>';
+    }).join('');
+    $('pointLogMore').hidden = !pointLog.next;
+  }
+
+  // ログアウト・ログインし直し：前の子の記録を残さない
+  function resetPointLog() {
+    pointLog.rows = []; pointLog.next = 0; pointLog.points = null; pointLog.off = false;
+    const b = $('pointLog'); if (b) b.remove();
   }
 
   // ジャマイカ計算で獲得したポイントを反映（失敗しても画面には出さない。ジャマイカ未連携の児童もいるため）
@@ -263,7 +327,7 @@
   //   キーボード：数字キー（1〜8）でその行き先へ・矢印キーでとなりのタイルへ・Enter で決める
   //   App.html の .cz-card（前の 3D の部品）をそのまま使い、見た目は app.css で大きなタイルにする
   const TILE_COLORS = { gacha: '#7e2553', battle: '#ff004d', roguelike: '#1d2b53', quiz: '#008751', zukan: '#065ab5',
-    quizrunner: '#5f574f', jamaica: '#ab5236', cardmake: '#83769c' };
+    quizrunner: '#5f574f', jamaica: '#ab5236', cardmake: '#83769c', koukan: '#ffa300' };
   const tiles = [];
 
   function setupTiles() {
@@ -284,6 +348,7 @@
       if (i < 9) { const k = document.createElement('span'); k.className = 'kbd'; k.textContent = String(i + 1); card.insertBefore(k, card.firstChild); }
       card.addEventListener('click', () => navigate(card.dataset.page));
     });
+    ring.classList.toggle('tiles-9', tiles.length === 9);   // 「交換」を足して9枚のときは 3×3 にする（app.css）
     const title = document.querySelector('#view-mypage .carousel-title');
     if (title) { const k = document.createElement('span'); k.className = 'kbd'; k.textContent = '1〜' + Math.min(9, tiles.length); title.appendChild(k); }
     // 決め技・柱名とバグ報告は、フォームを新しいタブで開く（小さなボタン）

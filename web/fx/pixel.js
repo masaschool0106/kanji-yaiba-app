@@ -44,6 +44,9 @@
     bugreport: ['............', '..k......k..', '...k....k...', '....kkkk....', 'k..kGGGGk..k', '.kkGGGGGGkk.', '...kGGGGk...', '.kkGGGGGGkk.', 'k..kGGGGk..k', '....kkkk....', '............', '............'],
     mypage: ['.....kk.....', '....krrk....', '...krrrrk...', '..krrrrrrk..', '.krrrrrrrrk.', 'kkkkkkkkkkkk', '.kwwwwwwwwk.', '.kuuwwkkwwk.', '.kuuwwkbkwk.', '.kwwwwkbkwk.', '.kkkkkkkkkk.', '............']
   };
+  // 交換（2026-10-30）：上は右へ、下は左へ行く矢印
+  ICONS.koukan = ['.......kk...', '.kkkkkkkwk..', '.kwwwwwwwwwk', '.kkkkkkkwk..', '.......kk...', '............',
+    '...kk.......', '..kukkkkkkk.', 'kuuuuuuuuuk.', '..kukkkkkkk.', '...kk.......', '............'];
   ICONS.stepup = ICONS.roguelike;
   const iconCache = {};
   function icon(name, size) {
