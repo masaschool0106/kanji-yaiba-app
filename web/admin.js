@@ -318,8 +318,8 @@
     };
     [handIn, rarIn].forEach((x) => x.addEventListener('change', showWarn));
     // 画像の差しかえ：新しい絵をえらぶと、型に当てはめた見本が出る
-    const comp = makeComposer(() => ({ rarity: rarIn.value, name: nameIn.value, hand: handIn.value, line: lineIn.value }), { optional: true });
-    [nameIn, handIn, lineIn, rarIn].forEach((x) => { x.addEventListener('input', comp.refresh); x.addEventListener('change', comp.refresh); });
+    const comp = makeComposer(() => ({ rarity: rarIn.value, name: nameIn.value, hand: handIn.value, line: lineIn.value, gachaType: gachaIn.value }), { optional: true });
+    [nameIn, handIn, lineIn, rarIn, gachaIn].forEach((x) => { x.addEventListener('input', comp.refresh); x.addEventListener('change', comp.refresh); });
     const file = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp' });
     file.addEventListener('change', () => {
       const f = file.files && file.files[0];
@@ -366,20 +366,175 @@
 
   // ---------- カードの型（GitHub の web/assets/frames。型の画像は先生が作ったもの） ----------
   //   位置は 1414×2000 の型の上の位置（win＝絵、name＝名前、text＝セリフ、hand＝手のマークの丸の中心と半径）
+  //   2026-11-01：背景の色がついた型に入れかえた。手のマークの丸は型に穴があいていて、下に手の絵を描く
   const FRAME_W = 1414, FRAME_H = 2000, OUT_W = 600, OUT_H = 849, THUMB_W = 240, THUMB_H = 340;
   const FRAMES = {
-    'N': { file: 'N.webp', win: [173, 356, 1212, 1211], name: [402, 94, 1284, 268], text: [158, 1306, 1227, 1439], hand: [353, 1664, 211] },
-    'N+': { file: 'Nplus.webp', win: [173, 421, 1212, 1211], name: [402, 76, 1284, 250], text: [158, 1306, 1227, 1447], hand: [353, 1672, 211] },
-    'R': { file: 'R.webp', win: [173, 421, 1212, 1212], name: [402, 99, 1284, 273], text: [158, 1306, 1228, 1471], hand: [353, 1664, 211] },
-    'R+': { file: 'Rplus.webp', win: [173, 421, 1212, 1211], name: [411, 107, 1292, 281], text: [158, 1306, 1228, 1476], hand: [353, 1701, 211] },
-    'SR': { file: 'SR.webp', win: [173, 421, 1212, 1211], name: [411, 107, 1292, 281], text: [158, 1306, 1227, 1459], hand: [353, 1684, 211] },
-    'SR+': { file: 'SRplus.webp', win: [173, 421, 1212, 1211], name: [411, 107, 1292, 281], text: [158, 1306, 1223, 1499], hand: [353, 1724, 211] },
-    'SSR': { file: 'SSR.webp', win: [173, 421, 1212, 1211], name: [392, 107, 1273, 281], text: [158, 1306, 1223, 1499], hand: [353, 1724, 211] },
-    'UR': { file: 'UR.webp', win: [173, 421, 1212, 1211], name: [411, 107, 1292, 281], text: [158, 1306, 1228, 1476], hand: [353, 1701, 211] },
-    'UR+': { file: 'URplus.webp', win: [173, 421, 1212, 1212], name: [392, 107, 1273, 281], text: [158, 1306, 1227, 1456], hand: [353, 1681, 211] },
-    'LEGEND': { file: 'LEGEND.webp', win: [173, 436, 1212, 1212], name: [411, 107, 1292, 281], text: [158, 1306, 1223, 1499], hand: [353, 1724, 211] }
+    'N': { file: 'N.webp', win: [173, 356, 1211, 1210], name: [401, 94, 1284, 267], text: [157, 1309, 1227, 1439], hand: [353, 1664, 212] },
+    'N+': { file: 'Nplus.webp', win: [173, 421, 1211, 1211], name: [400, 77, 1285, 249], text: [157, 1302, 1226, 1446], hand: [353, 1672, 212] },
+    'R': { file: 'R.webp', win: [173, 421, 1211, 1211], name: [400, 100, 1285, 272], text: [157, 1296, 1227, 1471], hand: [353, 1664, 212] },
+    'R+': { file: 'Rplus.webp', win: [173, 421, 1211, 1211], name: [409, 108, 1294, 281], text: [157, 1302, 1227, 1476], hand: [353, 1701, 212] },
+    'SR': { file: 'SR.webp', win: [173, 421, 1211, 1211], name: [409, 108, 1294, 281], text: [157, 1302, 1226, 1458], hand: [353, 1683, 212] },
+    'SR+': { file: 'SRplus.webp', win: [173, 421, 1211, 1211], name: [409, 108, 1294, 280], text: [157, 1302, 1227, 1498], hand: [353, 1724, 212] },
+    'SSR': { file: 'SSR.webp', win: [173, 421, 1211, 1211], name: [390, 108, 1274, 280], text: [157, 1302, 1227, 1498], hand: [353, 1724, 212] },
+    'UR': { file: 'UR.webp', win: [173, 421, 1211, 1211], name: [409, 108, 1294, 281], text: [157, 1302, 1226, 1476], hand: [353, 1701, 212] },
+    'UR+': { file: 'URplus.webp', win: [173, 421, 1211, 1211], name: [390, 108, 1274, 280], text: [157, 1302, 1227, 1455], hand: [353, 1681, 212] },
+    'LEGEND': { file: 'LEGEND.webp', win: [173, 436, 1211, 1211], name: [409, 108, 1294, 280], text: [157, 1302, 1227, 1498], hand: [353, 1724, 212] }
   };
+  // キラキラの型（web/assets/frames/kira）：絵がカード全体に広がり、その上に型と星がのる（今あるキラキラカード No.21 などと同じ形）
+  //   型は背景がすけている。セリフの箱は半透明の黒。星は drawSparkles が描く
+  const KIRA_FRAMES = {
+    'N': { file: 'kira/N.webp', name: [408, 95, 1277, 281], text: [157, 1306, 1228, 1439], hand: [352, 1664, 211] },
+    'N+': { file: 'kira/Nplus.webp', name: [407, 78, 1278, 262], text: [157, 1260, 1228, 1447], hand: [352, 1671, 211] },
+    'R': { file: 'kira/R.webp', name: [407, 101, 1278, 286], text: [157, 1260, 1228, 1471], hand: [352, 1664, 212] },
+    'R+': { file: 'kira/Rplus.webp', name: [415, 110, 1288, 295], text: [157, 1260, 1228, 1476], hand: [353, 1700, 211] },
+    'SR': { file: 'kira/SR.webp', name: [415, 110, 1288, 295], text: [157, 1260, 1228, 1458], hand: [353, 1683, 211] },
+    'SR+': { file: 'kira/SRplus.webp', name: [415, 110, 1288, 295], text: [157, 1260, 1226, 1498], hand: [353, 1723, 212] },
+    'SSR': { file: 'kira/SSR.webp', name: [396, 110, 1268, 295], text: [157, 1260, 1226, 1498], hand: [353, 1723, 211] },
+    'UR': { file: 'kira/UR.webp', name: [415, 110, 1288, 295], text: [157, 1260, 1228, 1476], hand: [353, 1700, 211] },
+    'UR+': { file: 'kira/URplus.webp', name: [396, 110, 1268, 295], text: [157, 1260, 1228, 1456], hand: [352, 1680, 211] },
+    'LEGEND': { file: 'kira/LEGEND.webp', name: [415, 110, 1288, 295], text: [157, 1260, 1226, 1498], hand: [353, 1723, 211] }
+  };
+  Object.keys(KIRA_FRAMES).forEach((k) => { KIRA_FRAMES[k].win = [0, 0, FRAME_W - 1, FRAME_H - 1]; KIRA_FRAMES[k].kira = true; });
+  const isKiraGacha = (g) => /キラキラ/.test(String(g || ''));
   const HAND_FILES = { 'グー': 'hand_gu.webp', 'チョキ': 'hand_choki.webp', 'パー': 'hand_pa.webp' };
+  // 手の丸の色が型の背景と同じになる組み合わせ：LEGEND のグーは先生の絵と同じうすい赤、N+ のパーは丸の内がわに白いふち
+  const HAND_STYLE = { 'LEGEND|グー': { file: 'hand_gu_light.webp' }, 'N+|パー': { rim: '#ffffff' } };
+  const KIRA_HAND_STYLE = { 'N|グー': { file: 'hand_gu_light.webp' } };   // 先生のキラキラ N の型も、グーはうすい赤
+
+  // ---------- キラキラの星（先生のキラキラの型と、今あるキラキラカードの星を測ったもの） ----------
+  //   12コマで1回り（1コマ 0.1秒）。どの星も同じ12コマの中で、出るタイミング（phase）だけずれる
+  //   長さは星の大きさ S に対する割合。star＝四つの先がとがった星の先までの長さ、rays／cross＝十字の線、dashes＝外へ飛ぶ短い線、
+  //   diag＝ななめの線、ring＝まわりの輪（4つの弧）。w＝線の太さ。off＝そのコマだけ中心を少し動かす
+  const KIRA_CYCLE = 12, KIRA_MS = 100;
+  const SPARKLE_TYPES = {
+    twinkle: [
+      { t: 0, off: [0.013, -0.024], cross: { r: [0, 0.2], w: 0.055 } },
+      { t: 1, off: [0.013, -0.024], star: 0.55 },
+      { t: 2, off: [0, -0.012], star: 0.85, rays: { r: [0, 0.86], w: 0.065 }, dashes: [{ r: [0.92, 1.08], w: 0.05 }] },
+      { t: 3, off: [0, 0.02], star: 1.0, rays: { r: [0, 0.98], w: 0.06 }, dashes: [{ r: [1.1, 1.4], w: 0.05 }] },
+      { t: 4, off: [0, 0.02], dashes: [{ r: [0.34, 0.74], w: 0.035 }, { r: [0.86, 1.24], w: 0.035 }, { r: [1.46, 1.66], w: 0.03 }] },
+      { t: 5, off: [0, 0.02], dashes: [{ r: [0.52, 0.72], w: 0.028 }, { r: [0.86, 1.08], w: 0.028 }] }
+    ],
+    burst: [
+      { t: 0, star: 0.035 },
+      { t: 1, cross: { r: [0, 0.18], w: 0.03 } },
+      { t: 2, cross: { rx: [0, 0.3], ry: [0, 0.45], w: 0.03 }, diag: { r: [0.03, 0.16], w: 0.025 } },
+      { t: 3, off: [-0.009, -0.015], star: 0.45, rays: { rx: [0, 0.61], ry: [0, 0.73], w: 0.027 }, diag: { r: [0.27, 0.49], w: 0.017 } },
+      { t: 4, off: [0, -0.024], star: 0.62, rays: { rx: [0, 0.66], ry: [0, 0.68], w: 0.027 }, dashes: [{ r: [0.76, 0.9], w: 0.025 }], diag: { r: [0.5, 0.62], w: 0.019 } },
+      { t: 5, off: [0, 0.009], star: 1.0, dashes: [{ r: [0.86, 0.94], w: 0.035 }], ring: { r: 0.72, w: 0.022, half: 33 } },
+      { t: 6, off: [0, 0.012], star: 0.84, rays: { r: [0, 0.97], w: 0.035 }, ring: { r: 0.655, w: 0.018, half: 25 } },
+      { t: 7, off: [-0.006, 0], dashes: [{ r: [0.14, 0.52], w: 0.02 }, { r: [0.62, 0.78], w: 0.02 }, { r: [0.9, 1.06], w: 0.02 }], ring: { r: 0.46, w: 0.018, half: 33 }, diag: { r: [0.72, 0.8], w: 0.018 } },
+      { t: 8, star: 0.2, rays: { r: [0, 0.34], w: 0.025 }, dashes: [{ r: [0.5, 0.61], w: 0.02 }, { r: [0.73, 0.86], w: 0.02 }], ring: { r: 0.31, w: 0.016, half: 38 } },
+      { t: 9, cross: { r: [0, 0.26], w: 0.022 }, dashes: [{ r: [0.33, 0.41], w: 0.022 }] },
+      { t: 10, cross: { r: [0, 0.16], w: 0.018 } },
+      { t: 11, diag: { r: [0, 0.07], w: 0.02 } }
+    ]
+  };
+  // 星の場所（1414×2000）：A＝絵の上の大きな星、B＝名前の帯の右はし、C＝セリフの箱の左上、D＝手の右、E＝右下の波
+  const SPARKLES = [
+    { type: 'burst', x: 448, y: 522.9, s: 400, phase: 0 },
+    { type: 'twinkle', x: 1273.8, y: 1668.4, s: 204, phase: 0 },
+    { type: 'twinkle', x: 1335.6, y: 281.6, s: 171, phase: 3 },
+    { type: 'twinkle', x: 589.4, y: 1670.8, s: 137, phase: 6 },
+    { type: 'twinkle', x: 125.4, y: 1234.7, s: 108, phase: 9 }
+  ];
+  // 先生の型によって、星の場所が少しずれている（先生の GIF に合わせる）
+  const SPARKLE_SHIFT = { 'N': [35.6, 0], 'R+': [35.6, 0], 'UR': [51.1, 89.1] };
+  function drawSparkles(ctx, scale, rarity, frame) {
+    const sh = SPARKLE_SHIFT[rarity] || [0, 0];
+    ctx.save();
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#ffffff'; ctx.lineCap = 'round';
+    SPARKLES.forEach((p) => {
+      const t = ((frame - p.phase) % KIRA_CYCLE + KIRA_CYCLE) % KIRA_CYCLE;
+      const k = SPARKLE_TYPES[p.type].find((x) => x.t === t);
+      if (!k) return;
+      const S = p.s, off = k.off || [0, 0];
+      const cx = p.x + sh[0] + off[0] * S, cy = p.y + sh[1] + off[1] * S;
+      const seg = (dx, dy, r0, r1, w) => {
+        ctx.lineWidth = Math.max(1 / scale, w * S);
+        ctx.beginPath(); ctx.moveTo(cx + dx * r0 * S, cy + dy * r0 * S); ctx.lineTo(cx + dx * r1 * S, cy + dy * r1 * S); ctx.stroke();
+      };
+      const axes = (spec) => {   // 右・左・下・上（rx／ry があれば横と縦で長さがちがう）
+        const rx = spec.rx || spec.r, ry = spec.ry || spec.r;
+        seg(1, 0, rx[0], rx[1], spec.w); seg(-1, 0, rx[0], rx[1], spec.w);
+        seg(0, 1, ry[0], ry[1], spec.w); seg(0, -1, ry[0], ry[1], spec.w);
+      };
+      if (k.cross) axes(k.cross);
+      if (k.rays) axes(k.rays);
+      (k.dashes || []).forEach(axes);
+      if (k.diag) { const d = Math.SQRT1_2; [[d, d], [-d, d], [d, -d], [-d, -d]].forEach(([dx, dy]) => seg(dx, dy, k.diag.r[0], k.diag.r[1], k.diag.w)); }
+      if (k.ring) {
+        ctx.lineWidth = Math.max(1 / scale, k.ring.w * S);
+        const h = k.ring.half * Math.PI / 180;
+        [45, 135, 225, 315].forEach((deg) => { const a = deg * Math.PI / 180; ctx.beginPath(); ctx.arc(cx, cy, k.ring.r * S, a - h, a + h); ctx.stroke(); });
+      }
+      if (k.star) {   // 四つの先がとがった星（ふちは中心を通る放物線）
+        const R = k.star * S;
+        ctx.beginPath(); ctx.moveTo(cx, cy - R);
+        ctx.quadraticCurveTo(cx, cy, cx + R, cy); ctx.quadraticCurveTo(cx, cy, cx, cy + R);
+        ctx.quadraticCurveTo(cx, cy, cx - R, cy); ctx.quadraticCurveTo(cx, cy, cx, cy - R);
+        ctx.fill();
+      }
+    });
+    ctx.restore();
+  }
+
+  // ---------- 動く WebP を作る（ブラウザが作った1コマずつの WebP を、ANIM／ANMF の入れものにつめる） ----------
+  //   どのコマもカード全体（0,0 から）・重ねない（no blend）・前のコマは消さない（dispose none）：古い iPad でも正しく動く形
+  function dataUrlBytes(u) {
+    const bin = atob(String(u).split(',')[1] || '');
+    const a = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+    return a;
+  }
+  function webpChunks(b) {
+    const tag = (p) => String.fromCharCode(b[p], b[p + 1], b[p + 2], b[p + 3]);
+    if (b.length < 20 || tag(0) !== 'RIFF' || tag(8) !== 'WEBP') throw new Error('WebP の画像を作れませんでした');
+    const out = [];
+    for (let p = 12; p + 8 <= b.length;) {
+      const size = (b[p + 4] | (b[p + 5] << 8) | (b[p + 6] << 16) | (b[p + 7] << 24)) >>> 0;
+      out.push({ id: tag(p), data: b.subarray(p + 8, p + 8 + size) });
+      p += 8 + size + (size & 1);
+    }
+    return out;
+  }
+  function muxAnimatedWebp(frameBytes, w, h, ms) {
+    const parts = [];
+    let total = 4;   // 'WEBP'
+    const u24 = (v) => [v & 255, (v >> 8) & 255, (v >> 16) & 255];
+    const chunk = (id, payloadParts) => {
+      const len = payloadParts.reduce((n, x) => n + x.length, 0);
+      const head = new Uint8Array(8);
+      for (let i = 0; i < 4; i++) head[i] = id.charCodeAt(i);
+      head[4] = len & 255; head[5] = (len >> 8) & 255; head[6] = (len >> 16) & 255; head[7] = (len >>> 24) & 255;
+      const pieces = [head].concat(payloadParts);
+      if (len & 1) pieces.push(new Uint8Array(1));
+      return pieces;
+    };
+    const flat = (pieces) => { const n = pieces.reduce((s, x) => s + x.length, 0), a = new Uint8Array(n); let o = 0; pieces.forEach((x) => { a.set(x, o); o += x.length; }); return a; };
+    let alpha = false;
+    const frames = frameBytes.map((b) => {
+      const cs = webpChunks(b).filter((c) => c.id === 'ALPH' || c.id === 'VP8 ' || c.id === 'VP8L');
+      if (!cs.some((c) => c.id === 'VP8 ' || c.id === 'VP8L')) throw new Error('WebP のコマが正しくありません');
+      if (cs.some((c) => c.id !== 'VP8 ')) alpha = true;
+      return flat([].concat(...cs.map((c) => chunk(c.id, [c.data]))));
+    });
+    const add = (pieces) => { pieces.forEach((x) => { parts.push(x); total += x.length; }); };
+    add(chunk('VP8X', [new Uint8Array([0x02 | (alpha ? 0x10 : 0), 0, 0, 0].concat(u24(w - 1), u24(h - 1)))]));
+    add(chunk('ANIM', [new Uint8Array([0, 0, 0, 0, 0, 0])]));   // 背景の色（なし）・くり返し＝ずっと
+    frames.forEach((f) => add(chunk('ANMF', [new Uint8Array([].concat(u24(0), u24(0), u24(w - 1), u24(h - 1), u24(ms), [0x02])), f])));
+    const head = new Uint8Array(12);
+    'RIFF'.split('').forEach((c, i) => { head[i] = c.charCodeAt(0); });
+    head[4] = total & 255; head[5] = (total >> 8) & 255; head[6] = (total >> 16) & 255; head[7] = (total >>> 24) & 255;
+    'WEBP'.split('').forEach((c, i) => { head[8 + i] = c.charCodeAt(0); });
+    const all = flat([head].concat(parts));
+    let s = '';
+    for (let i = 0; i < all.length; i += 0x8000) s += String.fromCharCode.apply(null, all.subarray(i, i + 0x8000));
+    return 'data:image/webp;base64,' + btoa(s);
+  }
+  const KIRA_OUT_W = 480, KIRA_OUT_H = 679;   // 今あるキラキラカードと同じ大きさ
+  const KIRA_MAX_B64 = 780000;                 // サーバーのカード画像の上限（Api.gs CARD_IMAGE_MAX_B64＝800000）より少し小さく
   const NAME_FONT = '"Yusei Magic", "Hiragino Maru Gothic ProN", sans-serif';
   const TEXT_FONT = '"Zen Maru Gothic", "Hiragino Maru Gothic ProN", sans-serif';
   const imgCache = {};
@@ -422,25 +577,36 @@
     ctx.font = font(min);
     return { size: min, lines: [text] };
   }
+  // どの型を使うか：ガチャの種類が「キラキラ」なら、絵が全体に広がるキラキラの型
+  function layoutOf(f) {
+    const r = FRAMES[f.rarity] ? f.rarity : 'N';
+    return isKiraGacha(f.gachaType) ? KIRA_FRAMES[r] : FRAMES[r];
+  }
   async function drawCard(ctx, scale, f, pic, view) {
-    const L = FRAMES[f.rarity] || FRAMES.N;
-    const [frame, hand] = await Promise.all([loadImg(frameAsset(L.file)), loadImg(frameAsset(HAND_FILES[f.hand] || HAND_FILES['グー']))]);
+    const L = layoutOf(f);
+    const r = FRAMES[f.rarity] ? f.rarity : 'N';
+    const hs = (L.kira ? KIRA_HAND_STYLE : HAND_STYLE)[r + '|' + f.hand] || {};
+    const [frame, hand] = await Promise.all([loadImg(frameAsset(L.file)), loadImg(frameAsset(hs.file || HAND_FILES[f.hand] || HAND_FILES['グー']))]);
     await loadFonts({ name: f.name, line: f.line });
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, FRAME_W, FRAME_H);
-    const [hx, hy, hr] = L.hand;
-    ctx.drawImage(hand, hx - hr - 3, hy - hr - 3, (hr + 3) * 2, (hr + 3) * 2);   // 手のマーク（型の箱が上に重なるので先に）
-    ctx.drawImage(frame, 0, 0, FRAME_W, FRAME_H);
-    // 絵：枠の中だけに。はじめは全体が入る大きさ（zoom＝1）。ドラッグで動かせる
+    // 絵：はじめは全体が入る大きさ（zoom＝1）。ドラッグで動かせる。ふつうの型は窓の中だけ、キラキラの型はカード全体（型の下）
     const [x0, y0, x1, y1] = L.win, ww = x1 - x0 + 1, wh = y1 - y0 + 1;
-    if (pic) {
+    const drawPic = () => {
+      if (!pic) return;
       ctx.save();
       ctx.beginPath(); ctx.rect(x0, y0, ww, wh); ctx.clip();
       const s = Math.min(ww / pic.width, wh / pic.height) * view.zoom;
       const dw = pic.width * s, dh = pic.height * s;
       ctx.drawImage(pic, x0 + (ww - dw) / 2 + view.x, y0 + (wh - dh) / 2 + view.y, dw, dh);
       ctx.restore();
-    }
+    };
+    if (L.kira) drawPic();
+    const [hx, hy, hr] = L.hand;
+    ctx.drawImage(hand, hx - hr - 3, hy - hr - 3, (hr + 3) * 2, (hr + 3) * 2);   // 手のマーク（型の丸い穴から見える。型が上に重なるので先に）
+    if (hs.rim) { ctx.beginPath(); ctx.arc(hx, hy, hr - 8, 0, Math.PI * 2); ctx.lineWidth = 12; ctx.strokeStyle = hs.rim; ctx.stroke(); }
+    ctx.drawImage(frame, 0, 0, FRAME_W, FRAME_H);
+    if (!L.kira) drawPic();
     // 名前（黒い帯の中・白い字）
     const [nx0, ny0, nx1, ny1] = L.name;
     const nm = fitLines(ctx, f.name || '', (z) => z + 'px ' + NAME_FONT, nx1 - nx0, ny1 - ny0, 120, 56, 2);
@@ -460,20 +626,26 @@
   function makeComposer(getFields, opts) {
     opts = opts || {};
     let pic = null, view = { zoom: 1, x: 0, y: 0 }, busy = false, again = false;
+    let mode = '', base = null, frameNo = 0, timer = 0;   // キラキラ：星のない見本（base）に、0.1秒ごとに星を重ねて動かす
     const canvas = el('canvas', { width: String(FRAME_W / 2), height: String(FRAME_H / 2), title: 'ドラッグで絵を動かせます' });
     const use = el('input', { type: 'checkbox' });
     use.checked = true;
     const zoom = el('input', { type: 'range', min: '0.5', max: '3', step: '0.01', value: '1' });
     const info = el('div', { class: 'adm-sub' });
+    const kiraNote = el('div', { class: 'adm-sub', hidden: '' });
     const btn = (t, fn) => el('button', { type: 'button', text: t, onclick: () => { fn(); refresh(); } });
+    // 絵が枠（キラキラはカード全体）いっぱいになる大きさ
+    const coverZoom = () => {
+      const L = layoutOf(getFields()), ww = L.win[2] - L.win[0] + 1, wh = L.win[3] - L.win[1] + 1;
+      return pic ? Math.max(ww / pic.width, wh / pic.height) / Math.min(ww / pic.width, wh / pic.height) : 1;
+    };
+    const setView = (z) => { view = { zoom: z, x: 0, y: 0 }; zoom.value = String(Math.min(3, z)); };
     const tools = el('div', { class: 'tools' }, [
       el('label', {}, [use, ' カードの型に入れる']),
       el('div', { text: '絵の大きさ' }), zoom,
-      btn('全体を入れる', () => { view = { zoom: 1, x: 0, y: 0 }; zoom.value = '1'; }),
-      btn('わくいっぱい', () => {
-        const L = FRAMES[getFields().rarity] || FRAMES.N, ww = L.win[2] - L.win[0], wh = L.win[3] - L.win[1];
-        if (pic) { const z = Math.max(ww / pic.width, wh / pic.height) / Math.min(ww / pic.width, wh / pic.height); view = { zoom: z, x: 0, y: 0 }; zoom.value = String(Math.min(3, z)); }
-      }),
+      btn('全体を入れる', () => setView(1)),
+      btn('わくいっぱい', () => { if (pic) setView(coverZoom()); }),
+      kiraNote,
       info
     ]);
     const root = el('div', { class: 'adm-compose' }, [canvas, tools]);
@@ -490,14 +662,72 @@
       refresh();
     });
     canvas.addEventListener('pointerup', () => { drag = null; });
+    // キラキラの見本を動かす（画面からはずれたら止める）
+    function tick() {
+      if (!root.isConnected || !root.offsetParent) { clearInterval(timer); timer = 0; return; }   // 画面からはずれた・かくれた（ログアウトなど）ら止める。refresh でまた動く
+      if (busy || !base || mode !== 'kira') return;
+      frameNo = (frameNo + 1) % KIRA_CYCLE;
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(base, 0, 0);
+      drawSparkles(ctx, 0.5, getFields().rarity, frameNo);
+    }
     function refresh() {
       if (busy) { again = true; return; }
       busy = true;
-      const f = getFields();
-      drawCard(canvas.getContext('2d'), 0.5, f, pic, view)
-        .then(() => { info.textContent = f.rarity ? '' : 'レアリティをえらぶと、その型になります'; })
+      const f = getFields(), L = layoutOf(f), m = L.kira ? 'kira' : 'normal';
+      if (m !== mode) {   // 型がかわったら、絵の大きさをその型のはじめに：キラキラはカード全体いっぱい、ふつうは全体が入る大きさ
+        mode = m;
+        if (pic) setView(m === 'kira' ? coverZoom() : 1);
+      }
+      kiraNote.hidden = m !== 'kira';
+      kiraNote.textContent = '✨ ガチャの種類が「キラキラ」なので、キラキラのカードになります。絵はカード全体に広がり、保存すると星が光る動く画像（' + KIRA_OUT_W + '×' + KIRA_OUT_H + '・' + KIRA_CYCLE + 'コマ）になります。';
+      // キラキラは、別の紙に描き終わってから入れかえる（描いているあいだに星が重なって残らないように）
+      const nb = m === 'kira' ? document.createElement('canvas') : null;
+      if (nb) { nb.width = canvas.width; nb.height = canvas.height; }
+      drawCard((nb || canvas).getContext('2d'), 0.5, f, pic, view)
+        .then(() => {
+          info.textContent = f.rarity ? '' : 'レアリティをえらぶと、その型になります';
+          if (m === 'kira') {
+            base = nb;
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(base, 0, 0);
+            drawSparkles(ctx, 0.5, f.rarity, frameNo);
+            if (!timer) timer = setInterval(tick, KIRA_MS);
+          }
+        })
         .catch((e) => { info.textContent = '⚠️ 型の画像を読めませんでした（' + e.message + '）。このまま承認すると、申請の画像のままカードになります。'; })
         .then(() => { busy = false; if (again) { again = false; refresh(); } });
+    }
+    // キラキラ：12コマの動く WebP（480×679）と、止まった小さい画像（240×340・はじめのコマ）
+    //   画像の大きさがサーバーの上限をこえるときは、画質を少しずつ下げて作り直す
+    function exportKira(big, f) {
+      const c = document.createElement('canvas'); c.width = KIRA_OUT_W; c.height = KIRA_OUT_H;
+      const x = c.getContext('2d'); x.imageSmoothingQuality = 'high';
+      const sc = KIRA_OUT_W / FRAME_W;
+      const frameCanvas = (i) => {
+        x.setTransform(1, 0, 0, 1, 0, 0);
+        x.drawImage(big, 0, 0, KIRA_OUT_W, KIRA_OUT_H);
+        drawSparkles(x, sc, f.rarity, i);
+      };
+      const webp = (cv, q) => {
+        const u = cv.toDataURL('image/webp', q);
+        if (u.indexOf('data:image/webp') !== 0) throw new Error('このブラウザでは動くキラキラカードを作れません。Chrome で開いてください。');
+        return u;
+      };
+      let full = null;
+      for (const q of [0.85, 0.75, 0.65, 0.55, 0.45]) {
+        const frames = [];
+        for (let i = 0; i < KIRA_CYCLE; i++) { frameCanvas(i); frames.push(dataUrlBytes(webp(c, q))); }
+        full = muxAnimatedWebp(frames, KIRA_OUT_W, KIRA_OUT_H, KIRA_MS);
+        if (full.length - 23 <= KIRA_MAX_B64) break;   // 23＝'data:image/webp;base64,'
+        full = null;
+      }
+      if (!full) throw new Error('キラキラカードの画像が大きくなりすぎました。絵を少し小さくするか、ちがう絵でためしてください。');
+      frameCanvas(0);
+      const t = document.createElement('canvas'); t.width = THUMB_W; t.height = THUMB_H;
+      const tx = t.getContext('2d'); tx.imageSmoothingQuality = 'high'; tx.drawImage(c, 0, 0, THUMB_W, THUMB_H);
+      return { full: full, thumb: webp(t, 0.85), kira: true };
     }
     return {
       el: root,
@@ -505,17 +735,20 @@
       hasPicture: () => !!pic,
       fail: (m) => { info.textContent = '⚠️ ' + m; },
       setPicture(src) {
-        loadImg(src).then((im) => { pic = im; view = { zoom: 1, x: 0, y: 0 }; zoom.value = '1'; root.hidden = false; refresh(); })
+        loadImg(src).then((im) => { pic = im; mode = ''; root.hidden = false; refresh(); })
           .catch(() => { info.textContent = '⚠️ 絵を読めませんでした'; });
       },
-      // 保存・承認のとき：型に入れた画像（600×849 と 240×340）。型を使わないときは null（編集で絵をえらんだときは、絵をそのまま切りぬく）
+      // 保存・承認のとき：型に入れた画像（600×849 と 240×340。キラキラは動く 480×679 と 240×340）。
+      //   型を使わないときは null（編集で絵をえらんだときは、絵をそのまま切りぬく）
       exportImages() {
         if (!pic) return Promise.resolve(null);
         const big = document.createElement('canvas');
+        const f = getFields();
         let job;
         if (use.checked) {
           big.width = FRAME_W; big.height = FRAME_H;
-          job = drawCard(big.getContext('2d'), 1, getFields(), pic, view);
+          job = drawCard(big.getContext('2d'), 1, f, pic, view);
+          if (layoutOf(f).kira) return job.then(() => exportKira(big, f));
         } else if (opts.optional) {
           big.width = OUT_W; big.height = OUT_H;
           const ctx = big.getContext('2d'), s = Math.max(OUT_W / pic.width, OUT_H / pic.height);
@@ -652,9 +885,9 @@
       if (!img.dataset.full) app.call('admin.cardImage', { id: r.id }).then((x) => { if (x.image) { img.dataset.full = '1'; img.src = x.image; } }).catch(() => {});
     });
     // カードの型に当てはめる（レアリティ・名前・手・セリフを変えると、見本もすぐ変わる）
-    const comp = makeComposer(() => ({ rarity: rarIn.value || 'N', name: nameIn.value, hand: handIn.value, line: lineIn.value }));
+    const comp = makeComposer(() => ({ rarity: rarIn.value || 'N', name: nameIn.value, hand: handIn.value, line: lineIn.value, gachaType: gachaIn.value }));
     app.call('admin.cardImage', { id: r.id }).then((x) => { if (x.image) comp.setPicture(x.image); }).catch(() => comp.fail('申請の画像を読めませんでした'));
-    [nameIn, handIn, lineIn, rarIn].forEach((x) => { x.addEventListener('input', comp.refresh); x.addEventListener('change', comp.refresh); });
+    [nameIn, handIn, lineIn, rarIn, gachaIn].forEach((x) => { x.addEventListener('input', comp.refresh); x.addEventListener('change', comp.refresh); });
     const yes = el('button', { type: 'button', class: 'adm-yes', text: '✅ 承認してカードにする' });
     const no = el('button', { type: 'button', class: 'adm-no', text: '見送る' });
     const decide = (decision) => {
