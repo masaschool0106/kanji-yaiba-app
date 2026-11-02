@@ -6,6 +6,8 @@
    =============================================================== */
 (function () {
   'use strict';
+  // 管理画面の版：画面の上に出す。Push したのに新しいボタンが出ないときは、ここが古いまま（5分ほど待って Ctrl＋Shift＋R）
+  const ADMIN_VERSION = '2026-11-02（枠だけ付け直す）';
   let app = null, root = null, students = [], tab = 'students', filterId = '';
 
   const CSS = `
@@ -104,7 +106,7 @@
     root = el('section', { id: 'view-admin', class: 'app-view', hidden: '' }, [
       el('div', { class: 'container' }, [
         el('header', { class: 'adm-head hud-panel' }, [
-          el('div', {}, [el('div', { class: 'adm-title', text: '👩‍🏫 先生の管理画面' }), el('div', { class: 'adm-sub', text: '児童の記録の確認と、カードの承認ができます' })]),
+          el('div', {}, [el('div', { class: 'adm-title', text: '👩‍🏫 先生の管理画面' }), el('div', { class: 'adm-sub', text: '児童の記録の確認と、カードの承認ができます　（管理画面の版：' + ADMIN_VERSION + '）' })]),
           el('button', { type: 'button', class: 'btn-logout', text: '🚪 ログアウト', onclick: () => app.logout() })
         ]),
         el('div', { class: 'adm-tabs', id: 'admTabs' }, [
