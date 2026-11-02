@@ -9,8 +9,12 @@
   // ==================== 設定 ====================
   const SESSION_STORE_KEY = 'kanji_app_session';   // { token, exp }
   const LEGACY_NUM_KEY = 'kanji_num';
-  const FINISHER_FORM_URL = 'https://forms.gle/KDEHoS8UNkS6uB8a6';   // 決め技・柱名を変えたいときのフォーム
-  const BUG_FORM_URL = 'https://forms.gle/ZRoicHDGxMdQQU4R7';        // バグ報告のフォーム              // 今の画面（Gacha.html など）が使う出席番号
+  // 学校ごとの設定（GAS の「設定」シート。2026-11-02 異動の準備）。GAS の Api.gs が前の版で school がないときは、今までの値
+  const SCHOOL = (window.KANJI_CONFIG || {}).school || null;
+  const FINISHER_FORM_URL = SCHOOL ? String(SCHOOL.finisherForm || '') : 'https://forms.gle/KDEHoS8UNkS6uB8a6';   // 決め技・柱名を変えたいときのフォーム（空なら出さない）
+  const BUG_FORM_URL = SCHOOL ? String(SCHOOL.bugForm || '') : 'https://forms.gle/ZRoicHDGxMdQQU4R7';        // バグ報告のフォーム（空なら出さない）              // 今の画面（Gacha.html など）が使う出席番号
+  const JAMAICA_ON = !SCHOOL || SCHOOL.jamaica !== false;    // ジャマイカ計算と連携する学校か
+  const CARDMAKE_ON = !SCHOOL || SCHOOL.cardMake !== false;  // 「カードを作る」を使う学校か
   const REFRESH_MS = 300000;                       // マイページを5分ごとに読み直す（今のマイページと同じ）
   const CONFIG = window.KANJI_CONFIG || {};        // App.html が入れる { assetBase, assetVersion, nav }
 
@@ -204,6 +208,7 @@
 
   // ジャマイカ計算で獲得したポイントを反映（失敗しても画面には出さない。ジャマイカ未連携の児童もいるため）
   function syncJamaica() {
+    if (!JAMAICA_ON) return;
     call('jamaica.sync')
       .then((res) => {
         if (res.synced && res.bonusPoints > 0) {
@@ -222,6 +227,7 @@
     if (!state.settings.finisherEditable) {
       // フォームへのリンクを出す（新しいタブで開く）
       const el = $('mypageMessage');
+      if (!FINISHER_FORM_URL) { showMessage('mypageMessage', '決め技や柱名を変えたいときは、先生に言ってね。', 'info'); return; }
       const a = document.createElement('a');
       a.href = FINISHER_FORM_URL; a.target = '_blank'; a.rel = 'noopener'; a.className = 'msg-link';
       a.textContent = '📝 決め技・柱名の変更フォームを開く';
@@ -271,8 +277,9 @@
   function setupTiles() {
     const ring = $('carouselRing');
     if (!ring) return;
+    if (!JAMAICA_ON) ring.querySelectorAll('[data-page="jamaica"]').forEach((el) => el.remove());   // ジャマイカ計算と連携しない学校
     // 「カードを作る」は GAS の App.html にないので、ここで足す
-    if (!ring.querySelector('[data-page="cardmake"]')) {
+    if (CARDMAKE_ON && !ring.querySelector('[data-page="cardmake"]')) {
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'cz-card'; b.setAttribute('data-page', 'cardmake'); b.setAttribute('aria-label', 'カードを作る');
       b.innerHTML = '<span class="cz-icon">🎨</span><span class="cz-name">カードを作る</span><span class="cz-desc">自分の絵をカードにしよう！</span>';
@@ -293,6 +300,7 @@
     const sub = document.createElement('div');
     sub.className = 'tile-sub';
     [['finisherform', '✏️ 決め技・柱名の変更'], ['bugreport', '🐞 バグ報告']].forEach(([page, label]) => {
+      if (!(page === 'finisherform' ? FINISHER_FORM_URL : BUG_FORM_URL)) return;   // フォームがない学校
       const b = document.createElement('button');
       b.type = 'button'; b.setAttribute('data-page', page); b.textContent = label;
       b.addEventListener('click', () => navigate(page));
@@ -506,9 +514,10 @@
       if (state.view !== 'mypage') openMypage();
       return;
     }
-    if (page === 'cardmake') { openCardMake(); return; }
-    if (page === 'bugreport') { window.open(BUG_FORM_URL, '_blank', 'noopener'); return; }
-    if (page === 'finisherform') { window.open(FINISHER_FORM_URL, '_blank', 'noopener'); return; }
+    if (page === 'cardmake') { if (CARDMAKE_ON) openCardMake(); return; }
+    if (page === 'bugreport') { if (BUG_FORM_URL) window.open(BUG_FORM_URL, '_blank', 'noopener'); return; }
+    if (page === 'finisherform') { if (FINISHER_FORM_URL) window.open(FINISHER_FORM_URL, '_blank', 'noopener'); return; }
+    if (page === 'jamaica' && !JAMAICA_ON) return;
     showLoading('移動中...');
     if (window.KanjiPixel) window.KanjiPixel.wipe();   // 黒いタイルで閉じる（飾り。移動は待たない）
     const direct = legacyUrl(page);
@@ -525,7 +534,10 @@
   function setupEvents() {
     setupLogin();
     // メニューに「クイズ・ランナー」「カードを作る」「バグ報告」などを足す（GAS の App.html が前の版でも出るように、ここで足す）
+    const navOn = { cardmake: CARDMAKE_ON, finisherform: !!FINISHER_FORM_URL, bugreport: !!BUG_FORM_URL, jamaica: JAMAICA_ON };   // 学校の設定で使わないものは出さない
+    if ($('globalNavMenu')) Object.keys(navOn).forEach((key) => { if (!navOn[key]) $('globalNavMenu').querySelectorAll('[data-nav="' + key + '"]').forEach((el) => el.remove()); });
     [['quizrunner', '🏃 クイズ・ランナー'], ['cardmake', '🎨 カードを作る'], ['finisherform', '✏️ 決め技・柱名の変更'], ['bugreport', '🐞 バグ報告']].forEach(([key, label]) => {
+      if (navOn[key] === false) return;
       if ($('globalNavMenu') && !$('globalNavMenu').querySelector('[data-nav="' + key + '"]')) {
         const nb = document.createElement('button');
         nb.type = 'button'; nb.setAttribute('data-nav', key); nb.textContent = label;
@@ -558,7 +570,7 @@
       // ほかの画面のメニューから「カードを作る」で来たとき（?page=cardmake）は、そのまま開く
       try {
         if (window.google && google.script && google.script.url) {
-          google.script.url.getLocation((loc) => { if (loc && loc.parameter && loc.parameter.page === 'cardmake') openCardMake(); });
+          google.script.url.getLocation((loc) => { if (CARDMAKE_ON && loc && loc.parameter && loc.parameter.page === 'cardmake') openCardMake(); });
         }
       } catch (e) {}
     } else {
