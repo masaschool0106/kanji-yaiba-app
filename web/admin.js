@@ -320,6 +320,17 @@
     // 画像の差しかえ：新しい絵をえらぶと、型に当てはめた見本が出る
     const comp = makeComposer(() => ({ rarity: rarIn.value, name: nameIn.value, hand: handIn.value, line: lineIn.value, gachaType: gachaIn.value }), { optional: true });
     [nameIn, handIn, lineIn, rarIn, gachaIn].forEach((x) => { x.addEventListener('input', comp.refresh); x.addEventListener('change', comp.refresh); });
+    // 枠だけ付け直す（2026-11-02）：絵はそのまま、今のレアリティ・ガチャの種類の型（ふつう／キラキラ）に入れ直す
+    //   型なしの絵（assets/cards/src/番号.webp）があればそれを使い、なければ今のカードの絵の窓の中を切りぬく
+    const reframe = el('button', { type: 'button', text: '🖼 枠だけ付け直す（絵はそのまま）' });
+    reframe.addEventListener('click', () => {
+      reframe.disabled = true;
+      msgEl.textContent = '今のカードから絵を取り出しています...'; msgEl.className = 'adm-note';
+      pictureFromCard(c)
+        .then((got) => { comp.setPicture(got.url); msgEl.textContent = got.note + ' 見本を見て、よければ「保存する」。'; })
+        .catch((err) => { msgEl.textContent = '⚠️ ' + (err.message || '絵を取り出せませんでした'); msgEl.className = 'adm-note adm-ng'; })
+        .then(() => { reframe.disabled = false; });
+    });
     const file = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp' });
     file.addEventListener('change', () => {
       const f = file.files && file.files[0];
@@ -336,9 +347,11 @@
       if ((handIn.value !== c.hand || rarIn.value !== c.rarity) && c.owners && !confirm(c.owners + '人が持っているカードです。手・レアリティを変えてよいですか？')) return;
       save.disabled = true;
       msgEl.textContent = comp.hasPicture() ? '画像を作って保存しています...' : '保存しています...'; msgEl.className = 'adm-note';
-      comp.exportImages().then((imgs) => app.call('admin.cardUpdate', Object.assign({ no: c.no, name: nameIn.value, rarity: rarIn.value, gachaType: gachaIn.value, hand: handIn.value, effect: effIn.value, line: lineIn.value },
-        imgs ? { image: imgs.full, thumb: imgs.thumb } : {})))
+      let saved = null;
+      comp.exportImages().then((imgs) => { saved = imgs; return app.call('admin.cardUpdate', Object.assign({ no: c.no, name: nameIn.value, rarity: rarIn.value, gachaType: gachaIn.value, hand: handIn.value, effect: effIn.value, line: lineIn.value },
+        imgs ? { image: imgs.full, thumb: imgs.thumb, source: imgs.source || '' } : {})); })
         .then((x) => {
+          if (x.image) { rememberSaved(c.no, x.source ? saved : Object.assign({}, saved, { source: '' })); c.image = x.image; }
           msgEl.textContent = x.changed.length ? '保存しました（' + x.changed.join('・') + '）。' + (x.image ? '画像は GitHub に入れました。表示が変わるまで数分かかることがあります。' : '') : '変わったところはありませんでした。';
           msgEl.className = 'adm-note adm-ok';
           save.disabled = false;
@@ -356,7 +369,8 @@
         el('div', { class: 'adm-title', style: 'font-size:18px;margin-bottom:6px', text: 'No.' + c.no + ' を編集（持っている子：' + c.owners + '人）' }),
         el('div', { class: 'adm-form' }, [f('カード名', nameIn), f('レアリティ', rarIn), f('ガチャの種類', gachaIn), f('手', handIn), f('ステップアップ効果', effIn), f('セリフ', lineIn)]),
         warn,
-        el('div', { class: 'adm-note', style: 'margin-top:10px' }, ['画像を差しかえるとき：絵をえらぶ → ', file]),
+        el('div', { class: 'adm-note', style: 'margin-top:10px' }, [reframe, '　新しい型（キラキラもふくむ）に入れ直すとき。ガチャの種類を「キラキラ」にすると、キラキラの型になります']),
+        el('div', { class: 'adm-note' }, ['画像を差しかえるとき：絵をえらぶ → ', file]),
         comp.el,
         el('div', { class: 'adm-acts' }, [save, back]),
         msgEl
@@ -533,6 +547,97 @@
     for (let i = 0; i < all.length; i += 0x8000) s += String.fromCharCode.apply(null, all.subarray(i, i + 0x8000));
     return 'data:image/webp;base64,' + btoa(s);
   }
+  // ---------- 枠だけ付け直す：今のカードから絵を取り出す（2026-11-02） ----------
+  //   この画面で保存したカードは、ページを開いたときの置き場所（assetBase）がまだ古いので、保存した絵をここでおぼえておく
+  //   { url：保存した型なしの絵 } か { changed：true（型なしの絵はない。c.image から切りぬく） }
+  const sessionPics = {};
+  function rememberSaved(no, imgs) { if (imgs) sessionPics[String(no)] = imgs.source ? { url: imgs.source } : { changed: true }; }
+  function assetUrl(path) { const cfg = window.KANJI_CONFIG || {}; return (cfg.assetBase || '') + path; }
+  function fetchBytes(url) {
+    return fetch(url, { mode: 'cors' }).then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.arrayBuffer(); }).then((b) => new Uint8Array(b));
+  }
+  function bytesToDataUrl(b, mime) {
+    let s = '';
+    for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
+    return 'data:' + mime + ';base64,' + btoa(s);
+  }
+  function isAnimatedWebp(b) { try { return webpChunks(b).some((x) => x.id === 'ANIM' || x.id === 'ANMF'); } catch (e) { return false; } }
+  // カードの画像の中の「絵の窓」（黒いふちの内がわ）を見つける。見つからない辺は、型の決まった場所（600×849 のカードで 73〜514）
+  function findPictureWindow(img) {
+    const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const g = cv.getContext('2d'); g.drawImage(img, 0, 0);
+    const px = g.getImageData(0, 0, W, H).data;
+    const sx = W / 600, sy = H / 849;
+    const dark = (x, y) => { const i = (Math.round(y) * W + Math.round(x)) * 4; return px[i + 3] > 200 && px[i] + px[i + 1] + px[i + 2] < 150; };
+    // (x,y) から (dx,dy) の向きに進み、3つ以上つづく暗い点（ふち）をこえたところを返す。ふちが太すぎる（絵も暗い）ときは、ふちの太さ12とみる
+    const edge = (x, y, dx, dy, n, s) => {
+      let i0 = 0;
+      while (i0 < n && dark(x + dx * i0, y + dy * i0)) i0++;   // 始めが暗い所（名前の黒い帯のはしなど）なら、ぬけてからさがす
+      for (let i = i0; i < n; i++) {
+        const ax = x + dx * i, ay = y + dy * i;
+        if (!(dark(ax, ay) && dark(ax + dx, ay + dy) && dark(ax + dx * 2, ay + dy * 2))) continue;
+        let j = i;
+        while (j < n + 30 * s && dark(x + dx * j, y + dy * j)) j++;
+        if (j - i > 20 * s) j = i + Math.round(12 * s);
+        return dx ? x + dx * j : y + dy * j;
+      }
+      return null;
+    };
+    const med = (a) => { const b = a.filter((v) => v !== null).sort((p, q) => p - q); return b.length ? b[Math.floor(b.length / 2)] : null; };
+    const rows = [290, 340, 400].map((y) => y * sy), cols = [200, 300, 400].map((x) => x * sx);
+    let x0 = med(rows.map((y) => edge(30 * sx, y, 1, 0, Math.round(110 * sx), sx)));
+    let x1 = med(rows.map((y) => edge(570 * sx, y, -1, 0, Math.round(110 * sx), sx)));
+    // 上の辺：窓のふちは横いっぱい（x 61〜526）に黒い。名前の帯（x 170 から）とまちがえないよう、横の 9 割以上が黒い行をさがす
+    const xs = []; for (let x = 90; x <= 500; x += 10) xs.push(x * sx);
+    const rowDark = (y) => xs.filter((x) => dark(x, y)).length / xs.length;
+    let y0 = null;
+    for (let y = Math.round(125 * sy); y < Math.round(205 * sy); y++) {
+      if (rowDark(y) < 0.9) continue;
+      let j = y;
+      while (j < Math.round(230 * sy) && rowDark(j) >= 0.9) j++;
+      const t = j - y > 20 * sy ? y + Math.round(12 * sy) : j;   // 帯が太すぎる（絵の上も暗い）ときは、ふちの太さ12とみる
+      if (t < 140 * sy) { y = j; continue; }   // 窓の上はしは 151（N）〜185（LEGEND）。それより上の黒い行は名前の帯など
+      y0 = t;
+      break;
+    }
+    let y1 = med(cols.map((x) => edge(x, 570 * sy, 0, -1, Math.round(100 * sy), sy)));
+    const found = x0 !== null && x1 !== null && y0 !== null && y1 !== null;
+    if (x0 === null) x0 = 74 * sx;
+    if (x1 === null) x1 = 513 * sx; else x1 = x1 + 1;
+    if (y0 === null) y0 = 180 * sy;
+    if (y1 === null) y1 = 513 * sy; else y1 = y1 + 1;
+    const w = x1 - x0, h = y1 - y0;
+    if (w < 300 * sx || w > 480 * sx || h < 250 * sy || h > 400 * sy) return { x: Math.round(74 * sx), y: Math.round(180 * sy), w: Math.round(439 * sx), h: Math.round(333 * sy), found: false };
+    return { x: Math.round(x0), y: Math.round(y0), w: Math.round(w), h: Math.round(h), found: found };
+  }
+  // 型なしの絵：保存してある src があればそれ、なければ今のカードの窓の中を切りぬく（動くカードは切りぬけない）
+  async function pictureFromCard(c) {
+    const mem = sessionPics[String(c.no)];
+    if (mem && mem.url) return { url: mem.url, note: 'この画面で保存した絵（型なし）を使います。' };
+    if (!mem) {
+      try {
+        const b = await fetchBytes(assetUrl('assets/cards/src/' + encodeURIComponent(c.no) + '.webp'));
+        return { url: bytesToDataUrl(b, 'image/webp'), note: '保存してある絵（型なし）を使います。' };
+      } catch (e) { /* src がまだない：今のカードから切りぬく */ }
+    }
+    let b = null;
+    const urls = mem ? [c.image] : [assetUrl('assets/cards/' + encodeURIComponent(c.no) + '.webp'), c.image];   // この画面で変えたカードは、新しい画像の URL から
+    for (const u of urls.filter(Boolean)) {
+      try { b = await fetchBytes(u); break; } catch (e) { b = null; }
+    }
+    if (!b) throw new Error('今のカードの画像を読めませんでした。');
+    if (isAnimatedWebp(b)) throw new Error('動くカード（キラキラ）は、絵だけを取り出せません。「絵をえらぶ」で絵を差しかえてください。');
+    const url = URL.createObjectURL(new Blob([b]));
+    try {
+      const img = await new Promise((ok, ng) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ng(new Error('今のカードの画像を読めませんでした。')); im.src = url; });
+      const r = findPictureWindow(img);
+      const cv = document.createElement('canvas'); cv.width = r.w; cv.height = r.h;
+      cv.getContext('2d').drawImage(img, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
+      return { url: cv.toDataURL('image/png'), note: '今のカードの絵の窓の中を切りぬきました' + (r.found ? '' : '（ふちが見つからない所は、型の決まった場所で切りぬきました。はしを確かめてください）') + '。名前とセリフの箱の字は、上の「カード名」「セリフ」で書き直します。' };
+    } finally { URL.revokeObjectURL(url); }
+  }
+
   const KIRA_OUT_W = 480, KIRA_OUT_H = 679;   // 今あるキラキラカードと同じ大きさ
   const KIRA_MAX_B64 = 780000;                 // サーバーのカード画像の上限（Api.gs CARD_IMAGE_MAX_B64＝800000）より少し小さく
   const NAME_FONT = '"Yusei Magic", "Hiragino Maru Gothic ProN", sans-serif';
@@ -543,6 +648,9 @@
     return (cfg.assetBase || '') + 'assets/frames/' + file + (cfg.assetVersion ? '?v=' + encodeURIComponent(cfg.assetVersion) : '');
   }
   function loadImg(src) {
+    if (/^(data|blob):/.test(src)) {   // えらんだ絵・取り出した絵はためておかない（型・手の絵だけためる）
+      return new Promise((ok, ng) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ng(new Error('画像を読めませんでした')); im.src = src; });
+    }
     if (!imgCache[src]) imgCache[src] = new Promise((ok, ng) => {
       const im = new Image();
       if (!/^data:/.test(src)) im.crossOrigin = 'anonymous';   // 型の画像は jsDelivr から（画像を作るために必要）
@@ -626,7 +734,7 @@
   function makeComposer(getFields, opts) {
     opts = opts || {};
     let pic = null, view = { zoom: 1, x: 0, y: 0 }, busy = false, again = false;
-    let mode = '', base = null, frameNo = 0, timer = 0;   // キラキラ：星のない見本（base）に、0.1秒ごとに星を重ねて動かす
+    let mode = '', base = null, frameNo = 0, timer = 0, picSrc = '';   // キラキラ：星のない見本（base）に、0.1秒ごとに星を重ねて動かす
     const canvas = el('canvas', { width: String(FRAME_W / 2), height: String(FRAME_H / 2), title: 'ドラッグで絵を動かせます' });
     const use = el('input', { type: 'checkbox' });
     use.checked = true;
@@ -729,13 +837,30 @@
       const tx = t.getContext('2d'); tx.imageSmoothingQuality = 'high'; tx.drawImage(c, 0, 0, THUMB_W, THUMB_H);
       return { full: full, thumb: webp(t, 0.85), kira: true };
     }
+    // 型に入れる前の絵（あとで枠だけ付け直すときに使う）。長い辺は1200まで・サーバーの上限に入る大きさ。作れないときは ''
+    function sourceImage() {
+      try { return sourceImageOrThrow(); } catch (e) { return ''; }   // 作れなくても、カードの保存は止めない
+    }
+    function sourceImageOrThrow() {
+      // えらんだ絵が、もう大きすぎない WebP なら、そのまま（付け直すたびに画質が落ちないように）
+      if (/^data:image\/webp;base64,/.test(picSrc) && picSrc.length - 23 <= KIRA_MAX_B64 && Math.max(pic.width, pic.height) <= 1200) return picSrc;
+      const k = Math.min(1, 1200 / Math.max(pic.width, pic.height));
+      const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(pic.width * k)); c.height = Math.max(1, Math.round(pic.height * k));
+      const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(pic, 0, 0, c.width, c.height);
+      for (const q of [0.9, 0.8, 0.7, 0.6, 0.5]) {
+        const u = c.toDataURL('image/webp', q);
+        if (u.indexOf('data:image/webp') !== 0) return '';
+        if (u.length - 23 <= KIRA_MAX_B64) return u;
+      }
+      return '';
+    }
     return {
       el: root,
       refresh: refresh,
       hasPicture: () => !!pic,
       fail: (m) => { info.textContent = '⚠️ ' + m; },
       setPicture(src) {
-        loadImg(src).then((im) => { pic = im; mode = ''; root.hidden = false; refresh(); })
+        loadImg(src).then((im) => { pic = im; picSrc = String(src); mode = ''; root.hidden = false; refresh(); })
           .catch(() => { info.textContent = '⚠️ 絵を読めませんでした'; });
       },
       // 保存・承認のとき：型に入れた画像（600×849 と 240×340。キラキラは動く 480×679 と 240×340）。
@@ -744,17 +869,17 @@
         if (!pic) return Promise.resolve(null);
         const big = document.createElement('canvas');
         const f = getFields();
-        let job;
+        let job, noSource = false;
         if (use.checked) {
           big.width = FRAME_W; big.height = FRAME_H;
           job = drawCard(big.getContext('2d'), 1, f, pic, view);
-          if (layoutOf(f).kira) return job.then(() => exportKira(big, f));
+          if (layoutOf(f).kira) return job.then(() => Object.assign(exportKira(big, f), { source: sourceImage() }));
         } else if (opts.optional) {
           big.width = OUT_W; big.height = OUT_H;
           const ctx = big.getContext('2d'), s = Math.max(OUT_W / pic.width, OUT_H / pic.height);
           ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, OUT_W, OUT_H);
           ctx.drawImage(pic, (OUT_W - pic.width * s) / 2, (OUT_H - pic.height * s) / 2, pic.width * s, pic.height * s);
-          job = Promise.resolve();
+          job = Promise.resolve().then(() => { noSource = true; });   // 型に入れないとき、えらんだ絵はできあがったカードかもしれないので、型なしの絵にしない
         } else {
           return Promise.resolve(null);   // 承認で型を使わない：申請の画像のまま
         }
@@ -765,7 +890,7 @@
           if (u.indexOf('data:image/webp') !== 0) u = c.toDataURL('image/jpeg', q);
           return u;
         };
-        return job.then(() => ({ full: shrink(OUT_W, OUT_H, 0.9), thumb: shrink(THUMB_W, THUMB_H, 0.85) }));
+        return job.then(() => ({ full: shrink(OUT_W, OUT_H, 0.9), thumb: shrink(THUMB_W, THUMB_H, 0.85), source: noSource ? '' : sourceImage() }));
       }
     };
   }
@@ -900,13 +1025,14 @@
         .then((imgs) => {
           made = imgs;
           return app.call('admin.cardDecide', Object.assign({ id: r.id, decision: decision, rarity: rarIn.value, gachaType: gachaIn.value, name: nameIn.value, hand: handIn.value, effect: effIn.value, line: lineIn.value, comment: comIn.value },
-            imgs ? { composed: imgs.full, composedThumb: imgs.thumb } : {}));
+            imgs ? { composed: imgs.full, composedThumb: imgs.thumb, composedSource: imgs.source || '' } : {}));
         })
         .then((x) => {
           if (x.decided !== '承認') { msgEl.textContent = '見送りました。子どもの画面にコメントが表示されます。'; msgEl.className = 'adm-note adm-ok'; return; }
           msgEl.textContent = 'カード No.' + x.rank + ' として追加しました。' + (x.github === '自動' ? '（GitHub に自動で追加済み。絵が表示されるまで1〜10分かかります。すぐに開いて出ないときは、10分ほど待ってから Ctrl＋Shift＋R で開き直してください）' : '');
           msgEl.className = 'adm-note adm-ok';
           if (x.github !== '自動') manualDownloads(r.id, x.rank, msgEl, made);
+          else rememberSaved(x.rank, made);
         })
         .catch((err) => { msgEl.textContent = '⚠️ ' + (err.message || 'できませんでした'); msgEl.className = 'adm-note adm-ng'; yes.disabled = no.disabled = false; });
     };
@@ -935,8 +1061,9 @@
       };
       msgEl.appendChild(el('div', { class: 'adm-dl' }, [
         link(x.image, '⬇ 大きい画像（' + rank + '.webp → web/assets/cards/）'),
-        link(x.thumb, '⬇ 小さい画像（' + rank + '.webp → web/assets/cards/thumb/）')
-      ]));
+        link(x.thumb, '⬇ 小さい画像（' + rank + '.webp → web/assets/cards/thumb/）'),
+        made && made.source ? link(made.source, '⬇ 絵だけ（' + rank + '.webp → web/assets/cards/src/。あとで枠だけ付け直すときに使う）') : null
+      ].filter(Boolean)));
       msgEl.appendChild(el('div', { class: 'adm-sub', text: 'ダウンロードできないときは、申請画像のドライブのフォルダにある同じ画像を使ってください。' }));
     }).catch(() => {});
   }
