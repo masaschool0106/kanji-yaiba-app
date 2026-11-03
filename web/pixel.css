@@ -288,6 +288,12 @@ body.px-theme[data-page="zukan"] { color: var(--white); }
 [data-page="gacha"].px-theme .btn-kira { background: var(--plum) !important; }
 [data-page="gacha"].px-theme .btn-latest { background: var(--red) !important; }
 [data-page="gacha"].px-theme .btn-allin { background: var(--dblue) !important; }
+/* ふでまる専用ガチャ（2026-11-03）：はちまきの赤いわくと、毛の色のボタン */
+[data-page="gacha"].px-theme .gacha-card.gacha-fude { background: var(--plum) !important; box-shadow: inset 0 0 0 4px var(--red) !important; }
+[data-page="gacha"].px-theme .btn-fude { background: var(--brown) !important; }
+[data-page="gacha"].px-theme .fude-badge { background: var(--red); color: var(--white); border-radius: 0; box-shadow: 0 0 0 2px var(--k); }
+[data-page="gacha"].px-theme .fude-have { color: var(--peach); font-weight: normal; }
+[data-page="gacha"].px-theme .fude-pic { border-radius: 0; box-shadow: 0 0 0 3px var(--k), 0 0 0 6px var(--white); image-rendering: auto; }
 [data-page="gacha"].px-theme .modal-box button:not([class]) { background: var(--gray) !important; }
 [data-page="gacha"].px-theme .result-card { background: var(--k) !important; border: none !important; box-shadow: inset 0 0 0 3px var(--gray) !important; animation: kpxEnter 0.28s steps(4) both !important; }
 [data-page="gacha"].px-theme .result-card img, [data-page="gacha"].px-theme .card-modal-img { box-shadow: 0 0 0 3px var(--k), 0 0 0 6px var(--white) !important; background: var(--k) !important; }
