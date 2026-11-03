@@ -3,7 +3,7 @@
 //   ・絵は「色の表」と「点のならび（文字の地図）」から、プログラムで描く（画像を読みこまない・生成AIは使わない）
 //   ・部品（頭・耳・はちまき・筆・体・うで・足・しっぽ）を、ポーズごとに組み立てて1コマにする
 //   ・大きさは2つ：L（48×48・マスコット・ステップアップ用）と S（20×20・クイズランナー用。忍者 16×16 と同じくらい）
-//   ・向きは右むき（ランナーの進む向き）。左むきは flip
+//   ・向きは右むき（ランナーの進む向き）。左むきは flip（絵は裏返すが、はちまきの「漢」は鏡文字にしない）
 //   ・ページがない所（jsc のテスト）でも読みこめる。canvas を使うのは描くときだけ
 //
 //   KanjiFudemaru.draw(ctx, 動き, ミリ秒, x, y, opts)   … canvas に描く。x, y は「足もとのまん中」。opts { size:'L'|'S', scale, flip, tint }
@@ -56,132 +56,131 @@
   // =============================================================
   const L = {};
   L.head = [
-    '........KKKKKKKKKK........',
-    '......KKOoooooOOOOKK......',
-    '....KKOooooOOOOOOOOOKK....',
-    '...KOooOOOOOOOOOOOOOOOK...',
-    '..KOoOOOOOOOOOOOOOOOOOOK..',
-    '.KOOOOOOOOOOOOOOOOOOOOOOK.',
-    '.KOOOOOOOOOOOOOOOOOOOOOOK.',
-    'KOOOOOOOOOOOOOOOOOOOOOOOOK',
-    'KOOOOOOOOOOOOOOOOOOOOOOOOK',
-    'KOOOOOOOOOOOOOOOOOOOOOOOOK',
-    'KOOOOOWWOOWWWWWWOOWWOOOOOK',
-    'KOOOOOkkOOWWWWWWOOkkOOOOOK',
-    'KOOOOOkkOWWWWWWWWOkkOOOOOK',
-    'KOOOOWkkWWWWWWWWWWkkWOOOOK',
-    'KOOOWWWWWWWkkkkWWWWWWWOOOK',
-    'KOOWPPWWWWWWkkWWWWWWPPWOOK',
-    'KOOWWWWWWKWWKKWWKWWWWWWOOK',
-    'KOWWWWWWWWKKWWKKWWWWWWWWOK',
-    '.KOWWWWWWWWWWWWWWWWWWWWOK.',
-    '..KKWWWWWWWWWWWWWWWWWWKK..',
-    '....KKKKKKKKKKKKKKKKKK....'
+    '..........KKKKKKKK..........',
+    '.......KKKOoooooOOKKK.......',
+    '.....KKOOooooOOOOOOOOKK.....',
+    '....KOOooOOOOOOOOOOOOOOK....',
+    '...KOooOOOOOOOOOOOOOOOOOK...',
+    '..KKKKKKKKKKKKKKKKKKKKKKKK..',
+    '.KRRRRRRRRRRRRRRRRRRRRRRRRK.',
+    '.KRRRRRRRRRRRRRRRRRRRRRRRRK.',
+    'KRRRRRRRRRRRRRRRRRRRRRRRRRRK',
+    'KRRRRRRRRRRRRRRRRRRRRRRRRRRK',
+    'KrrrrrrrrrrrrrrrrrrrrrrrrrrK',
+    'KKKKKKKKKKKKKKKKKKKKKKKKKKKK',
+    'KOOOOOOWWOOOWWWWOOOWWOOOOOOK',
+    'KOOOOOOwkOOWWWWWWOOwkOOOOOOK',
+    'KOOOOOOkkOWWWWWWWWOkkOOOOOOK',
+    'KOOOOOWkkWWWWWWWWWWkkWOOOOOK',
+    'KOOOOWWWWWWWkkkkWWWWWWWOOOOK',
+    'KOOOWPPWWWWWWkkWWWWWWPPWOOOK',
+    'KOOWWWWWWWKWWKKWWKWWWWWWWOOK',
+    'KOOWWWWWWWWKKWWKKWWWWWWWWOOK',
+    '.KKWWWWWWWWWWWWWWWWWWWWWWKK.',
+    '...KKKKKKKKKKKKKKKKKKKKKK...'
+  ];
+  // はちまきの「漢」（8×5。頭の x10, y6 に重ねる）
+  L.kanji = [
+    'w...w.w.',
+    '...wwwww',
+    'w...www.',
+    '.w.wwwww',
+    'w..w.w.w'
   ];
   // 目・口の差しかえ（頭の中の位置 x, y と、点のならび）
   const FACE = {
     eyes: {
       open: [],
-      blink: [[5, 11, ['OOOO', 'KKKO', 'WWWW']], [17, 11, ['OOOO', 'OKKK', 'WWWW']]],
-      happy: [[5, 11, ['OKKO', 'KOOK', 'WWWW']], [17, 11, ['OKKO', 'KOOK', 'WWWW']]],
-      hurt: [[5, 11, ['KKOO', 'OOKO', 'KKWW']], [17, 11, ['OOKK', 'OKOO', 'WWKK']]],
-      sad: [[5, 10, ['KKOO', 'OOOO', 'OkkO', 'WkkW']], [17, 10, ['OOKK', 'OOOO', 'OkkO', 'WkkW']]],
-      focus: [[5, 10, ['OOKK', 'OOkk', 'OOkk', 'Wkkk']], [17, 10, ['KKOO', 'kkOO', 'kkOO', 'kkkW']]]
+      blink: [[6, 13, ['OOOO', 'KKKK', 'WWWW']], [18, 13, ['OOOO', 'KKKK', 'WWWW']]],
+      happy: [[6, 13, ['OKKO', 'KOOK', 'WWWW']], [18, 13, ['OKKO', 'KOOK', 'WWWW']]],
+      hurt: [[6, 13, ['KKOO', 'OOKK', 'KKWW']], [18, 13, ['OOKK', 'KKOO', 'WWKK']]],
+      sad: [[6, 12, ['OOKK', 'OOOO', 'OkkO', 'WkkW']], [18, 12, ['KKOO', 'OOOO', 'OkkO', 'WkkW']]],
+      focus: [[6, 12, ['KKOO', 'OOKK', 'OkkO', 'WkkW']], [18, 12, ['OOKK', 'KKOO', 'OkkO', 'WkkW']]]
     },
     mouth: {
       smile: [],
-      open: [[9, 16, ['WKKKKKKW', 'WKPPPPKW', 'WWKKKKWW']]],
-      oh: [[9, 16, ['WWWKKWWW', 'WWKPPKWW', 'WWWKKWWW']]],
-      flat: [[9, 16, ['WWWWWWWW', 'WWKKKKWW']]]
+      open: [[10, 18, ['WKKKKKKW', 'WKPPPPKW', 'WWKKKKWW']]],
+      oh: [[10, 18, ['WWWKKWWW', 'WWKPPKWW', 'WWWKKWWW']]],
+      flat: [[10, 18, ['WWWWWWWW', 'WWKKKKWW', 'WWWWWWWW']]]
     }
   };
   L.earL = [
     '....KKKK',
     '..KKEEEK',
     '.KEEEEEK',
+    'KEEEEEEK',
     'KEEEEEeK',
     'KEEEEEeK',
     'KEEEEEeK',
     'KEEEEeeK',
     'KEEEEeeK',
+    'KEEEEeeK',
     'KEEEEeK.',
     'KEEEEeK.',
-    'KEEEeeK.',
-    '.KEEeK..',
+    '.KEEEeK.',
     '.KEEeK..',
     '..KKK...'
   ];
   L.earFlapL = [
-    '..KKKKK...',
-    '.KEEEEEKK.',
-    'KEEEEEEEEK',
+    '....KKKK..',
+    '..KKEEEEK.',
+    '.KEEEEEEEK',
     'KEEEEEEEeK',
-    '.KEEEEEeeK',
-    '..KKEEEeK.',
-    '....KKKK..'
-  ];
-  L.band = [
-    '...KKKKKKKKKKKKKKKKKKKKKK...',
-    '..KRRRRRRRRwRRRwRwRRRRRRRK..',
-    '.KRRRRRRRRRRRRwwwwwRRRRRRRK.',
-    '.KRRRRRRRRwRRRRwwwRRRRRRRRK.',
-    'KRRRRRRRRRRRRwwwwwRRRRRRRRRK',
-    'KrrrrrrrrrwwrrrwrwrrrrrrrrrK',
-    'KKKKKKKKKKKKKKKKKKKKKKKKKKKK'
+    'KEEEEEEeeK',
+    '.KEEEEEeK.',
+    '..KKEEeK..',
+    '....KKK...'
   ];
   L.ribbon = [
     '....KK',
     '...KRK',
     '..KRrK',
     '.KRrK.',
-    '.KRK..',
-    '..K...'
+    'KRrK..',
+    'KRK...',
+    '.K....'
   ];
   L.ribbonFly = [
-    'KKK.....',
-    'KRRKKK..',
-    '.KKRRRKK',
-    '...KKrrK',
-    '.....KK.'
+    'KK.....',
+    'KRKKK..',
+    '.KRRRKK',
+    '..KKrrK',
+    '....KK.'
   ];
   L.brush = [
-    '......KK.',
-    '.....KkK.',
-    '....KkkK.',
-    '...KkkkK.',
-    '..KkkkkK.',
-    '..KkkkGK.',
-    '.KwkkGgK.',
-    '.KwwwwgK.',
-    'KwwwwwwgK',
-    'KwwwwwwgK',
-    '.KwwwwgK.',
-    '.KRRRRrK.',
-    '..KRRrK..',
-    '..KKKKK..'
+    '.....KK.',
+    '....KkK.',
+    '...KkkK.',
+    '..KkkkK.',
+    '..KkkGK.',
+    '.KwkGgK.',
+    'KwwwwwgK',
+    'KwwwwwgK',
+    'KwwwwwgK',
+    '.KwwwgK.',
+    '.KRRRrK.',
+    '..KKKK..'
   ];
   L.body = [
-    '....KKKKKKKKKK....',
-    '..KKOOOOOOOOOOKK..',
-    '.KOOOOOWWWWOOOOOK.',
-    '.KOOOOWWWWWWOOOOK.',
-    'KOOOOWWWWWWWWOOOOK',
-    'KOOOWWWWWWWWWWOOOK',
-    'KOOOWWWWWWWWWWOOOK',
-    'KOOOWWWWWWWWWWOOOK',
-    'KDOOWWWWWWWWWWOODK',
-    'KDOOOWWWWWWWWOOODK',
-    '.KDOOOWWWWWWOOODK.',
-    '.KDDOOOOOOOOOODDK.',
-    '..KKKKKKKKKKKKKK..'
+    '....KKKKKKKKKKKKKK....',
+    '..KKOOOOOOOOOOOOOOKK..',
+    '.KOOOOOOWWWWWWOOOOOOK.',
+    '.KOOOOOWWWWWWWWOOOOOK.',
+    'KOOOOOWWWWWWWWWWOOOOOK',
+    'KDOOOWWWWWWWWWWWWOOODK',
+    'KDOOOWWWWWWWWWWWWOOODK',
+    'KDDOOOWWWWWWWWWWOOODDK',
+    '.KDDOOOWWWWWWWWOOODDK.',
+    '..KKDDOOOOOOOOOODDKK..',
+    '....KKKKKKKKKKKKKK....'
   ];
   // 足（hx, hy：つけね）
   const LEG = {
-    down: { hx: 3, hy: 1, rows: ['.KOOK.', '.KOOK.', '.KOOK.', '.KOOK.', '.KOOK.', 'KWWWWK', 'KWWWWK', '.KKKK.'] },
-    fwd: { hx: 2, hy: 1, rows: ['KOOOK...', '.KOOOK..', '..KOOOK.', '...KOWWK', '...KWWWK', '....KKK.'] },
-    back: { hx: 5, hy: 1, rows: ['...KOOOK', '..KOOOK.', '.KOOOK..', 'KWWOK...', 'KWWWK...', '.KKK....'] },
-    up: { hx: 2, hy: 1, rows: ['KOOOK..', 'KOOOOK.', '.KOOWWK', '..KWWWK', '...KKK.'] },
-    tuck: { hx: 3, hy: 1, rows: ['.KOOK.', 'KOOOOK', 'KWWWWK', '.KKKK.'] }
+    down: { hx: 3, hy: 0, rows: ['KOOOOOK', 'KOOOOOK', 'KOOOOOK', 'KOOOOOK', 'KWWWWWK', 'KWWWWWK', '.KKKKK.'] },
+    fwd: { hx: 2, hy: -1, rows: ['KOOOOK...', 'KOOOOOK..', '.KOOOOWK.', '..KOWWWWK', '..KWWWWWK', '...KKKKK.'] },
+    back: { hx: 6, hy: -1, rows: ['...KOOOOK', '..KOOOOOK', '.KWOOOOK.', 'KWWWOOK..', 'KWWWWK...', '.KKKK....'] },
+    up: { hx: 2, hy: 0, rows: ['KOOOOK..', 'KOOOOWWK', '.KOWWWWK', '..KKKKK.'] },
+    tuck: { hx: 3, hy: 0, rows: ['KOOOOOK', 'KWWWWWK', '.KKKKK.'] }
   };
   // うで（sx, sy：かた）
   const ARM = {
@@ -205,12 +204,16 @@
 
   // ---------- ポーズ → 1コマ（L） ----------
   //   p = { dx, dy, hy, legF, legB, armF, armB, tail, ears, eyes, mouth, brush, ribbon, fx:[[名前, x, y]] }
+  //   体のまん中 cx=24・足の下 y=47。筆 y0〜・頭 28×22（y11〜）・体 22×11（y31〜）・足（y41〜）
   function poseL(p) {
     const out = [];
     const cx = 24 + (p.dx || 0), dy = p.dy || 0, hyy = dy + (p.hy || 0);
-    const headX = cx - 13, headY = 10 + hyy;
+    const headX = cx - 14, headY = 11 + hyy;
     const put = (rows, x, y) => out.push([rows, x, y]);
-    const leg = (name, hipX, dark) => { const l = LEG[name]; put(dark ? recolor(l.rows, 'O', 'D') : l.rows, hipX - l.hx, 41 - l.hy + (name === 'tuck' ? -2 + dy : Math.min(dy, 1) * 0)); };
+    const leg = (name, hipX, dark) => {
+      const l = LEG[name];
+      put(dark ? recolor(l.rows, 'O', 'D') : l.rows, hipX - l.hx, (name === 'tuck' ? 40 + dy : 41) - l.hy);
+    };
     const arm = (name, x, y, left) => {
       const a = ARM[name];
       let rows = a.rows, sx = a.sx;
@@ -219,63 +222,62 @@
     };
     const t = TAIL[p.tail || 'up'];
     // うしろから順に
-    put(t.rows, cx - 7 - t.bx, 37 + dy - t.by);
-    leg(p.legB || 'down', cx - 3, true);
-    arm(p.armB || 'down', cx - 8, 32 + dy, true);
-    if (p.ribbon === 'fly') put(L.ribbonFly, headX - 7, headY + 5); else put(L.ribbon, headX - 4, headY + 7);
+    put(t.rows, cx - 12 - t.bx, 39 + dy - t.by);
+    leg(p.legB || 'down', cx - 4, true);
+    arm(p.armB || 'down', cx - 10, 34 + dy, true);
+    if (p.ribbon === 'fly') put(L.ribbonFly, headX - 10, headY + 5); else put(L.ribbon, headX - 8, headY + 6);
     const br = p.brush === 'tilt' ? shear(L.brush, -0.25) : p.brush === 'lean' ? shear(L.brush, 0.2) : L.brush;
-    put(br, headX + 13 - Math.floor(br[0].length / 2) + (p.brush === 'tilt' ? 0 : 0), headY - 12);
-    leg(p.legF || 'down', cx + 3, false);
-    put(L.body, cx - 9, 29 + dy);
+    put(br, headX + 14 - Math.floor(br[0].length / 2), headY - 11);
+    leg(p.legF || 'down', cx + 4, false);
+    put(L.body, cx - 11, 31 + dy);
     // 頭
     put(L.head, headX, headY);
+    out.push([L.kanji, headX + 10, headY + 6, true]);   // 字（左むきでも裏返さない）
     FACE.eyes[p.eyes || 'open'].forEach((s) => put(s[2], headX + s[0], headY + s[1]));
     FACE.mouth[p.mouth || 'smile'].forEach((s) => put(s[2], headX + s[0], headY + s[1]));
-    if (p.ears === 'flap') { put(L.earFlapL, headX - 8, headY + 3); put(mirror(L.earFlapL), headX + 24, headY + 3); }
-    else { put(L.earL, headX - 4, headY + 3); put(mirror(L.earL), headX + 22, headY + 3); }
-    put(L.band, headX - 1, headY + 3);
-    arm(p.armF || 'down', cx + 8, 32 + dy, false);
+    if (p.ears === 'flap') { put(L.earFlapL, headX - 7, headY + 4); put(mirror(L.earFlapL), headX + 25, headY + 4); }
+    else { put(L.earL, headX - 5, headY + 4); put(mirror(L.earL), headX + 25, headY + 4); }
+    arm(p.armF || 'down', cx + 10, 34 + dy, false);
     (p.fx || []).forEach((f) => put(FXP[f[0]], cx + f[1], f[2] + hyy));
     return out;
   }
 
   // =============================================================
   // S（20×20）の部品（クイズランナーの忍者と同じくらい）
+  //   筆 y0〜3・頭 14×10（y4〜13）・体（y13〜16）・足（y16〜19）
   // =============================================================
   const S = {};
   S.head = [
-    '....KKKKKK....',
-    '..KKOOOOOOKK..',
-    '.KRRRRwwRRRRK.',
-    '.KrRRwRwRRRrK.',
-    'KOOOOWWWWOOOOK',
-    'KOOkOWWWWOkOOK',
+    '...KKKKKKKK...',
+    '..KRRRwwRRRK..',
+    '.KRrrrwwrrrRK.',
+    'KOOOOOOOOOOOOK',
+    'KOOkOOWWOOkOOK',
     'KOOkWWkkWWkOOK',
-    'KOWWWKWWKWWWOK',
+    'KOPWWKWWKWWPOK',
+    'KOWWWWKKWWWWOK',
     '.KWWWWWWWWWWK.',
     '..KKKKKKKKKK..'
   ];
-  S.headFace = {
-    open: [], blink: [[3, 5, ['O', 'K']], [10, 5, ['O', 'K']]],
-    happy: [[2, 5, ['OKO', 'KOK']], [9, 5, ['OKO', 'KOK']]],
-    hurt: [[2, 5, ['KOO', 'OKW']], [9, 5, ['OOK', 'WKO']]],
-    sad: [[3, 5, ['O', 'k']], [10, 5, ['O', 'k']]]
+  S.face = {
+    open: [], blink: [[3, 4, ['O', 'K']], [10, 4, ['O', 'K']]],
+    happy: [[2, 4, ['OKO', 'KWK']], [9, 4, ['OKO', 'KWK']]],
+    hurt: [[2, 4, ['KOO', 'OKW']], [9, 4, ['OOK', 'WKO']]],
+    sad: [[3, 4, ['O', 'k']], [10, 4, ['O', 'k']]]
   };
-  S.ear = ['.KK', 'KEK', 'KEK', 'KeK', '.K.'];
-  S.earFlap = ['KKK.', 'KEEK', '.KeK', '..K.'];
-  S.brush = ['..KK.', '.KkK.', 'KwwwK', 'KwwgK', '.KRK.', '..K..'];
-  S.body = ['.KKKKKKKK.', 'KOOWWWWOOK', 'KOOWWWWOOK', 'KDOOWWOODK', '.KKKKKKKK.'];
-  S.armDown = ['KK', 'WK'];
-  S.armUp = ['.K', 'KW', 'K.'];
-  S.armFwd = ['KKK', 'OWK'];
+  S.ear = ['.KK', 'KEK', 'KEK', 'KEK', 'KeK', '.K.'];
+  S.earFlap = ['.KKK', 'KEEK', 'KeK.', '.K..'];
+  S.brush = ['..kk.', '.KwwK', 'KwwwK', '.KRK.'];
+  S.body = ['.KKKKKKKK.', 'KOOWWWWOOK', 'KDOWWWWODK', '.KKKKKKKK.'];
+  S.arm = { down: ['OK', 'WK'], up: ['.KK', 'KWK', 'KO.'], fwd: ['KKKK', 'OOWK', '.KK.'] };
   const S_LEGS = {
-    stand: ['..KOK..KOK..', '..KWK..KWK..', '..KKK..KKK..'],
-    run1: ['.KOK....KOK.', 'KWK......KWK', 'KK........KK'],
-    run2: ['...KOK.KOK..', '...KWK.KWK..', '...KKK.KKK..'],
-    run3: ['..KDK..KOK..', '.KWK....KWK.', '.KK......KK.'],
-    run4: ['....KOKOK...', '....KWKWK...', '....KKKKK...'],
-    tuck: ['..KWWKKWWK..', '...KK..KK...', '............'],
-    fall: ['..KOK..KOK..', '.KWK....KWK.', '.KK......KK.']
+    stand: ['...KOOOOK...', '...KOKKOK...', '..KWWKKWWK..', '..KKK..KKK..'],
+    run1: ['...KOOOOK...', '..KOOKKOOK..', '.KOOK..KOOK.', '.KWK....KWK.'],
+    run2: ['...KOOOOK...', '....KOOOK...', '...KOOKKOK..', '...KWK.KWK..'],
+    run3: ['...KOOOOK...', '..KDDKKOOK..', '.KDDK..KOOK.', '.KWK....KWK.'],
+    run4: ['...KOOOOK...', '....KOOOK...', '....KOKKOOK.', '....KWK.KWK.'],
+    tuck: ['...KOOOOK...', '...KWWWWK...', '....KKKK....'],
+    fall: ['...KOOOOK...', '..KOOKKOOK..', '..KOK..KOK..', '..KWK..KWK..']
   };
   const S_TAIL = { up: ['KK.', 'KWK', '.KO'], wag: ['.KK', 'KWK', 'KO.'], down: ['..K', '.KO', 'KW.'] };
 
@@ -283,20 +285,20 @@
     const out = [];
     const put = (rows, x, y) => out.push([rows, x, y]);
     const cx = 10 + (p.dx || 0), dy = p.dy || 0, hyy = dy + (p.hy || 0);
-    const headX = cx - 7, headY = 5 + hyy;
-    put(S_TAIL[p.tail || 'up'], cx - 7, 12 + dy);
-    const br = p.brush === 'tilt' ? shear(S.brush, -0.25) : S.brush;
-    put(br, headX + 7 - Math.floor(br[0].length / 2), headY - 5);
-    put(S_LEGS[p.legs || 'stand'], cx - 6, 17 + (p.legs === 'tuck' ? -1 + dy : 0));
+    const headX = cx - 7, headY = 4 + hyy;
+    put(S_TAIL[p.tail || 'up'], cx - 7, 11 + dy);
+    const br = p.brush === 'tilt' ? shear(S.brush, -0.34) : S.brush;
+    put(br, headX + 7 - Math.floor(br[0].length / 2), headY - 4);
+    put(S_LEGS[p.legs || 'stand'], cx - 6, 16 + (p.legs === 'tuck' ? -1 + dy : 0));
     put(S.body, cx - 5, 13 + dy);
     put(S.head, headX, headY);
-    (S.headFace[p.eyes || 'open'] || []).forEach((s) => put(s[2], headX + s[0], headY + s[1]));
-    if (p.ears === 'flap') { put(S.earFlap, headX - 3, headY + 2); put(mirror(S.earFlap), headX + 13, headY + 2); }
-    else { put(S.ear, headX - 2, headY + 2); put(mirror(S.ear), headX + 13, headY + 2); }
+    (S.face[p.eyes || 'open'] || []).forEach((s) => put(s[2], headX + s[0], headY + s[1]));
+    if (p.ears === 'flap') { put(S.earFlap, headX - 3, headY + 1); put(mirror(S.earFlap), headX + 13, headY + 1); }
+    else { put(S.ear, headX - 2, headY + 1); put(mirror(S.ear), headX + 13, headY + 1); }
     const a = p.arms || 'down';
-    if (a === 'up') { put(S.armUp, cx - 7, 11 + dy); put(mirror(S.armUp), cx + 5, 11 + dy); }
-    else if (a === 'fwd') put(S.armFwd, cx + 4, 14 + dy);
-    else { put(mirror(S.armDown), cx - 6, 14 + dy); put(S.armDown, cx + 4, 14 + dy); }
+    if (a === 'up') { put(mirror(S.arm.up), cx - 8, 10 + dy); put(S.arm.up, cx + 5, 10 + dy); }
+    else if (a === 'fwd') { put(mirror(S.arm.down), cx - 6, 14 + dy); put(S.arm.fwd, cx + 4, 14 + dy); }
+    else { put(mirror(S.arm.down), cx - 6, 14 + dy); put(S.arm.down, cx + 4, 14 + dy); }
     (p.fx || []).forEach((f) => put(FXP[f[0]], cx + f[1], f[2] + hyy));
     return out;
   }
@@ -310,9 +312,9 @@
         { tail: 'up' }, { tail: 'wag' }, { dy: 1, tail: 'up' }, { dy: 1, tail: 'wag' },
         { tail: 'up' }, { tail: 'wag', eyes: 'blink' }, { dy: 1, tail: 'up' }, { dy: 1, tail: 'wag' }] },
       run: { fps: 10, loop: true, poses: [
-        { dy: 1, legF: 'fwd', legB: 'back', armF: 'back', armB: 'fwd', tail: 'wag', ears: 'flap', brush: 'tilt', ribbon: 'fly' },
+        { dy: 1, legF: 'fwd', legB: 'back', armF: 'fwd', armB: 'down', tail: 'wag', ears: 'flap', brush: 'tilt', ribbon: 'fly' },
         { dy: 0, legF: 'down', legB: 'up', armF: 'down', armB: 'down', tail: 'up', ears: 'down', brush: 'tilt', ribbon: 'fly' },
-        { dy: 1, legF: 'back', legB: 'fwd', armF: 'fwd', armB: 'back', tail: 'wag', ears: 'flap', brush: 'tilt', ribbon: 'fly' },
+        { dy: 1, legF: 'back', legB: 'fwd', armF: 'down', armB: 'fwd', tail: 'wag', ears: 'flap', brush: 'tilt', ribbon: 'fly' },
         { dy: 0, legF: 'up', legB: 'down', armF: 'down', armB: 'down', tail: 'up', ears: 'down', brush: 'tilt', ribbon: 'fly' }] },
       jump: { fps: 8, loop: true, poses: [
         { legF: 'tuck', legB: 'tuck', armF: 'up', armB: 'up', ears: 'down', mouth: 'open', tail: 'up', brush: 'lean' },
@@ -337,9 +339,9 @@
         { dx: -2, hy: 1, armF: 'high', armB: 'high', eyes: 'hurt', mouth: 'oh', ears: 'flap', legF: 'fwd', legB: 'down', fx: [['sweat', 12, 10]] },
         { dx: -1, hy: 0, armF: 'up', armB: 'up', eyes: 'hurt', mouth: 'oh', ears: 'flap', legF: 'fwd', legB: 'down', fx: [['sweat', 13, 12]] }] },
       attack: { fps: 10, loop: false, poses: [
-        { dx: -2, dy: 2, legF: 'down', legB: 'back', armF: 'back', armB: 'down', eyes: 'focus', mouth: 'flat', brush: 'lean' },
-        { dx: 3, dy: 1, legF: 'fwd', legB: 'back', armF: 'fwd', armB: 'back', eyes: 'focus', mouth: 'open', ears: 'flap', brush: 'tilt', ribbon: 'fly' },
-        { dx: 4, dy: 1, legF: 'fwd', legB: 'back', armF: 'fwd', armB: 'back', eyes: 'focus', mouth: 'open', ears: 'flap', brush: 'tilt', ribbon: 'fly' },
+        { dx: -2, dy: 2, legF: 'down', legB: 'back', armF: 'down', armB: 'fwd', eyes: 'focus', mouth: 'flat', brush: 'lean' },
+        { dx: 2, dy: 1, legF: 'fwd', legB: 'back', armF: 'fwd', armB: 'fwd', eyes: 'focus', mouth: 'open', ears: 'flap', brush: 'tilt', ribbon: 'fly' },
+        { dx: 3, dy: 1, legF: 'fwd', legB: 'back', armF: 'fwd', armB: 'fwd', eyes: 'focus', mouth: 'open', ears: 'flap', brush: 'tilt', ribbon: 'fly' },
         { dx: 1, legF: 'down', legB: 'down', armF: 'down', armB: 'down', eyes: 'open' }] },
       lose: { fps: 2, loop: true, poses: [
         { dy: 1, hy: 1, armF: 'down', armB: 'down', eyes: 'sad', mouth: 'flat', tail: 'down', fx: [['sweat', 12, 10]] },
@@ -351,14 +353,14 @@
     S: {
       idle: { fps: 3, loop: true, poses: [{ tail: 'up' }, { tail: 'wag' }, { dy: 1, tail: 'up' }, { dy: 1, tail: 'wag', eyes: 'blink' }] },
       run: { fps: 9, loop: true, poses: [
-        { legs: 'run1', tail: 'wag', ears: 'flap', brush: 'tilt' }, { dy: -1, legs: 'run2', tail: 'up', brush: 'tilt' },
-        { legs: 'run3', tail: 'wag', ears: 'flap', brush: 'tilt' }, { dy: -1, legs: 'run4', tail: 'up', brush: 'tilt' }] },
+        { dy: 1, legs: 'run1', tail: 'wag', ears: 'flap', brush: 'tilt' }, { legs: 'run2', tail: 'up', brush: 'tilt' },
+        { dy: 1, legs: 'run3', tail: 'wag', ears: 'flap', brush: 'tilt' }, { legs: 'run4', tail: 'up', brush: 'tilt' }] },
       jump: { fps: 8, loop: true, poses: [{ legs: 'tuck', arms: 'up', ears: 'flap', tail: 'up' }] },
       fall: { fps: 8, loop: true, poses: [{ legs: 'fall', arms: 'up', ears: 'flap', tail: 'wag' }] },
       hop: { fps: 10, loop: false, poses: [{ dy: 1 }, { oy: -3, legs: 'tuck', arms: 'up', ears: 'flap' }, { oy: -5, legs: 'tuck', arms: 'up', ears: 'flap' }, { oy: -2, legs: 'fall', arms: 'up' }, { dy: 1, eyes: 'happy' }, { eyes: 'happy' }] },
       joy: { fps: 6, loop: true, poses: [{ dy: 1, eyes: 'happy', tail: 'wag' }, { oy: -3, arms: 'up', eyes: 'happy', ears: 'flap', tail: 'up' }] },
-      hurt: { fps: 8, loop: true, poses: [{ dx: -1, eyes: 'hurt', ears: 'flap', arms: 'up' }] },
-      attack: { fps: 10, loop: false, poses: [{ dx: -1, dy: 1, legs: 'run2' }, { dx: 2, legs: 'run1', arms: 'fwd', ears: 'flap', brush: 'tilt' }, { dx: 2, legs: 'run1', arms: 'fwd', ears: 'flap', brush: 'tilt' }, { legs: 'stand' }] },
+      hurt: { fps: 8, loop: true, poses: [{ eyes: 'hurt', ears: 'flap', arms: 'up', fx: [['tear', 6, 5]] }] },
+      attack: { fps: 10, loop: false, poses: [{ dx: -1, dy: 1, legs: 'run2' }, { dx: 1, legs: 'run1', arms: 'fwd', brush: 'tilt' }, { dx: 1, dy: 1, legs: 'run1', arms: 'fwd', brush: 'tilt' }, { legs: 'stand' }] },
       lose: { fps: 2, loop: true, poses: [{ dy: 1, hy: 1, eyes: 'sad', tail: 'down' }] },
       wave: { fps: 4, loop: true, poses: [{ arms: 'up', eyes: 'happy', tail: 'wag' }, { eyes: 'open', tail: 'up' }] }
     }
@@ -367,24 +369,40 @@
   const NAMES = ['idle', 'run', 'jump', 'fall', 'hop', 'joy', 'hurt', 'attack', 'lose', 'wave'];
 
   // ---------- 組み立て（ページがなくても動く。点の色の文字の二次元のならびを返す） ----------
-  function compose(size, anim, i) {
+  let clipped = 0;   // コマの外にはみ出した点の数（テスト用）
+  //   flip：左むき。部品を左右反対の位置に、裏返して置く（字の部品だけは裏返さない）
+  function compose(size, anim, i, flip) {
     const sz = SIZES[size], a = ANIMS[size][anim];
     const pose = a.poses[i];
     const parts = size === 'L' ? poseL(pose) : poseS(pose);
     const grid = [];
     for (let y = 0; y < sz.h; y++) grid.push(new Array(sz.w).fill('.'));
-    parts.forEach(([rows, x0, y0]) => {
+    clipped = 0;
+    parts.forEach(([rows, x0, y0, text]) => {
+      if (flip) {
+        const pw = Math.max.apply(null, rows.map((r) => r.length));
+        x0 = sz.w - x0 - pw;
+        if (!text) rows = mirror(rows.map((r) => r + '.'.repeat(pw - r.length)));
+      }
       rows.forEach((row, y) => {
         const gy = y0 + y;
-        if (gy < 0 || gy >= sz.h) return;
         for (let x = 0; x < row.length; x++) {
           const ch = row[x], gx = x0 + x;
-          if (ch === '.' || gx < 0 || gx >= sz.w) continue;
+          if (ch === '.') continue;
+          if (gx < 0 || gx >= sz.w || gy < 0 || gy >= sz.h) { clipped++; continue; }
           grid[gy][gx] = ch;
         }
       });
     });
     return grid.map((r) => r.join(''));
+  }
+  // 絵の目印（色の表とすべてのコマから作る数。assets/img の PNG に書きこみ、テストで PNG が古くないか確かめる）
+  function hash(size) {
+    let str = size + '|' + Object.keys(PAL).map((k) => k + PAL[k]).join(',');
+    NAMES.forEach((n) => { ANIMS[size][n].poses.forEach((_, i) => { str += '|' + n + i + '@' + offsetY(n, i, size) + ':' + compose(size, n, i).join('/'); }); });
+    let h = 0x811c9dc5;
+    for (let k = 0; k < str.length; k++) { h ^= str.charCodeAt(k); h = Math.imul(h, 0x01000193) >>> 0; }
+    return ('0000000' + h.toString(16)).slice(-8);
   }
   function count(anim, size) { const a = ANIMS[size || 'L'][anim]; return a ? a.poses.length : 0; }
   // その時間（ミリ秒）のコマの番号。くりかえさない動きは、最後のコマで止まる
@@ -412,32 +430,28 @@
     });
     return c;
   }
-  function frame(anim, i, size, tint) {
+  function frame(anim, i, size, tint, flip) {
     size = size || 'L';
     if (!ANIMS[size][anim]) anim = 'idle';
     i = Math.max(0, Math.min(count(anim, size) - 1, i | 0));
-    const key = size + anim + i + (tint || '');
-    if (!cache[key]) cache[key] = paint(compose(size, anim, i), tint);
+    const key = size + anim + i + (tint || '') + (flip ? '<' : '');
+    if (!cache[key]) cache[key] = paint(compose(size, anim, i, flip), tint);
     return cache[key];
   }
-  function at(anim, ms, size) {
+  function at(anim, ms, size, flip) {
     const r = indexAt(anim, ms, size);
-    return { i: r.i, done: r.done, oy: offsetY(anim, r.i, size), canvas: frame(anim, r.i, size) };
+    return { i: r.i, done: r.done, oy: offsetY(anim, r.i, size), canvas: frame(anim, r.i, size, null, flip) };
   }
   // x, y は足もとのまん中（ランナーなら x = 忍者のまん中, y = GROUND）
   function draw(ctx, anim, ms, x, y, opts) {
     opts = opts || {};
     const size = opts.size || 'L', sz = SIZES[size], s = opts.scale || 1;
-    const r = indexAt(anim, ms, size), img = frame(anim, r.i, size, opts.tint);
+    const r = indexAt(anim, ms, size), img = frame(anim, r.i, size, opts.tint, opts.flip);
     const oy = offsetY(anim, r.i, size);
     const left = Math.round(x - sz.footX * s), top = Math.round(y - sz.footY * s + oy * s);
     const smooth = ctx.imageSmoothingEnabled;
     ctx.imageSmoothingEnabled = false;
-    if (opts.flip) {
-      ctx.save(); ctx.translate(left + sz.w * s, top); ctx.scale(-1, 1);
-      ctx.drawImage(img, 0, 0, sz.w * s, sz.h * s);
-      ctx.restore();
-    } else ctx.drawImage(img, left, top, sz.w * s, sz.h * s);
+    ctx.drawImage(img, left, top, sz.w * s, sz.h * s);
     ctx.imageSmoothingEnabled = smooth;
     return r;
   }
@@ -483,16 +497,14 @@
     const st = { anim: opts.anim || 'idle', base: opts.anim || 'idle', t0: 0, then: null, last: '', flip: !!opts.flip, visible: true };
     function render(now) {
       if (!st.t0) st.t0 = now;
-      const ms = REDUCED ? 0 : now - st.t0;
+      const ms = REDUCED ? (ANIMS[size][st.anim].loop ? 0 : 1e9) : now - st.t0;   // 動きをへらす設定：1回の動きはすぐ終える
       const r = indexAt(st.anim, ms, size);
       const oy = offsetY(st.anim, r.i, size);
       const key = st.anim + r.i + st.flip;
       if (key !== st.last) {
         st.last = key;
         g.clearRect(0, 0, cv.width, cv.height);
-        const img = frame(st.anim, r.i, size);
-        if (st.flip) { g.save(); g.translate(sz.w, 0); g.scale(-1, 1); g.drawImage(img, 0, pad + oy); g.restore(); }
-        else g.drawImage(img, 0, pad + oy);
+        g.drawImage(frame(st.anim, r.i, size, null, st.flip), 0, pad + oy);
       }
       if (r.done) { const fn = st.then; st.then = null; ctl.play(st.base); if (fn) fn(); }
     }
@@ -525,6 +537,6 @@
     PAL: PAL, SIZES: SIZES, names: NAMES.slice(), reducedMotion: REDUCED,
     count: count, indexAt: indexAt, offsetY: offsetY,
     frame: frame, at: at, draw: draw, el: el, sheet: sheet, layout: layout, sheetSize: sheetSize,
-    debug: { compose: compose, ANIMS: ANIMS }
+    debug: { compose: compose, ANIMS: ANIMS, hash: hash, clipped: (size, anim, i) => { compose(size, anim, i); return clipped; } }
   };
 })(typeof window !== 'undefined' ? window : this);

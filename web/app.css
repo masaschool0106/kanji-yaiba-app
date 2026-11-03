@@ -335,3 +335,20 @@ html.raid-on body:not(.view-mypage)::before { content: ''; position: fixed; inse
 .carousel-ring.tiles-9 { grid-template-columns: repeat(3, 1fr); }
 @media (max-width: 520px) { .carousel-ring.tiles-9 { grid-template-columns: repeat(2, 1fr); } }
 
+
+/* ==================== ふでまる（ドット絵のマスコット。fx/fudemaru.js・2026-11-03） ==================== */
+/* 「どこへ行く？」の右に立って、タイルのふちに足をのせる。上のすきま（ジャンプ用 24px）は、上の板に重なってよい */
+.fude-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.fude-row .carousel-title { margin-bottom: 8px; }
+.fude-mascot { position: relative; flex: none; margin: -24px 8px 0 0; padding: 0; border: none; background: none; cursor: pointer; touch-action: manipulation; line-height: 0; }
+.fude-mascot canvas { display: block; }
+.fude-mascot:focus-visible { outline: 3px solid var(--yellow); outline-offset: 2px; }
+.fude-bubble {
+  position: absolute; right: calc(100% + 8px); bottom: 44px; z-index: 2; width: max-content; max-width: min(300px, 60vw); padding: 8px 12px;
+  font-family: var(--px-font); font-size: 16px; line-height: 1.5; color: var(--k); background: var(--white); text-align: left; text-shadow: none;
+  box-shadow: 0 -3px 0 var(--k), 0 3px 0 var(--k), -3px 0 0 var(--k), 3px 0 0 var(--k);
+  opacity: 0; transform: translateY(4px); transition: opacity 0.15s steps(2), transform 0.15s steps(2); pointer-events: none;
+}
+.fude-bubble.show { opacity: 1; transform: none; }
+.fude-bubble::after { content: ''; position: absolute; right: -9px; bottom: 12px; width: 6px; height: 6px; background: var(--white); box-shadow: 3px 0 0 var(--k), 0 3px 0 var(--k), 0 -3px 0 var(--k); }
+@media (prefers-reduced-motion: reduce) { .fude-bubble { transition: none; } }

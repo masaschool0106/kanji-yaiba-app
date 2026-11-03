@@ -140,6 +140,8 @@
   function openMypage() {
     showView('mypage');
     if (state.player) renderPlayer(state.player);
+    fude.greeted = false;
+    loadFudemaru();
     loadMypage(true);
     startRefresh();
   }
@@ -153,6 +155,7 @@
         state.player = data.player;
         state.settings = data.settings || {};
         renderPlayer(data.player);
+        if (!fude.greeted) fudeHello();
         renderRanking(data.ranking);
         renderRaid(data.raid);
         if (!state.jamaicaDone) { state.jamaicaDone = true; syncJamaica(); }
@@ -398,6 +401,57 @@
     });
     pixelBg = P.background('castle', { clouds: state.view === 'mypage', raid: document.documentElement.classList.contains('raid-on') });
     if (state.view !== 'mypage' && state.view !== 'login') pixelBg.hide();
+  }
+
+  // ==================== ふでまる（ドット絵のマスコット。fx/fudemaru.js・2026-11-03） ====================
+  //   「どこへ行く？」の右に立って、ゆれる。マイページを開くと手をふってあいさつ、押すとよろこんで ひとこと話す
+  //   fudemaru.js はマイページを開いてから読みこむ（ログインをおそくしない）。読みこめなくても、ほかは動く
+  const FUDE_LINES = ['きょうも漢字をきたえるワン！', 'とめ・はね・はらい、ていねいにワン', 'まちがえた字は、もう1回書くと覚えるワン',
+    '1日1問でも、つづけるのが大事だワン', '書き順も、だいじだワン！', 'ドットの国から来たワン！'];
+  const fude = { ctl: null, bubble: null, n: 1, timer: null, loading: false, greeted: false };
+  function loadFudemaru() {
+    if (fude.ctl || fude.loading) return;
+    if (window.KanjiFudemaru) { setupFudemaru(); return; }
+    fude.loading = true;
+    const sc = document.createElement('script');
+    sc.src = assetUrl('fx/fudemaru.js');
+    sc.onload = () => { fude.loading = false; setupFudemaru(); };
+    sc.onerror = () => { fude.loading = false; };
+    document.head.appendChild(sc);
+  }
+  function setupFudemaru() {
+    const F = window.KanjiFudemaru, title = document.querySelector('#view-mypage .carousel-title');
+    if (!F || !F.el || !title || fude.ctl) return;
+    const row = document.createElement('div');
+    row.className = 'fude-row';
+    title.parentNode.insertBefore(row, title);
+    row.appendChild(title);
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'fude-mascot'; btn.setAttribute('aria-label', 'ふでまる（押すと話す）');
+    fude.bubble = document.createElement('span');
+    fude.bubble.className = 'fude-bubble'; fude.bubble.setAttribute('aria-live', 'polite');
+    fude.ctl = F.el({ size: 'L', scale: 2, anim: 'idle', flip: true, label: 'ふでまる' });   // 左むき（画面のまん中を見る）
+    btn.append(fude.bubble, fude.ctl.el);
+    btn.addEventListener('click', () => {
+      fude.ctl.play(fude.n % 2 ? 'joy' : 'hop', { once: true, ms: 1000 });
+      fudeSay(FUDE_LINES[fude.n++ % FUDE_LINES.length]);
+    });
+    row.appendChild(btn);
+    if (state.player) fudeHello();
+  }
+  function fudeHello() {
+    if (!fude.ctl || state.view !== 'mypage') return;
+    fude.greeted = true;
+    fude.ctl.play('wave', { once: true, ms: 1600 });
+    const nm = state.player && state.player.nickname;
+    fudeSay((nm ? 'やあ、' + nm + '！' : '') + FUDE_LINES[0]);
+  }
+  function fudeSay(text) {
+    const b = fude.bubble;
+    b.textContent = text;
+    b.classList.add('show');
+    clearTimeout(fude.timer);
+    fude.timer = setTimeout(() => b.classList.remove('show'), 4000);
   }
 
   // ==================== カードを作る（cardmake.js は開いたときだけ読み込む） ====================
