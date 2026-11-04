@@ -45,9 +45,10 @@ body.view-login { display: flex; justify-content: center; align-items: center; p
 body.view-mypage { padding: 16px 16px 110px; }
 /* ログイン・マイページはドット絵：字と下地。絵の背景（城下町）は app.js が fx/pixel.js で出す */
 body.view-login, body.view-mypage, body.view-loading { background: #0b0f24; font-family: var(--px-font); color: var(--white); }
-body.view-login .hud-bg, body.view-mypage .hud-bg, body.view-loading .hud-bg { display: none; }
-/* 背景の絵は、ログイン・マイページのときだけ */
-body:not(.view-login):not(.view-mypage) #kpx-bg { display: none; }
+body.view-login .hud-bg, body.view-mypage .hud-bg, body.view-loading .hud-bg, body.view-trade .hud-bg { display: none; }
+/* 背景の絵は、ログイン・マイページ（城下町）と友だちと交換（太鼓橋）のときだけ */
+body:not(.view-login):not(.view-mypage):not(.view-trade) #kpx-bg { display: none; }
+body.view-trade { background: #0b0f24; }
 
 /* 背景：地平線のグリッド（カードを作る・レイド・管理画面） */
 .hud-bg { position: fixed; inset: 0; pointer-events: none; z-index: -1; overflow: hidden; }

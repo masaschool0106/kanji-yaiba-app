@@ -10,12 +10,26 @@
   let app = null, root = null, home = null, pick = null, busy = false;
   // pick：{ friend, data（trade.cards の答え）, rarity, give, get }
 
+  // 江戸風のドット絵（2026-11-05）：板は木の枠＋藍色の市松もよう、見出しは木の札、申しこみは和紙の手紙、小窓は巻物。
+  //   背景の絵（夕ぐれの太鼓橋）は app.js が fx/pixel.js で出す。色は PICO-8 の16色だけ・角は四角・ぼかしなし
   const CSS = `
   body.view-trade { padding: 16px 14px 110px; }
   #view-trade .container { max-width: 880px; margin: 0 auto; }
-  .tr-box { padding: 16px 18px; margin-bottom: 14px; color: var(--white); }
-  .tr-title { font-family: var(--px-font); font-size: 26px; color: var(--yellow); text-shadow: 2px 2px 0 var(--k); margin: 0 0 6px; }
-  .tr-h { font-family: var(--px-font); font-size: 20px; color: var(--white); text-shadow: 2px 2px 0 var(--k); margin: 0 0 10px; }
+  .tr-box { position: relative; padding: 18px 18px 16px; margin: 0 8px 26px; color: var(--white);
+    background: repeating-conic-gradient(#1d2b53 0 25%, #18244a 0 50%) 0 0 / 16px 16px;
+    box-shadow: 0 0 0 4px var(--brown), 0 0 0 8px var(--k), inset 0 4px 0 rgba(255, 255, 255, 0.12), inset 0 -4px 0 rgba(0, 0, 0, 0.3);
+    animation: pxEnter 0.28s steps(4) both; }
+  .tr-box::before, .tr-box::after { content: ''; position: absolute; top: -8px; width: 12px; height: 12px; background: var(--lgray); box-shadow: inset -3px -3px 0 var(--gray); pointer-events: none; }
+  .tr-box::before { left: -8px; } .tr-box::after { right: -8px; }
+  .tr-head { margin-top: 34px; }
+  .tr-head::before { left: -18px; right: -18px; top: -34px; width: auto; height: 18px; background: repeating-linear-gradient(90deg, var(--gray) 0 10px, var(--k) 10px 12px);
+    box-shadow: 0 -4px 0 var(--k), 0 4px 0 var(--k), inset 0 -4px 0 rgba(0, 0, 0, 0.35), inset 0 4px 0 rgba(255, 255, 255, 0.2); }
+  .tr-head::after { display: none; }
+  .tr-title { display: flex; align-items: center; gap: 14px; font-family: var(--px-font); font-size: 28px; color: var(--white); text-shadow: 3px 3px 0 var(--k); margin: 0 0 10px; }
+  .tr-stamp { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; background: var(--red); color: var(--white);
+    font-size: 26px; text-shadow: none; box-shadow: inset 0 0 0 3px var(--white), 0 0 0 3px var(--red), 0 0 0 6px var(--k); }
+  .tr-h { display: inline-block; font-family: var(--px-font); font-size: 20px; font-weight: normal; color: var(--white); text-shadow: 2px 2px 0 var(--k); margin: 0 0 14px; padding: 4px 14px;
+    background: var(--brown); box-shadow: 0 0 0 3px var(--k), inset 0 3px 0 rgba(255, 255, 255, 0.2), inset 0 -3px 0 rgba(0, 0, 0, 0.3); }
   .tr-note { font-size: 15px; line-height: 1.7; color: var(--lgray); }
   .tr-note b { color: var(--yellow); }
   .tr-btns { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
@@ -25,43 +39,53 @@
   .tr-btn:disabled { opacity: 0.45; cursor: default; transform: none; }
   .tr-btn.green { background: var(--green); } .tr-btn.gray { background: var(--gray); } .tr-btn.plum { background: var(--plum); }
   .tr-btn.orange { background: var(--orange); color: var(--k); text-shadow: none; }
-  .tr-msg { min-height: 1.4em; margin: 0 0 12px; font-size: 17px; font-weight: bold; }
-  .tr-msg.error { color: var(--red); text-shadow: 1px 1px 0 var(--k); } .tr-msg.ok { color: var(--lime); text-shadow: 1px 1px 0 var(--k); }
+  .tr-msg { margin: 0 8px 26px; padding: 10px 14px; font-size: 17px; font-weight: bold; background: var(--k); box-shadow: 0 0 0 4px var(--white); }
+  .tr-msg:empty { display: none; }
+  .tr-msg.error { color: var(--pinkpx); } .tr-msg.ok { color: var(--lime); }
   .tr-empty { color: var(--lgray); font-size: 15px; padding: 6px 0; }
-  .tr-offer { background: var(--k); padding: 12px; margin-bottom: 10px; }
+  .tr-offer { position: relative; background: var(--white); color: var(--k); padding: 12px 14px; margin-bottom: 16px; box-shadow: 0 0 0 3px var(--k), 5px 5px 0 3px rgba(0, 0, 0, 0.45); }
+  .tr-offer::after { content: '文'; position: absolute; top: 10px; right: 10px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+    font-family: var(--px-font); font-size: 17px; color: var(--white); background: var(--red); box-shadow: inset 0 0 0 2px var(--white); }
+  .tr-offer .tr-who { padding-right: 36px; }
   .tr-who { font-size: 17px; margin-bottom: 8px; overflow-wrap: anywhere; }
   .tr-pair { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; max-width: 420px; }
   .tr-arrow { font-size: 26px; color: var(--yellow); }
+  .tr-offer .tr-arrow, .tr-mbox .tr-arrow { color: var(--red); }
   .tr-lab { font-size: 13px; color: var(--lgray); text-align: center; margin-bottom: 4px; }
+  .tr-offer .tr-lab, .tr-mbox .tr-lab { color: var(--gray); }
   .tr-card { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; width: 100%; box-sizing: border-box;
-    background: var(--navy); color: var(--white); border: none; border-radius: 0; font: inherit; }
-  button.tr-card { cursor: pointer; box-shadow: 0 4px 0 var(--k); touch-action: manipulation; }
-  button.tr-card.on { background: var(--orange); color: var(--k); box-shadow: 0 0 0 4px var(--yellow), 0 4px 0 var(--k); }
-  .tr-pic { width: 84px; aspect-ratio: 600 / 849; background: var(--gray); display: flex; align-items: center; justify-content: center; overflow: hidden; color: var(--white); }
+    background: var(--brown); color: var(--white); border: none; border-radius: 0; font: inherit; box-shadow: 0 0 0 3px var(--k); }
+  button.tr-card { cursor: pointer; box-shadow: 0 0 0 3px var(--k), 0 5px 0 3px var(--k); touch-action: manipulation; }
+  button.tr-card:active { transform: translateY(3px); box-shadow: 0 0 0 3px var(--k), 0 2px 0 3px var(--k); }
+  button.tr-card.on { background: var(--red); box-shadow: 0 0 0 3px var(--yellow), 0 0 0 6px var(--k), 0 5px 0 6px var(--k); }
+  .tr-pic { width: 84px; aspect-ratio: 600 / 849; background: var(--gray); display: flex; align-items: center; justify-content: center; overflow: hidden; color: var(--white); box-shadow: 0 0 0 2px var(--k); }
   .tr-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .tr-name { font-size: 14px; line-height: 1.3; text-align: center; overflow-wrap: anywhere; }
+  .tr-name { font-size: 14px; line-height: 1.3; text-align: center; overflow-wrap: anywhere; text-shadow: 1px 1px 0 var(--k); }
   .tr-rar { display: inline-block; font-size: 12px; padding: 1px 6px; background: var(--gray); color: var(--white); }
   .tr-rar.r { background: var(--dblue); } .tr-rar.sr { background: var(--lav); } .tr-rar.ssr { background: var(--pinkpx); color: var(--k); }
   .tr-rar.ur { background: var(--red); } .tr-rar.legend { background: var(--yellow); color: var(--k); }
   .tr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; margin-bottom: 14px; }
   .tr-friends { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-  .tr-friends .tr-btn { text-align: left; overflow-wrap: anywhere; }
-  .tr-friends small { display: block; font-size: 12px; color: var(--lgray); }
+  .tr-friends .tr-btn { text-align: left; overflow-wrap: anywhere; background: var(--peach); color: var(--k); text-shadow: none; }
+  .tr-friends small { display: block; font-size: 12px; color: var(--gray); }
   .tr-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 14px; }
   .tr-chips .tr-btn { font-size: 16px; min-height: 44px; background: var(--gray); }
   .tr-chips .tr-btn.on { background: var(--orange); color: var(--k); text-shadow: none; }
-  .tr-step { font-size: 16px; margin: 6px 0 8px; color: var(--yellow); }
-  .tr-sum { margin-top: 4px; padding: 12px; background: var(--k); font-size: 16px; line-height: 1.6; }
-  .tr-res { padding: 8px 10px; background: var(--k); margin-bottom: 6px; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
-  .tr-modal { position: fixed; inset: 0; z-index: 10002; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
+  .tr-step { font-size: 16px; margin: 10px 0 10px; color: var(--yellow); text-shadow: 2px 2px 0 var(--k); }
+  .tr-sum { margin-top: 4px; padding: 12px 14px; background: var(--white); color: var(--k); font-size: 16px; line-height: 1.6; box-shadow: 0 0 0 3px var(--k); }
+  .tr-res { padding: 8px 10px 8px 18px; background: var(--white); color: var(--k); margin-bottom: 10px; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere;
+    box-shadow: inset 6px 0 0 var(--red), 0 0 0 2px var(--k); }
+  .tr-modal { position: fixed; inset: 0; z-index: 10002; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; padding: 34px 20px; box-sizing: border-box; }
   .tr-modal[hidden] { display: none; }
-  .tr-mbox { width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; background: var(--navy); color: var(--white); padding: 18px; text-align: center;
-    box-shadow: 0 0 0 4px var(--white), 0 0 0 8px var(--k); font-size: 17px; line-height: 1.6; }
+  .tr-mbox { width: 100%; max-width: 480px; max-height: calc(100vh - 68px); overflow-y: auto; background: var(--white); color: var(--k); padding: 20px 18px; text-align: center;
+    box-shadow: 0 0 0 4px var(--k), 0 -14px 0 4px var(--brown), 0 14px 0 4px var(--brown), 0 -14px 0 8px var(--k), 0 14px 0 8px var(--k); font-size: 17px; line-height: 1.6; }
+  .tr-mbox .tr-title { justify-content: center; color: var(--red); text-shadow: 2px 2px 0 var(--k); }
   .tr-mbox .tr-pic { width: 150px; margin: 10px auto; }
+  .tr-mbox > .tr-card { width: auto; max-width: 190px; margin: 8px auto 14px; }
   .tr-mbox .tr-pair { margin: 0 auto 8px; } .tr-mbox .tr-pair .tr-pic { width: 96px; margin: 0 auto; }
   .tr-mbox .tr-btns { justify-content: center; }
   @media (max-width: 600px) { .tr-pic { width: 64px; } .tr-grid { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); } .tr-title { font-size: 22px; } .tr-box { padding: 14px 12px; } }
-  @media (prefers-reduced-motion: reduce) { .tr-btn:active { transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .tr-btn:active, button.tr-card:active { transform: none; } .tr-box { animation: none; } }
   `;
 
   function el(tag, attrs, children) {
@@ -130,8 +154,8 @@
     const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
     root = el('section', { id: 'view-trade', class: 'app-view', hidden: '' }, [
       el('div', { class: 'container' }, [
-        el('div', { class: 'tr-box hud-panel' }, [
-          el('h2', { class: 'tr-title', text: '🤝 友だちと交換' }),
+        el('div', { class: 'tr-box tr-head' }, [
+          el('h2', { class: 'tr-title' }, [el('span', { class: 'tr-stamp', text: '交', 'aria-hidden': 'true' }), '友だちと交換']),
           el('div', { class: 'tr-note', id: 'trNote' }),
           el('div', { class: 'tr-btns' }, [
             el('button', { type: 'button', class: 'tr-btn', text: '🔄 さいしんにする', onclick: () => load() }),
@@ -140,10 +164,10 @@
           ])
         ]),
         el('div', { class: 'tr-msg', id: 'trMsg', role: 'status', 'aria-live': 'polite' }),
-        el('div', { class: 'tr-box hud-panel', id: 'trIn' }),
-        el('div', { class: 'tr-box hud-panel', id: 'trNew' }),
-        el('div', { class: 'tr-box hud-panel', id: 'trOut' }),
-        el('div', { class: 'tr-box hud-panel', id: 'trRes' })
+        el('div', { class: 'tr-box', id: 'trIn' }),
+        el('div', { class: 'tr-box', id: 'trNew' }),
+        el('div', { class: 'tr-box', id: 'trOut' }),
+        el('div', { class: 'tr-box', id: 'trRes' })
       ]),
       el('div', { class: 'tr-modal', id: 'trModal', hidden: '', role: 'dialog', 'aria-modal': 'true', onclick: (e) => { if (e.target.id === 'trModal') closeModal(); } }, [
         el('div', { class: 'tr-mbox', id: 'trModalBox' })
@@ -172,6 +196,7 @@
   function after(res, kind) {
     if (res.home) { home = res.home; }
     if (res.result === 'done' && res.card) {
+      if (window.KanjiBgm && window.KanjiBgm.jingle) window.KanjiBgm.jingle('get');   // 交換成立の短い音楽。終わると交換の画面の音楽にもどる
       modal([el('div', { class: 'tr-title', text: '🎉 交換成立！' }), cardEl(res.card), res.msg], [{ text: 'やったね！', cls: 'green' }]);
       msg(res.msg, 'ok');
     } else msg(res.msg || '', res.result === 'void' ? 'error' : (kind || 'ok'));

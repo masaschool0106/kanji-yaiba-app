@@ -5,7 +5,7 @@
 //   ・見た目だけ。ポイント・答え合わせ・画面の移動のしかたは変えない（移動を待たせない）
 //
 //   KanjiPixel.icon(名前, 大きさ)        … 12×12 の点のアイコン（gacha・battle・roguelike・quiz・zukan・quizrunner …）
-//   KanjiPixel.background(場面, opts)     … 画面いっぱいの背景（いまは castle＝城下町）。{ clouds: true, raid: true }
+//   KanjiPixel.background(場面, opts)     … 画面いっぱいの背景（castle＝城下町・bridge＝太鼓橋〔友だちと交換〕など SCENES）。{ clouds: true, raid: true }
 //   KanjiPixel.wipe()                     … 画面を出るとき、黒い四角のタイルで閉じる（飾り。呼んだらすぐ移動してよい）
 //   KanjiPixel.flashOk()                  … 光らせてよいか（光の点滅は1秒に2回まで）
 //   KanjiPixel.wants(画面) / apply(画面)  … FxBridge の画面をドット絵にする（PAGES にある画面だけ）
@@ -149,6 +149,52 @@
       for (let x = 0; x < W; x += 32) R(g, x, 57, 2, 33, '#000000');
       R(g, 0, 72, W, 1, '#000000');
       [[24, 66], [70, 70], [116, 66]].forEach(([x, y]) => { R(g, x, y, 24, 4, '#ab5236'); R(g, x, y, 24, 1, '#000000'); R(g, x + 2, y + 4, 2, 6, '#000000'); R(g, x + 20, y + 4, 2, 6, '#000000'); R(g, x + 8, y - 2, 8, 2, '#fff1e8'); });
+    },
+    // 夕ぐれの太鼓橋（友だちと交換。2026-11-05）：富士山・川・赤い橋・柳・茶屋。橋のまん中で2人がカードを交換している
+    bridge(g) {
+      const sky = ['#1d2b53', '#83769c', '#ff77a8', '#ffccaa'];
+      const bh = 11;
+      sky.forEach((c, i) => R(g, 0, i * bh, W, bh, c));
+      for (let i = 1; i < sky.length; i++) for (let y = i * bh; y < i * bh + 3; y++) for (let x = y % 2; x < W; x += 2) R(g, x, y, 1, 1, sky[i - 1]);
+      R(g, 0, 44, W, 16, '#ffccaa');
+      for (let i = 0; i < 12; i++) R(g, (i * 37 + 5) % W, (i * 13) % 9 + 1, 1, 1, '#fff1e8');   // 星（上のほうだけ）
+      for (let dy = -6; dy <= 6; dy++) { const w = Math.round(2 * Math.sqrt(36 - dy * dy)); R(g, 118 - w / 2, 46 + dy, w, 1, '#ffec27'); }   // 夕日
+      // 富士山（雪のぼうし）
+      for (let y = 26; y < 60; y++) { const half = 2.5 + (y - 26) * 1.25; R(g, 40 - half, y, half * 2, 1, y < 33 ? '#fff1e8' : '#83769c'); }
+      for (let x = 32; x < 49; x += 3) R(g, x, 33, 1, 2, '#fff1e8');
+      // 遠くの家なみ
+      for (let i = 0; i < 12; i++) { const x = i * 14 - 2, h = 3 + (i * 5) % 4; R(g, x, 58 - h, 12, h + 2, '#7e2553'); R(g, x - 1, 57 - h, 14, 1, '#1d2b53'); }
+      // 川：夕焼けがうつる波・夕日の光
+      R(g, 0, 60, W, 30, '#1d2b53');
+      for (let y = 62; y < H; y += 3) for (let j = 0; j < 6; j++) R(g, (y * 17 + j * 29) % W, y, 4 + (j % 3) * 2, 1, j % 2 ? '#83769c' : '#ff77a8');
+      for (let y = 62; y < 84; y += 2) { const w = Math.max(2, 10 - Math.floor((y - 62) / 3)); R(g, 118 - w / 2 + (y / 2) % 3 - 1, y, w, 1, y % 4 ? '#ffa300' : '#ffec27'); }
+      // 太鼓橋（x=18〜142、まん中が高い）
+      const arch = (x) => Math.round(40 + 0.004683 * (x - 80) * (x - 80));
+      for (let x = 22; x < 138; x += 2) R(g, x, 117 - arch(x), 1, 2, '#7e2553');   // 水にうつる橋
+      // 石垣の岸と草
+      [0, 138].forEach((bx) => {
+        R(g, bx, 57, 22, 3, '#008751'); R(g, bx, 60, 22, 30, '#5f574f');
+        for (let y = 61; y < H; y += 4) { R(g, bx, y, 22, 1, '#000000'); for (let x = ((y - 61) / 4 % 2) * 5; x < 22; x += 10) R(g, bx + x, y + 1, 1, 3, '#000000'); }
+      });
+      // 柳（左の岸）
+      R(g, 9, 36, 2, 22, '#ab5236'); R(g, 2, 28, 22, 4, '#008751');
+      for (let i = 0; i < 12; i++) R(g, 1 + i * 2, 30 + (i % 3), 1, 12 + (i * 7) % 10, i % 2 ? '#00e436' : '#008751');
+      // 茶屋（右の岸）：赤い傘と縁台
+      for (let r = 0; r < 6; r++) { const w = 6 + r * 2.4; R(g, 150 - w / 2, 40 + r, w, 1, '#ff004d'); }
+      R(g, 150, 46, 1, 11, '#000000'); R(g, 140, 53, 18, 2, '#ff004d'); R(g, 141, 55, 1, 2, '#000000'); R(g, 156, 55, 1, 2, '#000000');
+      // 橋の脚・橋げた・らんかん
+      [44, 58, 102, 116].forEach((x) => { const y = arch(x); R(g, x, y + 3, 2, 62 - y - 3, '#7e2553'); });
+      for (let x = 18; x <= 142; x++) {
+        const y = arch(x);
+        R(g, x, y, 1, 3, '#ff004d'); R(g, x, y + 3, 1, 1, '#000000');
+        R(g, x, y - 7, 1, 1, '#ff004d'); R(g, x, y - 6, 1, 1, '#7e2553'); R(g, x, y - 4, 1, 1, '#ff004d');
+        if ((x - 18) % 8 === 0) R(g, x, y - 7, 1, 7, '#ff004d');
+      }
+      [18, 142].forEach((x) => { const y = arch(x); R(g, x - 1, y - 9, 3, 9, '#ff004d'); R(g, x - 1, y - 11, 3, 2, '#ffec27'); });   // 橋のはしの柱と擬宝珠
+      [[23, 47], [134, 47]].forEach(([x, y]) => { R(g, x + 1, y - 2, 1, 2, '#000000'); R(g, x, y, 4, 5, '#ffa300'); R(g, x, y + 1, 4, 1, '#ff004d'); R(g, x, y + 3, 4, 1, '#ff004d'); R(g, x, y + 5, 4, 1, '#000000'); });   // ちょうちん
+      // 橋のまん中の2人（影絵）と、わたしているカード
+      [[75, '#065ab5'], [83, '#008751']].forEach(([x, c]) => { R(g, x + 1, 29, 1, 1, '#000000'); R(g, x, 30, 3, 3, '#000000'); R(g, x, 33, 3, 4, c); R(g, x - 1, 37, 5, 3, c); });
+      R(g, 78, 34, 1, 1, '#065ab5'); R(g, 82, 34, 1, 1, '#008751'); R(g, 79, 33, 3, 2, '#ffec27');
     }
   };
 
@@ -296,7 +342,7 @@
   }
 
   global.KanjiPixel = {
-    version: '2026-10-30',
+    version: '2026-11-05',
     PAL: PAL, pages: PAGES, reducedMotion: REDUCED,
     sprite: sprite, icon: icon, hasIcon: (name) => !!ICONS[name],
     background: background, wipe: wipe, flashOk: flashOk, loadFont: loadFont,

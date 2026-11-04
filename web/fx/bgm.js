@@ -26,7 +26,7 @@
   'use strict';
   if (global.KanjiBgm) return;   // 2回読みこんでも1つだけ
 
-  const VERSION = '2026-10-31';
+  const VERSION = '2026-11-05';
   const DEFAULT_ON = true;   // はじめて開いた端末で鳴らすか（教室で一斉に鳴るのがこまるときは false にして Push）
   const DEFAULT_VOL = 0.4;   // はじめの音量（0〜1）
   const MASTER = 0.32;       // 全体の大きさ（音量 100% でも効果音より小さめ）
@@ -138,7 +138,9 @@
     work1:  { n: '職人の工房', k: 'edo', sc: 'hira', r: 67, bpm: 80, f: 'calm', ld: 'koto', ct: 'none', bs: 'calm', bi: 'koto', kit: 'shizuka', seed: 1601, v: 0.85 },
     kou1:   { n: '両替商', k: 'mix', sc: 'yo', r: 72, bpm: 108, f: 'walk', ld: 'p25', ct: 'arp', bs: 'oct', kit: 'mixDrive', seed: 1701 },
     kou2:   { n: '市の日', k: 'edo', sc: 'yo', r: 69, bpm: 112, f: 'fest', ld: 'shami', ct: 'fue', bs: 'tsun', kit: 'matsuri', seed: 1702, sw: 0.12 },
-    rest1:  { n: 'ひとやすみ', k: 'edo', sc: 'yo', r: 74, bpm: 72, f: 'calm', ld: 'fue', ct: 'koto', bs: 'drone', bi: 'koto', kit: 'none', seed: 1801, v: 0.8 }
+    rest1:  { n: 'ひとやすみ', k: 'edo', sc: 'yo', r: 74, bpm: 72, f: 'calm', ld: 'fue', ct: 'koto', bs: 'drone', bi: 'koto', kit: 'none', seed: 1801, v: 0.8 },
+    tomo1:  { n: '夕やけ太鼓橋', k: 'edo', sc: 'yo', r: 72, bpm: 104, f: 'walk', ld: 'fue', ct: 'koto', bs: 'tsun', kit: 'matsuri', seed: 1901, sw: 0.1 },   // 友だちと交換（2026-11-05）
+    tomo2:  { n: '指きりげんまん', k: 'mix', sc: 'yo', r: 74, bpm: 112, f: 'walk', ld: 'p25', ct: 'harm', bs: 'oct', kit: 'fcWalk', seed: 1902 }
   };
 
   // ---------------- ジングル（手で書いた短い楽譜） ----------------
@@ -160,7 +162,7 @@
     runnerTitle: ['run0'], runner: ['run1', 'run2'], stepupMenu: ['step0', 'sgx'],
     sugoroku1: ['sg1', 'sgx'], sugoroku2: ['sg2', 'sgx'], sugoroku3: ['sg3', 'sgx'], sugoroku4: ['sg4', 'sgx'],
     urasugoroku: ['ura1', 'ura2'], boss: ['boss1', 'boss2'], lastboss: ['boss3', 'boss2'], uraboss: ['uboss1', 'uboss2'],
-    raid: ['raid1', 'raid2'], workshop: ['work1', 'zukan1'], koukan: ['kou1', 'kou2'], rest: ['rest1'],
+    raid: ['raid1', 'raid2'], workshop: ['work1', 'zukan1'], koukan: ['kou1', 'kou2'], trade: ['tomo1', 'tomo2'], rest: ['rest1'],
     stepClear: { jingle: 'clear', list: ['rest1'] }, stepAllClear: { jingle: 'fanfare', list: ['rest1'] }, stepLose: { jingle: 'lose', list: ['rest1'] }
   };
   Object.keys(SCENES).forEach((k) => { if (Array.isArray(SCENES[k])) SCENES[k] = { list: SCENES[k] }; });
@@ -172,7 +174,7 @@
     ['quiz', 'streakBar'], ['stepup', 'sugorokuBoard']];
   const PAGES = {
     app: watchApp, login: 'login', mypage: 'mypage', cardmake: 'workshop', raid: 'raid',
-    gacha: 'gacha', koukan: 'koukan', battle: 'menu', randombattle: 'lobby', privatebattle: 'lobby', pvp: 'pvp',
+    gacha: 'gacha', koukan: 'koukan', trade: 'trade', battle: 'menu', randombattle: 'lobby', privatebattle: 'lobby', pvp: 'pvp',
     zukan: 'zukan', quiz: 'quiz', quizrunner: 'runnerTitle', stepup: watchStepUp, roguelike: watchStepUp
   };
 
@@ -660,9 +662,9 @@
     targets.forEach(function (t) { if (t) ob.observe(t, { attributes: true, attributeFilter: ['class'] }); });
     watcher = ob;
   }
-  // App（ログイン・マイページ・カードを作る・レイド・管理画面）：app.js が body に view-○○ をつける
+  // App（ログイン・マイページ・カードを作る・レイド・管理画面・友だちと交換）：app.js が body に view-○○ をつける
   function watchApp() {
-    const map = { login: 'login', mypage: 'mypage', cardmake: 'workshop', admin: 'workshop', raid: 'raid', koukan: 'koukan' };
+    const map = { login: 'login', mypage: 'mypage', cardmake: 'workshop', admin: 'workshop', raid: 'raid', koukan: 'koukan', trade: 'trade' };
     const look = function () { const m = /(?:^|\s)view-([a-z]+)/.exec(global.document.body.className || ''); if (m && map[m[1]]) setBase(map[m[1]]); };
     observe(look, [global.document.body]);
     look();

@@ -87,9 +87,9 @@
     document.body.className = 'view-' + name;
     $('globalNav').hidden = (name === 'login');
     $('globalNavMenu').classList.remove('show');
-    // 城下町の背景は、ログイン・マイページのときだけ（雲が流れるのはマイページだけ）
+    // ドット絵の背景：ログイン・マイページは城下町（雲が流れるのはマイページだけ）、友だちと交換は太鼓橋。ほかの画面は出さない
     if (pixelBg) {
-      if (name === 'mypage' || name === 'login') { pixelBg.show(); pixelBg.set({ clouds: name === 'mypage' }); }
+      if (PIXEL_BG[name]) { pixelBg.show(); pixelBg.set({ scene: PIXEL_BG[name], clouds: name === 'mypage' }); }
       else pixelBg.hide();
     }
     if (name !== 'mypage') stopRefresh();
@@ -378,6 +378,7 @@
   // ==================== ドット絵の部品（fx/pixel.js：点のアイコン・城下町の背景・画面を出るときのタイル） ====================
   //   読み込めなくても、絵文字のアイコンと無地の背景で動く
   let pixelBg = null;
+  const PIXEL_BG = { login: 'castle', mypage: 'castle', trade: 'bridge' };   // 画面 → 背景の場面（fx/pixel.js の SCENES）
   function loadPixel() {
     if (!document.getElementById('kpx-font')) {   // 字（DotGothic16）。描くのを止めないように、あとから読みこむ
       const l = document.createElement('link');
@@ -402,8 +403,8 @@
       const cv = P.icon(b.getAttribute('data-nav') || b.getAttribute('data-page'), 24);
       if (cv) b.replaceChildren(cv, document.createTextNode(b.textContent.replace(/^\S+\s*/, '')));
     });
-    pixelBg = P.background('castle', { clouds: state.view === 'mypage', raid: document.documentElement.classList.contains('raid-on') });
-    if (state.view !== 'mypage' && state.view !== 'login') pixelBg.hide();
+    pixelBg = P.background(PIXEL_BG[state.view] || 'castle', { clouds: state.view === 'mypage', raid: document.documentElement.classList.contains('raid-on') });
+    if (!PIXEL_BG[state.view]) pixelBg.hide();
   }
 
   // ==================== ふでまる（ドット絵のマスコット。fx/fudemaru.js・2026-11-03） ====================
