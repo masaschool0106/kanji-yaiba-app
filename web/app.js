@@ -53,6 +53,7 @@
     state.jamaicaDone = false;
     try { localStorage.removeItem(SESSION_STORE_KEY); } catch (e) {}
     storeRemove(LEGACY_NUM_KEY);
+    renderTradeBadge(0);   // 前の子の「交換の申しこみ」の知らせを残さない
   }
 
   // ==================== 通信（サーバーの窓口は api() ひとつだけ） ====================
@@ -124,6 +125,7 @@
           showMessage('loginMessage', '✅ ログイン成功！', 'success');
           state.player = data.player;
           openMypage();
+          openFromUrl();   // ログインのあとも、来たときの画面（友だちと交換など）を開く
         })
         .catch((err) => {
           showMessage('loginMessage', '❌ ' + err.message, 'error');
@@ -158,6 +160,7 @@
         if (!fude.greeted) fudeHello();
         renderRanking(data.ranking);
         renderRaid(data.raid);
+        loadTradeBadge();
         if (!state.jamaicaDone) { state.jamaicaDone = true; syncJamaica(); }
       })
       .catch((err) => { if (err.code !== 'AUTH_EXPIRED') showMessage('mypageMessage', 'データの読み込みに失敗しました：' + err.message, 'error'); })
@@ -469,6 +472,42 @@
     document.head.appendChild(sc);
   }
 
+  // ==================== 友だちと交換（trade.js は開いたときだけ読み込む・2026-11-04） ====================
+  // マイページには、とどいた申しこみがあるときだけ知らせを出す（軽い通信 'trade.badge'。GAS の Api.gs が前の版なら出さない）
+  let tradeBadgeOff = false;
+  function loadTradeBadge() {
+    if (tradeBadgeOff) return;
+    const token = state.token;
+    call('trade.badge')
+      .then((res) => { if (state.token === token) renderTradeBadge(res.on ? Number(res.incoming) || 0 : 0); })
+      .catch((err) => { if (err.code === 'BAD_ACTION') tradeBadgeOff = true; renderTradeBadge(0); });
+  }
+  function renderTradeBadge(n) {
+    let box = $('tradeBadge');
+    if (!n) { if (box) box.remove(); return; }
+    if (!box) {
+      box = document.createElement('button');
+      box.type = 'button'; box.id = 'tradeBadge'; box.className = 'trade-badge';
+      box.addEventListener('click', openTrade);
+      const anchor = document.querySelector('#view-mypage .carousel-wrap');
+      if (anchor) anchor.parentNode.insertBefore(box, anchor); else $('view-mypage').appendChild(box);
+    }
+    box.innerHTML = '📨 友だちから交換の申しこみが <b>' + n + '</b> 件！ <span class="trade-badge-go">見る ▶</span>';
+  }
+  function openTrade() {
+    stopRefresh();
+    const api = { call: call, showView: showView, showLoading: showLoading, hideLoading: hideLoading, openMypage: openMypage, navigate: navigate };
+    const go = () => { hideLoading(); window.KanjiTrade.open(api); };
+    if (window.KanjiTrade) { go(); return; }
+    showLoading('読み込み中...');
+    const cfg = window.KANJI_CONFIG || {};
+    const sc = document.createElement('script');
+    sc.src = (cfg.assetBase || '') + 'trade.js' + (cfg.assetVersion ? '?v=' + encodeURIComponent(cfg.assetVersion) : '');
+    sc.onload = go;
+    sc.onerror = () => { hideLoading(); showView('mypage'); showMessage('mypageMessage', '「友だちと交換」を読み込めませんでした。', 'error'); };
+    document.head.appendChild(sc);
+  }
+
   // ==================== 巨大レイドボス ====================
   // 毎週金曜 8:30〜16:00 だけ、マイページの空が赤くなり、ボスの知らせが出る（月の最後の金曜は月末の超巨大ボス）。押すと raid.js を読みこんで、漢字ミサイルの画面へ
   // 来ていないときは、次に来る日時とボス（サーバーの r.next）だけを出す。開いているかはサーバーが決める
@@ -569,6 +608,7 @@
       return;
     }
     if (page === 'cardmake') { if (CARDMAKE_ON) openCardMake(); return; }
+    if (page === 'trade') { openTrade(); return; }
     if (page === 'bugreport') { if (BUG_FORM_URL) window.open(BUG_FORM_URL, '_blank', 'noopener'); return; }
     if (page === 'finisherform') { if (FINISHER_FORM_URL) window.open(FINISHER_FORM_URL, '_blank', 'noopener'); return; }
     if (page === 'jamaica' && !JAMAICA_ON) return;
@@ -611,6 +651,19 @@
     $('logoutBtn').addEventListener('click', logout);
   }
 
+  // ほかの画面から「カードを作る」（?page=cardmake）・「友だちと交換」（?page=trade）で来たときは、そのまま開く
+  function openFromUrl() {
+    try {
+      if (window.google && google.script && google.script.url) {
+        google.script.url.getLocation((loc) => {
+          const page = loc && loc.parameter ? loc.parameter.page : '';
+          if (page === 'cardmake' && CARDMAKE_ON) openCardMake();
+          else if (page === 'trade' && state.view === 'mypage') openTrade();
+        });
+      }
+    } catch (e) {}
+  }
+
   function start() {
     setupEvents();
     hideLoading();
@@ -621,12 +674,7 @@
     if (saved) {
       state.token = saved.token;
       openMypage();
-      // ほかの画面のメニューから「カードを作る」で来たとき（?page=cardmake）は、そのまま開く
-      try {
-        if (window.google && google.script && google.script.url) {
-          google.script.url.getLocation((loc) => { if (CARDMAKE_ON && loc && loc.parameter && loc.parameter.page === 'cardmake') openCardMake(); });
-        }
-      } catch (e) {}
+      openFromUrl();
     } else {
       clearSession();
       showView('login');

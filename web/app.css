@@ -352,3 +352,14 @@ html.raid-on body:not(.view-mypage)::before { content: ''; position: fixed; inse
 .fude-bubble.show { opacity: 1; transform: none; }
 .fude-bubble::after { content: ''; position: absolute; right: -9px; bottom: 12px; width: 6px; height: 6px; background: var(--white); box-shadow: 3px 0 0 var(--k), 0 3px 0 var(--k), 0 -3px 0 var(--k); }
 @media (prefers-reduced-motion: reduce) { .fude-bubble { transition: none; } }
+
+/* ==================== 友だちと交換の知らせ（マイページ。申しこみがとどいているときだけ。2026-11-04） ==================== */
+.trade-badge {
+  display: block; width: 100%; margin: 0 0 18px; padding: 14px 18px; border: none; border-radius: 0; cursor: pointer; text-align: left;
+  font-family: var(--px-font); font-size: 19px; color: var(--white); background: var(--green); text-shadow: 2px 2px 0 var(--k);
+  box-shadow: 0 0 0 4px var(--k), 0 6px 0 4px var(--k), inset 0 -4px 0 rgba(0, 0, 0, 0.25); touch-action: manipulation;
+}
+.trade-badge b { color: var(--yellow); font-size: 24px; }
+.trade-badge-go { float: right; color: var(--yellow); }
+.trade-badge:active { transform: translateY(3px); }
+@media (prefers-reduced-motion: reduce) { .trade-badge:active { transform: none; } }

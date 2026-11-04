@@ -693,6 +693,7 @@
   // ===============================================================
   // じゃんけん1回戦
   //   round = { round, p1:{ name, rarity, hand, imageUrl }, p2:{ … }, winner: 1（あなた）| -1（相手）| 0（引き分け） }
+  //   opts.handOnly … じゃんけんの勝ち負けだけ見せる（WIN!／LOSE… なし・カードはふき飛ばない）。opts.subText は下に出す一言
   // ===============================================================
   async function janken(host, round, opts) {
     opts = opts || {};
@@ -741,6 +742,15 @@
 
       const sameHand = round.p1.hand === round.p2.hand;
       const winner = Number(round.winner) || 0;
+      if (opts.handOnly) {   // 対人バトル：じゃんけんは倍率を決めるだけ。当たるかどうかは、このあとのサイコロ勝負で決まる（2026-11-04）
+        const w = sameHand ? 0 : winner;   // WIN!／LOSE… も、カードがふき飛ぶのも出さない（勝ち負けに見えてしまうため）
+        if (w) { (w === 1 ? c1 : c2).glow = 1; Sound.play('reveal2'); } else Sound.play('draw');
+        await popText(st, w === 1 ? 'じゃんけん 勝ち！' : (w === -1 ? 'じゃんけん 負け' : 'あいこ'),
+          { size: 22, color: w === 1 ? '#fde047' : (w === -1 ? '#93c5fd' : '#e2e8f0'), outline: '#000', y: 18 });
+        if (opts.subText) await popText(st, opts.subText, { size: 12, color: '#fde68a', outline: '#000', y: 170 });
+        await st.wait(800);
+        return w;
+      }
       if (sameHand && opts.plainTie) {   // ボス戦のじゃんけん勝負：あいこは、あいこのまま
         Sound.play('draw');
         await clash(st, c1, c2, true);
@@ -1892,6 +1902,7 @@
     treasure: treasure,
     multiply: multiply,
     jankenBanner: true,   // janken() の opts.banner（上の帯の文字）に対応している印
+    jankenHandOnly: true,   // janken() の opts.handOnly（じゃんけんの手だけ見せて、勝ち負けの演出はしない）に対応している印（対人バトル・2026-11-04）
     roulette: roulette,
     misfortune: misfortune,
     bossIntro: bossIntro,
