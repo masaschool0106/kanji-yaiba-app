@@ -7,6 +7,8 @@
      画面は fx/fx.js の dice で、返事が来るまで転がして、その目で止めて見せるだけ
    ・ボスの名前・見た目（色・王冠）・ポイントは、サーバーのボスの表（Api.gs の RAID_BOSSES_）から来る
    ・前の版で来たボス（サーバーが dice: false と返す）は、前のとおり 1問1ダメージ（大業なし）
+   ・11/4：16:00 すぎも、倒した日は「倒した！」。先に倒されていたら「間に合わなかった」（r.late・ダメージの数は出さない）。
+     ごほうびをもらえたかは、サーバーの rewarded・myReward・paid のとおりに出す（rewardText）
    ・ボスの絵とレーザーは fx/fx.js の raidStage（読めないときは絵文字のボスで動く）
    =============================================================== */
 (function () {
@@ -213,8 +215,9 @@
       if (s.dice) { gauge = s.gauge || 0; spNeed = s.spNeed || spNeed; spName = s.spName || spName; }
       setHp(s);
       startStage(s.boss, boss && boss.look);
-      if (s.defeated) {
+      if (s.defeated) {   // 16:00 すぎも、倒した日は「倒した！」（サーバーが s.ended をつけて返す・11/4）
         panel([el('div', { class: 'rd-q', text: '🎉 ' + s.boss + ' を倒した！' }), el('p', { text: (s.finisher ? 'トドメ：' + s.finisher + (s.finisherIsMe ? '（あなた！）' : '') : '') }),
+          s.rewarded !== undefined ? el('p', { class: 'rd-boss', text: rewardText(s) }) : null,
           s.next ? el('p', { text: '次の巨大ボスは ' + s.next.text + ' から！' }) : null, renderTop(s)]);
         return;
       }
@@ -364,29 +367,54 @@
       const was = gauge;
       if (r.gauge !== undefined) { gauge = r.gauge; spNeed = r.spNeed || spNeed; }
       const dmg = r.hit ? r.hit.damage : 1;
-      if (r.correct) { combo++; hits++; $('rdMe').textContent = 'この挑戦での命中：' + hits; }
+      // r.late：先に倒されていて、この正解は間に合わなかった（ダメージは入っていない。サーバーが決める・11/4）
+      const hit = r.correct && !r.late;
+      if (hit) { combo++; hits++; $('rdMe').textContent = 'この挑戦での命中：' + hits; }
       else combo = 0;
-      const fx = r.correct ? stage.hit('-' + fmt(dmg) + (r.hit && r.hit.yaku && r.hit.yaku.fired ? ' ' + r.hit.yaku.icon : '')) : stage.miss();
+      const fx = hit ? stage.hit('-' + fmt(dmg) + (r.hit && r.hit.yaku && r.hit.yaku.fired ? ' ' + r.hit.yaku.icon : '')) : (r.late ? Promise.resolve() : stage.miss());
       const extra = r.hit ? hitBox(r.hit) : null;
       if (r.defeated) {
-        fx.then(() => stage.defeat()).then(() => defeatedPanel(r, extra));
+        fx.then(() => stage.defeat()).then(() => defeatedPanel(r, extra, '答え'));
         return;
       }
       if (sub && r.dayPt !== undefined) { sub.dayPt = r.dayPt; subText(); }
       const pt = r.point === undefined ? '' : (r.point > 0 ? ' ＋' + r.point + 'pt（今日 ' + r.dayPt + ' / ' + r.dayMax + 'pt）' : '（今日のポイントは上限。攻撃はできるよ）');
       const ready = deck && was < spNeed && gauge >= spNeed ? ' ⚡ 大業がたまった！' : '';
-      question(r, r.correct ? '💥 命中！ ボスに ' + fmt(dmg) + ' ダメージ！' + pt + ready : '🛡️ はずれ…（正解は「' + r.answer + '」）', r.correct ? 'rd-ok' : 'rd-ng', extra);
+      const msg = r.correct ? '💥 命中！ ボスに ' + fmt(dmg) + ' ダメージ！' + pt + ready : '🛡️ はずれ…（正解は「' + r.answer + '」）';
+      if (r.closed) {   // 16:00 前に出た問題に、時間をすぎて答えた（サーバーが受けつけた分まで）。次の問題はない
+        fx.then(() => panel([
+          el('div', { class: 'rd-msg ' + (r.correct ? 'rd-ok' : 'rd-ng'), text: msg }),
+          extra,
+          el('div', { class: 'rd-q', text: '⏰ 時間になったので、ボスは去っていった…' }),
+          r.next ? el('p', { text: '次の巨大ボスは ' + r.next.text + ' から！' }) : null
+        ]));
+        return;
+      }
+      question(r, msg, r.correct ? 'rd-ok' : 'rd-ng', extra);
     }).catch((err) => {
       busy = false;
       panel([el('p', { class: 'rd-ng', text: '⚠️ ' + (err.message || 'うまくいきませんでした') }), el('div', { class: 'rd-acts' }, [el('button', { type: 'button', class: 'go', text: 'もう一度', onclick: refresh })])]);
     });
   }
 
-  function defeatedPanel(r, extra) {
+  // 倒したあとの、自分のごほうび。サーバーの rewarded・myReward・paid のとおりに出す（11/4。前は、もらえない子にも「ごほうび！」と出ていた）
+  function rewardText(r) {
+    if (r.rewarded === undefined) return '1問でも正解した人には、ポイントのごほうび！';   // 前の版のサーバー
+    if (!r.paid) return 'ごほうびは、このあと配られるよ（少したってから、開き直してね）';
+    if (r.rewarded) return '🎁 あなたは、ごほうび ' + r.myReward + 'pt をもらったよ！' + (r.finishedByMe || r.finisherIsMe ? '（トドメのぶんもこみ）' : '');
+    return 'ごほうびは、ボスが倒れる前に1問でも正解した人だけ。次の巨大ボスでがんばろう！';
+  }
+
+  // what：間に合わなかったときの言葉（'答え'・'大業'）
+  function defeatedPanel(r, extra, what) {
+    const late = r.late && !r.finishedByMe;
     panel([
-      el('div', { class: 'rd-q', text: r.finishedByMe ? '⚡ あなたがトドメをさした！' : '🎉 クラスのみんなでボスを倒した！' }),
+      el('div', { class: 'rd-q', text: r.finishedByMe ? '⚡ あなたがトドメをさした！' : (late ? '⌛ おしい！ 間に合わなかった…' : '🎉 クラスのみんなでボスを倒した！') }),
+      late ? el('p', { text: 'あなたの' + (what || '答え') + 'がとどく前に、クラスのだれかがボスを倒していたよ。' }) : null,
+      // 間に合わなかった正解も参加に数えるかは、サーバーが決める（数えたときだけ r.point が来る）
+      late && r.point !== undefined ? el('p', { class: 'rd-ok', text: '正解したので、参加に数えるよ！' + (r.point > 0 ? '（正解 ＋' + r.point + 'pt）' : '') }) : null,
       r.finishedByMe ? extra : null,
-      el('p', { text: r.finishedByMe && r.reward ? 'ごほうび ' + r.reward + 'pt！（参加した人みんなにもポイント）' : '1問でも正解した人には、ポイントのごほうび！' }),
+      el('p', { class: 'rd-boss', text: r.finishedByMe && r.rewarded === undefined && r.reward ? 'ごほうび ' + r.reward + 'pt！（参加した人みんなにもポイント）' : rewardText(r) }),
       el('div', { class: 'rd-acts' }, [el('button', { type: 'button', class: 'go', text: '活やくランキングを見る', onclick: refresh })])
     ]);
   }
@@ -435,12 +463,12 @@
       const text = '-' + fmt(sp.damage);
       const fx = stage.big ? stage.big(text, '大業！') : stage.hit(text);
       const extra = spBox(sp);
-      if (r.defeated) { fx.then(() => stage.defeat()).then(() => defeatedPanel(r, extra)); return; }
+      if (r.defeated) { fx.then(() => stage.defeat()).then(() => defeatedPanel(r, extra, '大業')); return; }
       question(q, '💥 大業「' + sp.name + '」！ ボスに ' + fmt(sp.damage) + ' ダメージ！' + (sp.zoro ? '（ゾロ目で ×' + sp.mul + '）' : '') + ' つづけて問題に答えよう', 'rd-ok', extra);
     }).catch((err) => {
       box.remove();
       busy = false;
-      if (res && res.defeated) { setHp(res); defeatedPanel(res, null); return; }
+      if (res && res.defeated) { setHp(res); defeatedPanel(res, null, '大業'); return; }   // 先に倒されていた（res.late）
       panel([el('p', { class: 'rd-ng', text: '⚠️ ' + ((err && err.message) || '大業がうまくいきませんでした') }), el('div', { class: 'rd-acts' }, [el('button', { type: 'button', class: 'go', text: 'もう一度', onclick: refresh })])]);
     });
   }
