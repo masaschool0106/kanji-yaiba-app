@@ -7,7 +7,7 @@
 (function () {
   'use strict';
   // 管理画面の版：画面の上に出す。Push したのに新しいボタンが出ないときは、ここが古いまま（5分ほど待って Ctrl＋Shift＋R）
-  const ADMIN_VERSION = '2026-11-05（属性・キラキラ版）';
+  const ADMIN_VERSION = '2026-11-05（まとめてキラキラ版）';
   let app = null, root = null, students = [], tab = 'students', filterId = '';
 
   const CSS = `
@@ -323,11 +323,77 @@
         ]);
       }));
     };
+    // まとめてキラキラ版を作る（2026-11-05）：番号のはんいのカードの、キラキラ版（次の番号）を1枚ずつ作る
+    const kFrom = el('input', { type: 'number', min: '1', placeholder: 'はじめ', style: 'width:5.5em' });
+    const kTo = el('input', { type: 'number', min: '1', placeholder: 'おわり', style: 'width:5.5em' });
+    const kGo = el('button', { type: 'button', text: '✨ まとめてキラキラ版を作る' });
+    const kStop = el('button', { type: 'button', text: '止める', hidden: '' });
+    const kLog = el('div', { style: 'max-height:240px;overflow:auto;font-size:13px;margin-top:6px' });
+    const stopRef = { stop: false };
+    kStop.addEventListener('click', () => { stopRef.stop = true; kStop.disabled = true; });
+    kGo.addEventListener('click', () => {
+      const a = parseInt(kFrom.value, 10), b = parseInt(kTo.value, 10);
+      if (!(a > 0 && b >= a)) { kLog.textContent = '番号のはんい（はじめ〜おわり）を入れてください。'; return; }
+      const n = kiraTargets(d, a, b).length;
+      if (!n) { kLog.textContent = 'No.' + a + '〜' + b + ' には、キラキラ版を作るカードがありません（もうキラキラ・もうキラキラ版がある・ガチャに出ないカードはとばします）。'; return; }
+      if (!confirm('No.' + a + '〜' + b + ' のキラキラ版を作ります（' + n + '枚・新しい番号）。\n1枚に数秒〜十数秒かかり、そのあいだ子どものガチャなどが少し待ちます。子どもが使っていない時間がおすすめです。\nこの画面を閉じないでください。よいですか？')) return;
+      kGo.disabled = true; kStop.hidden = false; kStop.disabled = false; stopRef.stop = false; kLog.replaceChildren();
+      kiraBatch(d, a, b, kLog, stopRef).then(() => { kGo.disabled = false; kStop.hidden = true; cardData = null; });
+    });
     panel().replaceChildren(
       el('div', { class: 'adm-note', text: 'カードを押すと、名前・レアリティ・ガチャ・手・効果・' + (attrs ? '属性・' : '') + 'セリフ・画像を変えられます。消すことはできません（ガチャに出したくないときは、ガチャの種類を「なし」に）。' }),
       el('div', { class: 'adm-tools' }, [q, sel('rarity', 'レアリティ', d.rarities), sel('hand', '手', d.hands), sel('gacha', 'ガチャ', d.gachaTypes), attrSel, count]),
+      el('div', { class: 'adm-note' }, ['✨ キラキラ版をまとめて作る：No.', kFrom, '〜', kTo, '　', kGo, ' ', kStop,
+        el('div', { class: 'adm-sub', text: '同じ絵・名前・レアリティ・手・セリフ・属性で、新しい番号のキラキラのカード（動くカード）を作ります。スキルはおまかせ（レアリティで自動）、ガチャはノーマル→キラキラ　ノーマル・レア→キラキラ　レア。もうキラキラのカード・もうキラキラ版があるカード・ガチャに出ないカードはとばします。' }),
+        kLog]),
       grid);
     paint();
+  }
+  // まとめてキラキラ版：作るカード（もうキラキラ・もうキラキラ版がある・ガチャに出ない（なし）・キラキラ版そのものは、とばす）
+  function kiraTargets(d, from, to) {
+    const have = {};
+    d.cards.forEach((c) => { if (c.kiraOf) have[c.kiraOf] = c.no; });
+    return d.cards.filter((c) => { const n = parseInt(c.no, 10); return n >= from && n <= to && !isKiraGacha(c.gachaType) && !have[c.no] && !c.kiraOf && c.gachaType !== 'なし'; })
+      .sort((p, q) => parseInt(p.no, 10) - parseInt(q.no, 10));
+  }
+  function kiraGachaFor(d, c) {
+    if (c.gachaType === 'ノーマル') return 'キラキラ　ノーマル';
+    if (c.gachaType === 'レア') return 'キラキラ　レア';
+    return (d.rarities || []).indexOf(c.rarity) >= (d.rarities || []).indexOf('SR') ? 'キラキラ　レア' : 'キラキラ　ノーマル';
+  }
+  async function kiraBatch(d, from, to, logEl, stopRef) {
+    const line = (t, cls) => { const li = el('div', { class: cls || '', text: t }); logEl.appendChild(li); li.scrollIntoView({ block: 'nearest' }); return li; };
+    const skipped = d.cards.filter((c) => { const n = parseInt(c.no, 10); return n >= from && n <= to; }).length - kiraTargets(d, from, to).length;
+    let made = 0, failed = 0;
+    for (const c of kiraTargets(d, from, to)) {
+      if (stopRef.stop) { line('とちゅうで止めました。'); break; }
+      const now = line('… No.' + c.no + '「' + c.name + '」を作っています');
+      try {
+        const got = await pictureFromCard(c);   // 型なしの絵（src）か、絵の窓の切りぬき。動くカードはできない
+        const kiraType = kiraGachaFor(d, c);
+        const f = { rarity: c.rarity, name: c.name, hand: c.hand, line: c.line, gachaType: kiraType };
+        const pic = await loadImg(got.url);
+        const L = layoutOf(f), ww = L.win[2] - L.win[0] + 1, wh = L.win[3] - L.win[1] + 1;
+        const view = { zoom: Math.max(ww / pic.width, wh / pic.height) / Math.min(ww / pic.width, wh / pic.height), x: 0, y: 0 };   // カードいっぱい
+        const big = document.createElement('canvas'); big.width = FRAME_W; big.height = FRAME_H;
+        await drawCard(big.getContext('2d'), 1, f, pic, view);
+        const k = exportKira(big, f);
+        const source = sourceImageOf(pic, got.url);
+        const x = await app.call('admin.cardKiraCopy', { no: c.no, gachaType: kiraType, composed: k.full, composedThumb: k.thumb, composedSource: source });
+        made++;
+        d.cards.push({ no: String(x.rank), kiraOf: String(c.no), gachaType: x.gachaType, rarity: c.rarity, name: c.name });   // 2回作らないように（この画面の中）
+        rememberSaved(x.rank, { source: source });
+        now.textContent = '✓ No.' + c.no + '「' + c.name + '」→ キラキラ版 No.' + x.rank + '（' + x.gachaType + '）';
+        now.className = 'adm-ok';
+        if (x.github !== '自動') manualDownloads(null, x.rank, logEl, { full: k.full, thumb: k.thumb, source: source });
+      } catch (err) {
+        failed++;
+        now.textContent = '✗ No.' + c.no + '「' + c.name + '」：' + (err.message || 'できませんでした');
+        now.className = 'adm-ng';
+      }
+    }
+    line('おわり：作った ' + made + ' 枚・できなかった ' + failed + ' 枚・とばした ' + skipped + ' 枚。新しいカードを一覧に出すには、もう一度「🗂️ カード一覧」を押してください。'
+      + (made ? '（絵が表示されるまで1〜10分かかります）' : ''));
   }
   function drawCardEdit(c) {
     const d = cardData;
@@ -786,6 +852,54 @@
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
+  // キラキラ：12コマの動く WebP（480×679）と、止まった小さい画像（240×340・はじめのコマ）。big は 1414×2000 に描いたカード（星なし）
+  //   画像の大きさがサーバーの上限をこえるときは、画質を少しずつ下げて作り直す
+  function exportKira(big, f) {
+    const c = document.createElement('canvas'); c.width = KIRA_OUT_W; c.height = KIRA_OUT_H;
+    const x = c.getContext('2d'); x.imageSmoothingQuality = 'high';
+    const sc = KIRA_OUT_W / FRAME_W;
+    const frameCanvas = (i) => {
+      x.setTransform(1, 0, 0, 1, 0, 0);
+      x.drawImage(big, 0, 0, KIRA_OUT_W, KIRA_OUT_H);
+      drawSparkles(x, sc, f.rarity, i);
+    };
+    const webp = (cv, q) => {
+      const u = cv.toDataURL('image/webp', q);
+      if (u.indexOf('data:image/webp') !== 0) throw new Error('このブラウザでは動くキラキラカードを作れません。Chrome で開いてください。');
+      return u;
+    };
+    let full = null;
+    for (const q of [0.85, 0.75, 0.65, 0.55, 0.45]) {
+      const frames = [];
+      for (let i = 0; i < KIRA_CYCLE; i++) { frameCanvas(i); frames.push(dataUrlBytes(webp(c, q))); }
+      full = muxAnimatedWebp(frames, KIRA_OUT_W, KIRA_OUT_H, KIRA_MS);
+      if (full.length - 23 <= KIRA_MAX_B64) break;   // 23＝'data:image/webp;base64,'
+      full = null;
+    }
+    if (!full) throw new Error('キラキラカードの画像が大きくなりすぎました。絵を少し小さくするか、ちがう絵でためしてください。');
+    frameCanvas(0);
+    const t = document.createElement('canvas'); t.width = THUMB_W; t.height = THUMB_H;
+    const tx = t.getContext('2d'); tx.imageSmoothingQuality = 'high'; tx.drawImage(c, 0, 0, THUMB_W, THUMB_H);
+    return { full: full, thumb: webp(t, 0.85), kira: true };
+  }
+  // 型に入れる前の絵（あとで枠だけ付け直すときに使う）。長い辺は1200まで・サーバーの上限に入る大きさ。作れないときは ''
+  function sourceImageOf(pic, picSrc) {
+    try { return sourceImageOrThrow(pic, picSrc); } catch (e) { return ''; }   // 作れなくても、カードの保存は止めない
+  }
+  function sourceImageOrThrow(pic, picSrc) {
+    // えらんだ絵が、もう大きすぎない WebP なら、そのまま（付け直すたびに画質が落ちないように）
+    if (/^data:image\/webp;base64,/.test(picSrc) && picSrc.length - 23 <= KIRA_MAX_B64 && Math.max(pic.width, pic.height) <= 1200) return picSrc;
+    const k = Math.min(1, 1200 / Math.max(pic.width, pic.height));
+    const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(pic.width * k)); c.height = Math.max(1, Math.round(pic.height * k));
+    const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(pic, 0, 0, c.width, c.height);
+    for (const q of [0.9, 0.8, 0.7, 0.6, 0.5]) {
+      const u = c.toDataURL('image/webp', q);
+      if (u.indexOf('data:image/webp') !== 0) return '';
+      if (u.length - 23 <= KIRA_MAX_B64) return u;
+    }
+    return '';
+  }
+
   // 型に当てはめる部品（見本・大きさ・位置）。getFields() は { rarity, name, hand, line } を返す
   function makeComposer(getFields, opts) {
     opts = opts || {};
@@ -863,53 +977,7 @@
         .catch((e) => { info.textContent = '⚠️ 型の画像を読めませんでした（' + e.message + '）。このまま承認すると、申請の画像のままカードになります。'; })
         .then(() => { busy = false; if (again) { again = false; refresh(); } });
     }
-    // キラキラ：12コマの動く WebP（480×679）と、止まった小さい画像（240×340・はじめのコマ）
-    //   画像の大きさがサーバーの上限をこえるときは、画質を少しずつ下げて作り直す
-    function exportKira(big, f) {
-      const c = document.createElement('canvas'); c.width = KIRA_OUT_W; c.height = KIRA_OUT_H;
-      const x = c.getContext('2d'); x.imageSmoothingQuality = 'high';
-      const sc = KIRA_OUT_W / FRAME_W;
-      const frameCanvas = (i) => {
-        x.setTransform(1, 0, 0, 1, 0, 0);
-        x.drawImage(big, 0, 0, KIRA_OUT_W, KIRA_OUT_H);
-        drawSparkles(x, sc, f.rarity, i);
-      };
-      const webp = (cv, q) => {
-        const u = cv.toDataURL('image/webp', q);
-        if (u.indexOf('data:image/webp') !== 0) throw new Error('このブラウザでは動くキラキラカードを作れません。Chrome で開いてください。');
-        return u;
-      };
-      let full = null;
-      for (const q of [0.85, 0.75, 0.65, 0.55, 0.45]) {
-        const frames = [];
-        for (let i = 0; i < KIRA_CYCLE; i++) { frameCanvas(i); frames.push(dataUrlBytes(webp(c, q))); }
-        full = muxAnimatedWebp(frames, KIRA_OUT_W, KIRA_OUT_H, KIRA_MS);
-        if (full.length - 23 <= KIRA_MAX_B64) break;   // 23＝'data:image/webp;base64,'
-        full = null;
-      }
-      if (!full) throw new Error('キラキラカードの画像が大きくなりすぎました。絵を少し小さくするか、ちがう絵でためしてください。');
-      frameCanvas(0);
-      const t = document.createElement('canvas'); t.width = THUMB_W; t.height = THUMB_H;
-      const tx = t.getContext('2d'); tx.imageSmoothingQuality = 'high'; tx.drawImage(c, 0, 0, THUMB_W, THUMB_H);
-      return { full: full, thumb: webp(t, 0.85), kira: true };
-    }
-    // 型に入れる前の絵（あとで枠だけ付け直すときに使う）。長い辺は1200まで・サーバーの上限に入る大きさ。作れないときは ''
-    function sourceImage() {
-      try { return sourceImageOrThrow(); } catch (e) { return ''; }   // 作れなくても、カードの保存は止めない
-    }
-    function sourceImageOrThrow() {
-      // えらんだ絵が、もう大きすぎない WebP なら、そのまま（付け直すたびに画質が落ちないように）
-      if (/^data:image\/webp;base64,/.test(picSrc) && picSrc.length - 23 <= KIRA_MAX_B64 && Math.max(pic.width, pic.height) <= 1200) return picSrc;
-      const k = Math.min(1, 1200 / Math.max(pic.width, pic.height));
-      const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(pic.width * k)); c.height = Math.max(1, Math.round(pic.height * k));
-      const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(pic, 0, 0, c.width, c.height);
-      for (const q of [0.9, 0.8, 0.7, 0.6, 0.5]) {
-        const u = c.toDataURL('image/webp', q);
-        if (u.indexOf('data:image/webp') !== 0) return '';
-        if (u.length - 23 <= KIRA_MAX_B64) return u;
-      }
-      return '';
-    }
+    function sourceImage() { return sourceImageOf(pic, picSrc); }
     return {
       el: root,
       refresh: refresh,
