@@ -194,6 +194,40 @@ body.px-theme[data-page="zukan"] { color: var(--white); }
 [data-page="zukan"].px-theme .trial-dots i { background: var(--gray) !important; border: none !important; box-shadow: 0 0 0 2px var(--k) !important; }
 [data-page="zukan"].px-theme .trial-dots i.on { background: var(--yellow) !important; }
 [data-page="zukan"].px-theme .trial-acts button { min-height: 52px; border: none !important; background: var(--gray); color: var(--white); box-shadow: var(--px-btn) !important; font-weight: normal; }
+/* 図鑑の属性（2026-11-05）：ならべかた・属性でしぼるボタン（色の帯は属性の色）・「属性コンボって？」・大きく見たときの属性コンボ */
+[data-page="zukan"].px-theme .zukan-row { border-top: 3px dashed var(--gray) !important; }
+[data-page="zukan"].px-theme .row-label { color: var(--peach) !important; font-weight: normal; }
+[data-page="zukan"].px-theme .sort-btn, [data-page="zukan"].px-theme .attr-btn {
+  min-height: 44px; padding: 8px 14px; margin: 0.2rem; border: none !important; color: var(--white) !important; background: var(--gray) !important;
+  box-shadow: var(--px-btn) !important; text-shadow: 2px 2px 0 var(--k); transition: none; font-size: 1rem; font-weight: normal;
+}
+[data-page="zukan"].px-theme .attr-btn:not(.all) { padding-left: 20px; box-shadow: var(--px-btn), inset 8px 0 0 var(--attr-c, var(--lgray)) !important; }
+[data-page="zukan"].px-theme .sort-btn.active, [data-page="zukan"].px-theme .attr-btn.all.active { background: var(--dblue) !important; color: var(--yellow) !important; }
+[data-page="zukan"].px-theme .attr-btn.active:not(.all) { background: var(--attr-c, var(--lgray)) !important; color: var(--k) !important; text-shadow: none; }
+[data-page="zukan"].px-theme .attr-btn.empty { opacity: 0.5; }
+[data-page="zukan"].px-theme .sort-btn:active, [data-page="zukan"].px-theme .attr-btn:active { transform: translateY(3px) !important; box-shadow: var(--px-btn-down) !important; }
+[data-page="zukan"].px-theme .attr-help { background: var(--k) !important; color: var(--white) !important; border: none !important; box-shadow: var(--px-edge) !important; }
+[data-page="zukan"].px-theme .attr-help summary { color: var(--yellow); font-weight: normal; min-height: 40px; }
+[data-page="zukan"].px-theme .attr-help .ah-rule b { color: var(--yellow); font-weight: normal; }
+[data-page="zukan"].px-theme .attr-help .ah-note { color: var(--lgray) !important; }
+[data-page="zukan"].px-theme .ah-list li { background: var(--navy) !important; color: var(--white) !important; border: none !important; box-shadow: 0 0 0 3px var(--k), inset 8px 0 0 var(--attr-c, var(--lgray)) !important; padding-left: 18px; }
+[data-page="zukan"].px-theme .combo-name { color: var(--yellow); font-weight: normal; }
+[data-page="zukan"].px-theme .combo-tag { background: var(--plum) !important; color: var(--white) !important; box-shadow: 0 0 0 2px var(--k); }
+[data-page="zukan"].px-theme .viewer-attr { background: var(--k) !important; color: var(--white) !important; }
+[data-page="zukan"].px-theme .viewer-attr .ef-label { color: var(--lgray) !important; }
+[data-page="zukan"].px-theme .viewer-attr .va-combo { border-top: 3px dashed var(--gray) !important; }
+[data-page="zukan"].px-theme .attr-none { color: var(--gray) !important; }
+[data-page="zukan"].px-theme .zukan-empty { color: var(--lgray) !important; }
+
+/* ===============================================================
+   属性のチップ（2026-11-05・どの画面でも）：四角・黒いふち2px・色は属性の色（--attr-c）・字は黒
+   作るのは各画面の attrChipHtml（<span class="attr-chip" style="--attr-c:#83769c">🥷 忍者</span>）
+   =============================================================== */
+.px-theme .attr-chip {
+  display: inline-block; padding: 0 5px; border: 2px solid var(--k) !important; border-radius: 0;
+  background: var(--attr-c, var(--lgray)) !important; color: var(--k) !important; text-shadow: none !important;
+  font-family: var(--px-font); font-weight: normal; font-size: 12px; line-height: 1.5; white-space: nowrap; vertical-align: middle;
+}
 
 /* ===============================================================
    漢字クイズ（quiz）

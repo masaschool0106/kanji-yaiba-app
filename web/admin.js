@@ -7,7 +7,7 @@
 (function () {
   'use strict';
   // 管理画面の版：画面の上に出す。Push したのに新しいボタンが出ないときは、ここが古いまま（5分ほど待って Ctrl＋Shift＋R）
-  const ADMIN_VERSION = '2026-11-02（枠だけ付け直す）';
+  const ADMIN_VERSION = '2026-11-05（カードの属性）';
   let app = null, root = null, students = [], tab = 'students', filterId = '';
 
   const CSS = `
@@ -85,6 +85,10 @@
   .adm-edit { display: grid; grid-template-columns: 220px 1fr; gap: 16px; color: #e2e8f0; }
   .adm-edit > img { width: 220px; aspect-ratio: 600 / 849; object-fit: cover; border-radius: 12px; background: #0b1224; }
   .adm-warn { color: #fbbf24; font-size: 13px; line-height: 1.6; }
+  :where(.attr-chip) { display: inline-block; padding: 0 4px; border: 2px solid #000; background: var(--attr-c, #c2c3c7); color: #000; font-size: 12px; line-height: 1.5; white-space: nowrap; font-weight: bold; }
+  .adm-cl-item .attr-chip { margin: 2px 0; }
+  .adm-attr-hint { font-size: 12px; line-height: 1.6; color: #cbd5e1; margin-top: 6px; }
+  .adm-attr-hint b { color: #fde68a; }
   @media (max-width: 600px) { .adm-card { grid-template-columns: 1fr; } .adm-card img { width: 160px; } .adm-edit { grid-template-columns: 1fr; } }
   `;
 
@@ -236,7 +240,33 @@
 
   // ---------- カード一覧・編集 ----------
   //   消すことはできない（持っている子がいるため）。ガチャに出したくないときは、ガチャの種類を「なし」にする
-  let cardData = null, cardFilter = { q: '', rarity: '', hand: '', gacha: '' };
+  let cardData = null, cardFilter = { q: '', rarity: '', hand: '', gacha: '', attr: '' };
+  // 属性（2026-11-05）：サーバーの属性の表（d.attrs：id・名前・アイコン・色）だけから作る（シートの字はそのまま出さない）
+  //   表がない（前の Api.gs・code.gs）ときは、えらぶ欄を出さず、attr も送らない（シートの「属性」列はそのまま）
+  function attrList(d) { return d && Array.isArray(d.attrs) && d.attrs.length ? d.attrs : null; }
+  function attrOf(d, id) { return id ? (attrList(d) || []).find((a) => a && a.id === id) || null : null; }
+  function attrLabel(a) { return (a.icon ? a.icon + ' ' : '') + a.name; }
+  function attrChipEl(d, id) {   // <span class="attr-chip" style="--attr-c:#…" title="属性：忍者">🥷 忍者</span>。属性なしは null
+    const a = attrOf(d, id);
+    if (!a) return null;
+    const s = el('span', { class: 'attr-chip', title: '属性：' + a.name, text: attrLabel(a) });
+    if (/^#[0-9a-fA-F]{6}$/.test(String(a.color || ''))) s.style.setProperty('--attr-c', a.color);
+    return s;
+  }
+  function attrSelect(d, cur) {
+    const s = el('select', { 'aria-label': '属性' }, [el('option', { value: '', text: '属性なし' })].concat(attrList(d).map((a) => el('option', { value: a.id, text: attrLabel(a) }))));
+    s.value = attrOf(d, cur) ? cur : '';
+    return s;
+  }
+  // えらんだ属性の「属性コンボ」の説明（「デッキの役」〔手の組み合わせ〕とはべつ）
+  function attrHint(d, id) {
+    const a = attrOf(d, id), cb = d && d.attrCombos;
+    const k = a && cb && cb.list ? cb.list[id] : null;
+    if (!a) return [document.createTextNode('属性なし：「属性コンボ」には数えません。')];
+    if (!k) return [];
+    return [el('b', { text: '属性コンボ「' + (k.icon ? k.icon + ' ' : '') + k.name + '」' }),
+      '　同じ属性のちがうカードを' + (cb.min || '') + '枚以上デッキに入れると発動。ボス戦：' + (k.text || '') + '　対人バトル：' + (k.pvpText || '')];
+  }
   function effectName(d, id) { const e = (d.effects || []).find((x) => x.id === id); return e ? e.name : ''; }
   // ステップアップのスキルの段（段階4）：ふつう（N〜R+）・つよい（SR〜SR+）・イカサマ（SSR〜LEGEND）。レアリティに合う段のスキルだけえらべる
   function tierOfRarity(d, rarity) { return (d.tiers || {})[rarity] || ''; }
@@ -262,20 +292,31 @@
       s.value = cardFilter[key];
       return s;
     };
+    // 属性でしぼる（すべて・属性なし・8つ。かっこは枚数）
+    const attrs = attrList(d);
+    const nAttr = (id) => d.cards.filter((c) => (id ? c.attr === id : !attrOf(d, c.attr))).length;
+    const attrSel = attrs ? el('select', { 'aria-label': '属性でしぼる', onchange: () => { cardFilter.attr = attrSel.value; drawCardList(); } },
+      [el('option', { value: '', text: '属性：すべて' }), el('option', { value: '-', text: '属性なし（' + nAttr('') + '）' })]
+        .concat(attrs.map((a) => el('option', { value: a.id, text: attrLabel(a) + '（' + nAttr(a.id) + '）' })))) : null;
+    if (attrSel) attrSel.value = cardFilter.attr === '-' || attrOf(d, cardFilter.attr) ? cardFilter.attr : '';
     const q = el('input', { type: 'search', placeholder: '番号・名前でさがす', value: cardFilter.q, style: 'font:inherit;font-size:14px;padding:8px 10px;border-radius:10px;border:1px solid rgba(56,189,248,.35);background:#0f172a;color:#e2e8f0' });
     q.addEventListener('input', () => { cardFilter.q = q.value; paint(); });
     const grid = el('div', { class: 'adm-cl-grid' });
     const count = el('span', {});
     const paint = () => {
       const t = cardFilter.q.trim();
+      const fa = attrs ? cardFilter.attr : '';
       const list = d.cards.filter((c) => (!cardFilter.rarity || c.rarity === cardFilter.rarity) && (!cardFilter.hand || c.hand === cardFilter.hand) &&
-        (!cardFilter.gacha || c.gachaType === cardFilter.gacha) && (!t || c.no === t || c.name.indexOf(t) >= 0));
+        (!cardFilter.gacha || c.gachaType === cardFilter.gacha) && (!fa || (fa === '-' ? !attrOf(d, c.attr) : c.attr === fa)) && (!t || c.no === t || c.name.indexOf(t) >= 0));
       count.textContent = list.length + ' 枚';
       grid.replaceChildren(...list.map((c) => {
         const img = el('img', { src: thumbOf(c), alt: '', loading: 'lazy' });
         img.onerror = () => { img.onerror = null; img.src = c.image || ''; };
+        const chip = attrChipEl(d, c.attr);
         return el('button', { type: 'button', class: 'adm-cl-item', onclick: () => drawCardEdit(c) }, [
           img, el('b', { text: 'No.' + c.no + ' ' + c.name }), el('br'),
+          chip, chip ? el('br') : null,
+          !chip && c.attrRaw ? el('span', { class: 'adm-warn', text: '⚠️ 属性が読めない（' + c.attrRaw + '）' }) : null, !chip && c.attrRaw ? el('br') : null,
           c.rarity + '・' + c.hand + '・' + (c.gachaType || '-'), el('br'),
           'スキル：' + (c.effect ? effectName(d, c.effect) : effectName(d, c.autoEffect) + '（自動）') + (tierName(d, tierOfRarity(d, c.rarity)) ? '・' + tierName(d, tierOfRarity(d, c.rarity)) : ''), el('br'),
           '持っている子：' + c.owners + '人'
@@ -283,8 +324,8 @@
       }));
     };
     panel().replaceChildren(
-      el('div', { class: 'adm-note', text: 'カードを押すと、名前・レアリティ・ガチャ・手・効果・セリフ・画像を変えられます。消すことはできません（ガチャに出したくないときは、ガチャの種類を「なし」に）。' }),
-      el('div', { class: 'adm-tools' }, [q, sel('rarity', 'レアリティ', d.rarities), sel('hand', '手', d.hands), sel('gacha', 'ガチャ', d.gachaTypes), count]),
+      el('div', { class: 'adm-note', text: 'カードを押すと、名前・レアリティ・ガチャ・手・効果・' + (attrs ? '属性・' : '') + 'セリフ・画像を変えられます。消すことはできません（ガチャに出したくないときは、ガチャの種類を「なし」に）。' }),
+      el('div', { class: 'adm-tools' }, [q, sel('rarity', 'レアリティ', d.rarities), sel('hand', '手', d.hands), sel('gacha', 'ガチャ', d.gachaTypes), attrSel, count]),
       grid);
     paint();
   }
@@ -311,14 +352,26 @@
     handIn.addEventListener('change', () => fillEff(handIn.value, ''));
     rarIn.addEventListener('change', () => fillEff(handIn.value, effIn.value));   // レアリティの段が変わったら、その段のスキルにえらび直す
     const lineIn = el('input', { type: 'text', maxlength: '30', value: c.line });
+    // 属性（2026-11-05）：サーバーが属性の表を送ってきたときだけ出す
+    const attrIn = attrList(d) ? attrSelect(d, c.attr) : null;
+    const attrHintEl = el('div', { class: 'adm-attr-hint' });
+    const showAttrHint = () => {
+      if (!attrIn) return;
+      const chip = attrChipEl(d, attrIn.value);
+      attrHintEl.replaceChildren(...(chip ? [chip, ' '] : []), ...attrHint(d, attrIn.value));
+    };
+    if (attrIn) { attrIn.addEventListener('change', showAttrHint); showAttrHint(); }
     const warn = el('div', { class: 'adm-warn' });
     const showWarn = () => {
       const w = [];
       if (handIn.value !== c.hand) w.push('手を変えると、ステップアップのデッキに入れている子のカードの手も変わります。');
       if (rarIn.value !== c.rarity) w.push('レアリティを変えると、強さとガチャの出方が変わります。');
-      warn.textContent = (w.length && c.owners ? '⚠️ ' + c.owners + '人が持っています。' : '') + w.join('');
+      if (attrIn && attrIn.value !== (attrOf(d, c.attr) ? c.attr : '')) w.push('属性を変えると、このカードを入れたデッキの「属性コンボ」が変わることがあります。');
+      warn.textContent = (w.length && c.owners ? '⚠️ ' + c.owners + '人が持っています。' : '') + w.join('') +
+        (attrIn && c.attrRaw ? '（シートの「属性」の「' + c.attrRaw + '」は読めないので、今は属性なしです。保存すると、ここでえらんだ属性になります）' : '');
     };
-    [handIn, rarIn].forEach((x) => x.addEventListener('change', showWarn));
+    [handIn, rarIn].concat(attrIn ? [attrIn] : []).forEach((x) => x.addEventListener('change', showWarn));
+    showWarn();
     // 画像の差しかえ：新しい絵をえらぶと、型に当てはめた見本が出る
     const comp = makeComposer(() => ({ rarity: rarIn.value, name: nameIn.value, hand: handIn.value, line: lineIn.value, gachaType: gachaIn.value }), { optional: true });
     [nameIn, handIn, lineIn, rarIn, gachaIn].forEach((x) => { x.addEventListener('input', comp.refresh); x.addEventListener('change', comp.refresh); });
@@ -351,7 +404,7 @@
       msgEl.textContent = comp.hasPicture() ? '画像を作って保存しています...' : '保存しています...'; msgEl.className = 'adm-note';
       let saved = null;
       comp.exportImages().then((imgs) => { saved = imgs; return app.call('admin.cardUpdate', Object.assign({ no: c.no, name: nameIn.value, rarity: rarIn.value, gachaType: gachaIn.value, hand: handIn.value, effect: effIn.value, line: lineIn.value },
-        imgs ? { image: imgs.full, thumb: imgs.thumb, source: imgs.source || '' } : {})); })
+        attrIn ? { attr: attrIn.value } : {}, imgs ? { image: imgs.full, thumb: imgs.thumb, source: imgs.source || '' } : {})); })
         .then((x) => {
           if (x.image) { rememberSaved(c.no, x.source ? saved : Object.assign({}, saved, { source: '' })); c.image = x.image; }
           msgEl.textContent = x.changed.length ? '保存しました（' + x.changed.join('・') + '）。' + (x.image ? '画像は GitHub に入れました。表示が変わるまで数分かかることがあります。' : '') : '変わったところはありませんでした。';
@@ -369,7 +422,8 @@
       img,
       el('div', {}, [
         el('div', { class: 'adm-title', style: 'font-size:18px;margin-bottom:6px', text: 'No.' + c.no + ' を編集（持っている子：' + c.owners + '人）' }),
-        el('div', { class: 'adm-form' }, [f('カード名', nameIn), f('レアリティ', rarIn), f('ガチャの種類', gachaIn), f('手', handIn), f('ステップアップ効果', effIn), f('セリフ', lineIn)]),
+        el('div', { class: 'adm-form' }, [f('カード名', nameIn), f('レアリティ', rarIn), f('ガチャの種類', gachaIn), f('手', handIn), f('ステップアップ効果', effIn), attrIn ? f('属性', attrIn) : null, f('セリフ', lineIn)]),
+        attrIn ? attrHintEl : null,
         warn,
         el('div', { class: 'adm-note', style: 'margin-top:10px' }, [reframe, '　新しい型（キラキラもふくむ）に入れ直すとき。ガチャの種類を「キラキラ」にすると、キラキラの型になります']),
         el('div', { class: 'adm-note' }, ['画像を差しかえるとき：絵をえらぶ → ', file]),
@@ -960,9 +1014,17 @@
   }
 
   // ---------- カードの承認 ----------
+  //   属性の表：admin.cardRequests が送ってこない（今の Api.gs）ときは、カード一覧（admin.cards）から1回だけ借りる。借りられなければ、属性の欄は出さない
+  let attrBorrowed = null;
+  function withAttrs(d) {
+    if (attrList(d) || !(d.pending || []).length) return Promise.resolve(d);
+    const use = (x) => Object.assign(d, { attrs: x.attrs, attrCombos: x.attrCombos });
+    if (attrBorrowed) return Promise.resolve(use(attrBorrowed));
+    return app.call('admin.cards').then((x) => { if (attrList(x)) attrBorrowed = { attrs: x.attrs, attrCombos: x.attrCombos }; return attrBorrowed ? use(attrBorrowed) : d; }).catch(() => d);
+  }
   function renderCards() {
     setBusy();
-    app.call('admin.cardRequests', { all: true }).then((d) => {
+    app.call('admin.cardRequests', { all: true }).then(withAttrs).then((d) => {
       const note = d.autoGithub
         ? '承認すると、画像が GitHub に自動で追加されます。カードはすぐガチャ・図鑑に入りますが、絵が表示されるまで1〜10分かかります。作った子には1枚プレゼントされます。'
         : 'GITHUB_TOKEN が未設定なので「手動」です。承認したあとに出る2つの画像を、GitHub Desktop で web/assets/cards/（大きい画像）と web/assets/cards/thumb/（小さい画像）に入れて Push してください。';
@@ -1003,6 +1065,15 @@
     rarIn.addEventListener('change', () => fillEff(handIn.value, effIn.value));
     const lineIn = el('input', { type: 'text', maxlength: '30', value: r.line });
     const gachaIn = el('select', {}, [el('option', { value: '', text: 'えらぶ' })].concat(opt(d.gachaTypes, '')));
+    // 属性（2026-11-05）：先生がえらぶ（子どもはえらばない）。はじめは属性なし
+    const attrIn = attrList(d) ? attrSelect(d, r.attr || '') : null;
+    const attrHintEl = el('div', { class: 'adm-attr-hint' });
+    const showAttrHint = () => {
+      if (!attrIn) return;
+      const chip = attrChipEl(d, attrIn.value);
+      attrHintEl.replaceChildren(...(chip ? [chip, ' '] : []), ...attrHint(d, attrIn.value));
+    };
+    if (attrIn) { attrIn.addEventListener('change', showAttrHint); showAttrHint(); }
     const comIn = el('input', { type: 'text', maxlength: '100', placeholder: '子どもへのひとこと（なくてもよい）' });
     const msgEl = el('div', { class: 'adm-note' });
     const img = el('img', { src: r.thumb || '', alt: r.name, title: 'クリックで大きく見る' });
@@ -1027,7 +1098,7 @@
         .then((imgs) => {
           made = imgs;
           return app.call('admin.cardDecide', Object.assign({ id: r.id, decision: decision, rarity: rarIn.value, gachaType: gachaIn.value, name: nameIn.value, hand: handIn.value, effect: effIn.value, line: lineIn.value, comment: comIn.value },
-            imgs ? { composed: imgs.full, composedThumb: imgs.thumb, composedSource: imgs.source || '' } : {}));
+            attrIn && decision === 'approve' ? { attr: attrIn.value } : {}, imgs ? { composed: imgs.full, composedThumb: imgs.thumb, composedSource: imgs.source || '' } : {}));
         })
         .then((x) => {
           if (x.decided !== '承認') { msgEl.textContent = '見送りました。子どもの画面にコメントが表示されます。'; msgEl.className = 'adm-note adm-ok'; return; }
@@ -1045,7 +1116,8 @@
       img,
       el('div', {}, [
         el('div', { class: 'adm-note', text: r.time + '　' + r.studentId + '番 ' + (r.nickname || '') }),
-        el('div', { class: 'adm-form' }, [f('カード名', nameIn), f('手', handIn), f('ステップアップ効果', effIn), f('セリフ', lineIn), f('レアリティ', rarIn), f('ガチャの種類', gachaIn), f('コメント', comIn)]),
+        el('div', { class: 'adm-form' }, [f('カード名', nameIn), f('手', handIn), f('ステップアップ効果', effIn), f('セリフ', lineIn), f('レアリティ', rarIn), f('ガチャの種類', gachaIn), attrIn ? f('属性', attrIn) : null, f('コメント', comIn)]),
+        attrIn ? attrHintEl : null,
         comp.el,
         el('div', { class: 'adm-acts' }, [yes, no]),
         msgEl

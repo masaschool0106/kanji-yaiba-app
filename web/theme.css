@@ -87,6 +87,16 @@ body.hud-theme {
 [data-page="zukan"] .card-effect .ef-label { color: #a5b4fc !important; }
 [data-page="zukan"] .card-effect .ef-name { color: #fde68a !important; }
 [data-page="zukan"] #message { color: #fca5a5; }
+/* 図鑑の属性（2026-11-05）：ならべかた・属性でしぼるボタンと説明を暗い板に（くわしい形は pixel.css） */
+[data-page="zukan"] .sort-btn, [data-page="zukan"] .attr-btn { background: rgba(15, 23, 42, 0.9) !important; color: #e2e8f0 !important; border-color: var(--hud-line) !important; }
+[data-page="zukan"] .sort-btn.active, [data-page="zukan"] .attr-btn.all.active { background: linear-gradient(135deg, #0ea5e9, #7c3aed) !important; color: #fff !important; }
+[data-page="zukan"] .attr-btn.active:not(.all) { background: var(--attr-c, #64748b) !important; color: #000 !important; }
+[data-page="zukan"] .attr-help, [data-page="zukan"] .ah-list li { background: rgba(2, 6, 23, 0.55) !important; color: #e2e8f0 !important; border-color: var(--hud-line) !important; }
+[data-page="zukan"] .ah-list li { border-left-color: var(--attr-c, #64748b) !important; }
+[data-page="zukan"] .attr-help .ah-note { color: #cbd5e1 !important; }
+
+/* 属性のチップ（2026-11-05・どの画面でも）：色は属性の色（--attr-c）・字は黒 */
+.hud-theme .attr-chip { display: inline-block; padding: 0 6px; border: 1px solid rgba(0, 0, 0, 0.6); border-radius: 6px; background: var(--attr-c, #94a3b8); color: #000; font-size: 12px; font-weight: 700; line-height: 1.5; white-space: nowrap; vertical-align: middle; }
 
 /* ---------- クイズ ---------- */
 [data-page="quiz"] .status-panel, [data-page="quiz"] .start-screen, [data-page="quiz"] .question-box { border: 1px solid var(--hud-line) !important; box-shadow: 0 0 24px rgba(56, 189, 248, 0.12); }
