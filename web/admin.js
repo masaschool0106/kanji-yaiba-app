@@ -7,7 +7,7 @@
 (function () {
   'use strict';
   // 管理画面の版：画面の上に出す。Push したのに新しいボタンが出ないときは、ここが古いまま（5分ほど待って Ctrl＋Shift＋R）
-  const ADMIN_VERSION = '2026-11-05（カードの属性）';
+  const ADMIN_VERSION = '2026-11-05（属性・キラキラ版）';
   let app = null, root = null, students = [], tab = 'students', filterId = '';
 
   const CSS = `
@@ -1084,8 +1084,29 @@
     });
     // カードの型に当てはめる（レアリティ・名前・手・セリフを変えると、見本もすぐ変わる）
     const comp = makeComposer(() => ({ rarity: rarIn.value || 'N', name: nameIn.value, hand: handIn.value, line: lineIn.value, gachaType: gachaIn.value }));
-    app.call('admin.cardImage', { id: r.id }).then((x) => { if (x.image) comp.setPicture(x.image); }).catch(() => comp.fail('申請の画像を読めませんでした'));
+    // キラキラ版（2026-11-05）：同じ絵・同じレアリティ・同じ名前で、キラキラのガチャのカードももう1枚（次の番号）。作った子へのプレゼントは、ふつう版だけ
+    //   ガチャの種類は、ふつう版に合わせて自動（ノーマル → キラキラ　ノーマル、レア → キラキラ　レア）。絵の位置は、キラキラ版の見本で別に動かせる
+    const kiraTypes = (d.gachaTypes || []).filter(isKiraGacha);
+    const kiraIn = el('input', { type: 'checkbox' });
+    const kiraGachaIn = el('select', {}, kiraTypes.map((v) => el('option', { value: v, text: v })));
+    const comp2 = makeComposer(() => ({ rarity: rarIn.value || 'N', name: nameIn.value, hand: handIn.value, line: lineIn.value, gachaType: kiraGachaIn.value }));
+    const kiraRow = el('div', { class: 'adm-note' }, [el('label', {}, [kiraIn, ' ✨ キラキラ版も作る（同じ絵・同じレアリティ・同じ名前で、次の番号のカード。作った子へのプレゼントは、ふつう版だけ）']), '　ガチャ：', kiraGachaIn]);
+    const kiraBox = el('div', { hidden: '' }, [el('div', { class: 'adm-note', text: '✨ キラキラ版の見本（絵の位置は、こちらで別に動かせます）' }), comp2.el]);
+    const kiraOn = () => kiraTypes.length > 0 && kiraIn.checked && !isKiraGacha(gachaIn.value);
+    const syncKira = () => {
+      const want = kiraTypes.find((k) => k.replace(/^キラキラ\s*/, '') === gachaIn.value);   // ノーマル → キラキラ　ノーマル など
+      if (want) kiraGachaIn.value = want;
+      kiraRow.hidden = !kiraTypes.length || isKiraGacha(gachaIn.value);   // ふつう版がもうキラキラなら、いらない
+      kiraBox.hidden = !kiraOn();
+      if (kiraOn()) comp2.refresh();
+    };
+    kiraIn.addEventListener('change', syncKira);
+    gachaIn.addEventListener('change', syncKira);
+    kiraGachaIn.addEventListener('change', () => comp2.refresh());
+    app.call('admin.cardImage', { id: r.id }).then((x) => { if (x.image) { comp.setPicture(x.image); comp2.setPicture(x.image); } }).catch(() => comp.fail('申請の画像を読めませんでした'));
     [nameIn, handIn, lineIn, rarIn, gachaIn].forEach((x) => { x.addEventListener('input', comp.refresh); x.addEventListener('change', comp.refresh); });
+    [nameIn, handIn, lineIn, rarIn].forEach((x) => { x.addEventListener('input', () => { if (kiraOn()) comp2.refresh(); }); x.addEventListener('change', () => { if (kiraOn()) comp2.refresh(); }); });
+    syncKira();
     const yes = el('button', { type: 'button', class: 'adm-yes', text: '✅ 承認してカードにする' });
     const no = el('button', { type: 'button', class: 'adm-no', text: '見送る' });
     const decide = (decision) => {
@@ -1093,19 +1114,29 @@
       if (decision === 'reject' && !confirm('この申請を見送りますか？（画像はドライブのごみ箱に入ります）')) return;
       yes.disabled = no.disabled = true;
       msgEl.textContent = decision === 'approve' ? '追加しています...' : '記録しています...'; msgEl.className = 'adm-note';
-      let made = null;
+      let made = null, made2 = null;
+      const withKira = decision === 'approve' && kiraOn();
       (decision === 'approve' ? comp.exportImages() : Promise.resolve(null))
         .then((imgs) => {
           made = imgs;
+          if (!withKira) return null;
+          return comp2.exportImages().then((k) => {
+            if (!k || !k.kira) throw new Error('キラキラ版の画像を作れませんでした（キラキラ版の見本の「カードの型に入れる」を入れてください）。');
+            return k;
+          });
+        })
+        .then((k) => {
+          made2 = k;
           return app.call('admin.cardDecide', Object.assign({ id: r.id, decision: decision, rarity: rarIn.value, gachaType: gachaIn.value, name: nameIn.value, hand: handIn.value, effect: effIn.value, line: lineIn.value, comment: comIn.value },
-            attrIn && decision === 'approve' ? { attr: attrIn.value } : {}, imgs ? { composed: imgs.full, composedThumb: imgs.thumb, composedSource: imgs.source || '' } : {}));
+            attrIn && decision === 'approve' ? { attr: attrIn.value } : {}, made ? { composed: made.full, composedThumb: made.thumb, composedSource: made.source || '' } : {},
+            k ? { kira: { gachaType: kiraGachaIn.value, composed: k.full, composedThumb: k.thumb, composedSource: k.source || '' } } : {}));
         })
         .then((x) => {
           if (x.decided !== '承認') { msgEl.textContent = '見送りました。子どもの画面にコメントが表示されます。'; msgEl.className = 'adm-note adm-ok'; return; }
-          msgEl.textContent = 'カード No.' + x.rank + ' として追加しました。' + (x.github === '自動' ? '（GitHub に自動で追加済み。絵が表示されるまで1〜10分かかります。すぐに開いて出ないときは、10分ほど待ってから Ctrl＋Shift＋R で開き直してください）' : '');
+          msgEl.textContent = 'カード No.' + x.rank + ' として追加しました。' + (x.kiraRank ? 'キラキラ版は No.' + x.kiraRank + ' です。' : '') + (x.github === '自動' ? '（GitHub に自動で追加済み。絵が表示されるまで1〜10分かかります。すぐに開いて出ないときは、10分ほど待ってから Ctrl＋Shift＋R で開き直してください）' : '');
           msgEl.className = 'adm-note adm-ok';
-          if (x.github !== '自動') manualDownloads(r.id, x.rank, msgEl, made);
-          else rememberSaved(x.rank, made);
+          if (x.github !== '自動') { manualDownloads(r.id, x.rank, msgEl, made); if (x.kiraRank && made2) manualDownloads(r.id, x.kiraRank, msgEl, made2); }
+          else { rememberSaved(x.rank, made); if (x.kiraRank) rememberSaved(x.kiraRank, made2); }
         })
         .catch((err) => { msgEl.textContent = '⚠️ ' + (err.message || 'できませんでした'); msgEl.className = 'adm-note adm-ng'; yes.disabled = no.disabled = false; });
     };
@@ -1119,6 +1150,8 @@
         el('div', { class: 'adm-form' }, [f('カード名', nameIn), f('手', handIn), f('ステップアップ効果', effIn), f('セリフ', lineIn), f('レアリティ', rarIn), f('ガチャの種類', gachaIn), attrIn ? f('属性', attrIn) : null, f('コメント', comIn)]),
         attrIn ? attrHintEl : null,
         comp.el,
+        kiraRow,
+        kiraBox,
         el('div', { class: 'adm-acts' }, [yes, no]),
         msgEl
       ])
