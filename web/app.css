@@ -382,3 +382,22 @@ html.raid-on body:not(.view-mypage)::before { content: ''; position: fixed; inse
 }
 .event-go:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--k); }
 @media (prefers-reduced-motion: reduce) { .event-go:active { transform: none; } }
+
+/* ==================== 📅 イベントの予定（マイページ。行き先のタイルの下。2026-11-07） ==================== */
+.schedule-box {
+  margin: 18px 0; padding: 14px 16px; color: var(--white); background: var(--navy);
+  box-shadow: 0 0 0 4px var(--k), inset 0 4px 0 rgba(255, 255, 255, 0.12), inset 0 -4px 0 rgba(0, 0, 0, 0.3);
+}
+.schedule-title { margin: 0 0 10px; font-family: var(--px-font); font-size: 19px; font-weight: normal; color: var(--yellow); text-shadow: 2px 2px 0 var(--k); }
+.schedule-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.schedule-item { padding: 8px 12px 8px 16px; background: rgba(0, 0, 0, 0.35); box-shadow: inset 6px 0 0 var(--gray); line-height: 1.5; }
+.schedule-item.is-dojo { box-shadow: inset 6px 0 0 var(--brown); }
+.schedule-item.is-raid { box-shadow: inset 6px 0 0 var(--red); }
+.schedule-item.is-monthend { box-shadow: inset 6px 0 0 var(--yellow); }
+.schedule-item.is-now { background: rgba(255, 0, 77, 0.22); }
+.schedule-item[role="button"] { cursor: pointer; touch-action: manipulation; }
+.schedule-item[role="button"]:focus-visible { outline: 3px solid var(--yellow); outline-offset: 2px; }
+.schedule-when { font-size: 14px; color: var(--peach); }
+.schedule-item.is-now .schedule-when { color: var(--yellow); }
+.schedule-what { font-family: var(--px-font); font-size: 17px; color: var(--white); text-shadow: 2px 2px 0 var(--k); overflow-wrap: anywhere; }
+.schedule-sub { font-size: 13px; color: var(--lgray); }

@@ -55,6 +55,7 @@
     storeRemove(LEGACY_NUM_KEY);
     renderTradeBadge(0);   // 前の子の「交換の申しこみ」の知らせを残さない
     renderEvent(null);     // 前の子のイベントの知らせも残さない
+    renderSchedule(null);
   }
 
   // ==================== 通信（サーバーの窓口は api() ひとつだけ） ====================
@@ -162,6 +163,7 @@
         renderRanking(data.ranking);
         renderRaid(data.raid);
         renderEvent(data.event);   // 期間限定イベント（GAS の Api.gs が前の版なら data.event がないので、出さない）
+        renderSchedule(data.schedule);   // 📅 イベントの予定（前の版の Api.gs なら出さない）
         loadTradeBadge();
         if (!state.jamaicaDone) { state.jamaicaDone = true; syncJamaica(); }
       })
@@ -586,6 +588,35 @@
       '<div class="event-sub">' + sub + '</div>' + (go ? '<button type="button" class="event-go" id="eventGo">' + go + '</button>' : '');
     const b = $('eventGo');
     if (b) b.addEventListener('click', openEvent);
+  }
+  // 📅 イベントの予定（2026-11-07）：道場破りの期間と、金曜の巨大ボス。中身はサーバーの boot の schedule（日付の計算はサーバー）
+  //   行き先のタイルの下・ランキングの上に出す。予定がないときは出さない。名前などは textContent で入れる
+  function renderSchedule(sc) {
+    let box = $('scheduleBox');
+    const items = sc && Array.isArray(sc.items) ? sc.items : [];
+    if (!items.length) { if (box) box.remove(); return; }
+    if (!box) {
+      box = document.createElement('section');
+      box.id = 'scheduleBox'; box.className = 'schedule-box'; box.setAttribute('aria-label', 'イベントの予定');
+      const anchor = document.querySelector('#view-mypage .main-content');
+      if (anchor) anchor.parentNode.insertBefore(box, anchor); else $('view-mypage').appendChild(box);
+    }
+    const head = document.createElement('h2');
+    head.className = 'schedule-title';
+    head.textContent = '📅 イベントの予定（' + (Number(sc.days) || 35) + '日先まで）';
+    const list = document.createElement('ul');
+    list.className = 'schedule-list';
+    items.forEach((it) => {
+      const li = document.createElement('li');
+      li.className = 'schedule-item ' + (it.kind === 'dojo' ? 'is-dojo' : it.kind === 'monthend' ? 'is-monthend' : 'is-raid') + (it.now ? ' is-now' : '');
+      const when = document.createElement('div'); when.className = 'schedule-when'; when.textContent = (it.now ? '▶ ' : '') + it.when;
+      const what = document.createElement('div'); what.className = 'schedule-what'; what.textContent = it.title;
+      const sub = document.createElement('div'); sub.className = 'schedule-sub'; sub.textContent = it.sub || '';
+      li.append(when, what, sub);
+      if (it.kind === 'dojo' && it.now) { li.tabIndex = 0; li.setAttribute('role', 'button'); li.addEventListener('click', openEvent); li.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEvent(); } }); }
+      list.appendChild(li);
+    });
+    box.replaceChildren(head, list);
   }
   function openEvent() {
     stopRefresh();
