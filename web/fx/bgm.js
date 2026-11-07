@@ -171,10 +171,10 @@
   //   目印（MARKS）：そのページにしかない id。上から順に見る
   const MARKS = [['app', 'view-login'], ['quizrunner', 'ovTitle'], ['koukan', 'crushModal'], ['gacha', 'costNormalView'],
     ['randombattle', 'lblPower'], ['privatebattle', 'opponentIdInput'], ['battle', 'battleMenu'], ['zukan', 'zukanGrid'],
-    ['quiz', 'streakBar'], ['stepup', 'sugorokuBoard']];
+    ['quiz', 'streakBar'], ['stepup', 'sugorokuBoard'], ['defense', 'deck-slots']];
   const PAGES = {
     app: watchApp, login: 'login', mypage: 'mypage', cardmake: 'workshop', raid: 'raid',
-    gacha: 'gacha', koukan: 'koukan', trade: 'trade', battle: 'menu', randombattle: 'lobby', privatebattle: 'lobby', pvp: 'pvp',
+    gacha: 'gacha', koukan: 'koukan', trade: 'trade', battle: 'menu', defense: 'menu', randombattle: 'lobby', privatebattle: 'lobby', pvp: 'pvp',
     zukan: 'zukan', quiz: 'quiz', quizrunner: 'runnerTitle', stepup: watchStepUp, roguelike: watchStepUp
   };
 
