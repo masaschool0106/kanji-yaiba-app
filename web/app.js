@@ -56,6 +56,7 @@
     renderTradeBadge(0);   // 前の子の「交換の申しこみ」の知らせを残さない
     renderEvent(null);     // 前の子のイベントの知らせも残さない
     renderSchedule(null);
+    renderTaisen(null);    // 前の子の「対戦表で勝った！」も残さない
   }
 
   // ==================== 通信（サーバーの窓口は api() ひとつだけ） ====================
@@ -164,6 +165,7 @@
         renderRaid(data.raid);
         renderEvent(data.event);   // 期間限定イベント（GAS の Api.gs が前の版なら data.event がないので、出さない）
         renderSchedule(data.schedule);   // 📅 イベントの予定（前の版の Api.gs なら出さない）
+        renderTaisen(data.taisen);       // 🆚 漢字テストの対戦表で勝った知らせ（11/8。前の版の Api.gs・Taisen.gs がないときは出さない）
         loadTradeBadge();
         if (!state.jamaicaDone) { state.jamaicaDone = true; syncJamaica(); }
       })
@@ -617,6 +619,36 @@
       list.appendChild(li);
     });
     box.replaceChildren(head, list);
+  }
+  // ==================== 🆚 漢字テストの対戦表（2026-11-08） ====================
+  // 先生が管理画面で配ったら、7日間マイページに「対戦表で勝った！ +10pt」を出す（中身はサーバーの boot の taisen。ポイントの数もサーバー）
+  //   「OK！」を押したら、その回はもう出さない（この端末だけ。知らせのしるしを localStorage におぼえる）。名前などは textContent で入れる
+  function renderTaisen(t) {
+    let box = $('taisenBanner');
+    const recent = t && Array.isArray(t.recent) ? t.recent : [];
+    const seenKey = 'kanji_taisen_seen_' + ((state.player && state.player.studentId) || '');
+    if (!recent.length || storeGet(seenKey) === String(recent[0].key)) { if (box) box.remove(); return; }
+    if (!box) {
+      box = document.createElement('section');
+      box.id = 'taisenBanner'; box.className = 'taisen-banner'; box.setAttribute('role', 'status');
+      const anchor = document.querySelector('#view-mypage .carousel-wrap');
+      if (anchor) anchor.parentNode.insertBefore(box, anchor); else $('view-mypage').appendChild(box);
+    }
+    const top = recent[0];
+    const title = document.createElement('div');
+    title.className = 'taisen-title';
+    title.append('🆚 漢字テストの対戦表 第' + Number(top.round) + '回で ' + (top.kind === 'win' ? '勝った！' : '引き分け！') + ' ');
+    const pt = document.createElement('b'); pt.textContent = '+' + Number(top.pt) + 'pt'; title.appendChild(pt);
+    const sub = document.createElement('div');
+    sub.className = 'taisen-sub';
+    const more = recent.slice(1).map((x) => '第' + Number(x.round) + '回 ' + (x.kind === 'win' ? '勝ち' : '引き分け') + ' +' + Number(x.pt) + 'pt').join('・');
+    const tally = [t.wins ? Number(t.wins) + '勝' : '', t.draws ? '引き分け ' + Number(t.draws) : ''].filter(Boolean).join('・');
+    sub.textContent = top.date + 'にポイントが入ったよ。' + (more ? '（' + more + ' も入っているよ）' : '') +
+      (tally ? '　' + t.yearText + 'の対戦表：' + tally + '（もらったポイント +' + Number(t.pt) + 'pt）' : '');
+    const ok = document.createElement('button');
+    ok.type = 'button'; ok.className = 'taisen-ok'; ok.textContent = 'OK！';
+    ok.addEventListener('click', () => { storeSet(seenKey, String(top.key)); box.remove(); });
+    box.replaceChildren(title, sub, ok);
   }
   function openEvent() {
     stopRefresh();

@@ -404,3 +404,20 @@ html.raid-on body:not(.view-mypage)::before { content: ''; position: fixed; inse
 .schedule-item.is-now .schedule-when { color: var(--yellow); }
 .schedule-what { font-family: var(--px-font); font-size: 17px; color: var(--white); text-shadow: 2px 2px 0 var(--k); overflow-wrap: anywhere; }
 .schedule-sub { font-size: 13px; color: var(--lgray); }
+
+/* ==================== 🆚 漢字テストの対戦表で勝った知らせ（マイページ。先生が配ってから7日間・「OK！」でとじる。2026-11-08） ==================== */
+.taisen-banner {
+  margin: 0 0 18px; padding: 14px 16px; text-align: center; color: var(--white);
+  background: repeating-linear-gradient(135deg, #7e2553 0 12px, #6a1f46 12px 24px);
+  box-shadow: 0 0 0 4px var(--yellow), 0 0 0 8px var(--k), inset 0 4px 0 rgba(255, 255, 255, 0.15);
+}
+.taisen-title { font-family: var(--px-font); font-size: 20px; line-height: 1.4; color: var(--white); text-shadow: 2px 2px 0 var(--k); overflow-wrap: anywhere; }
+.taisen-title b { color: var(--yellow); font-weight: normal; }
+.taisen-sub { font-size: 14px; color: var(--peach); margin-top: 6px; line-height: 1.6; }
+.taisen-ok {
+  margin-top: 10px; min-height: 48px; min-width: 120px; padding: 8px 22px; border: none; border-radius: 0; cursor: pointer; touch-action: manipulation;
+  font-family: var(--px-font); font-size: 18px; color: var(--k); background: var(--yellow); text-shadow: none;
+  box-shadow: 0 4px 0 var(--k), inset 0 -4px 0 rgba(0, 0, 0, 0.2), inset 0 4px 0 rgba(255, 255, 255, 0.4);
+}
+.taisen-ok:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--k); }
+@media (prefers-reduced-motion: reduce) { .taisen-ok:active { transform: none; } }

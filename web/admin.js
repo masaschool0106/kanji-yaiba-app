@@ -1,14 +1,14 @@
 /* ===============================================================
    漢字の刃｜先生の管理画面（出席番号 32 ＋ 先生の Google アカウントのときだけ app.js が読み込む）
    ・児童一覧／ポイントの記録（PointLog）／ログインの記録（LoginLog）／カードの承認（CardRequests）／カード一覧・編集／
-     📅 イベントの予定（道場破りの期間・巨大レイドボスの来かた。11/7）／説明書（「説明書」シート）
+     📅 イベントの予定（道場破りの期間・巨大レイドボスの来かた。11/7）／🆚 対戦表（漢字テストの対戦表で勝った子にポイント。11/8）／説明書（「説明書」シート）
    ・カードの型：承認や画像の差しかえのとき、子どもの絵を型（assets/frames）に当てはめて、この画面でカードの画像を作る
    ・データはすべて GAS（google.script.run）から受け取る。先生かどうかはサーバーが毎回確かめる
    =============================================================== */
 (function () {
   'use strict';
   // 管理画面の版：画面の上に出す。Push したのに新しいボタンが出ないときは、ここが古いまま（5分ほど待って Ctrl＋Shift＋R）
-  const ADMIN_VERSION = '2026-11-07（イベントの予定）';
+  const ADMIN_VERSION = '2026-11-08（対戦表）';
   let app = null, root = null, students = [], tab = 'students', filterId = '';
 
   // 見た目（2026-11-07 からドット絵）：色は app.css の PICO-8 の16色（--k・--navy・--yellow …）。角は四角・太い黒のふち・グラデーションなし
@@ -122,6 +122,31 @@
   .adm-ev-info.ng { color: var(--pinkpx); }
   .adm-ev-sel { font: inherit; font-family: var(--adm-read); font-size: 15px; min-height: 44px; max-width: 100%; padding: 6px 10px; border: none; background: var(--white); color: var(--k); box-shadow: 0 0 0 3px var(--k); }
   #view-admin .adm-ev-prev { margin: 0; }
+  .adm-ts-round { font: inherit; font-family: var(--adm-read); font-size: 18px; width: 5em; min-height: 44px; padding: 4px 8px; border: none; background: var(--white); color: var(--k); box-shadow: 0 0 0 3px var(--gray); }
+  .adm-ts-round:focus, .adm-ts-text:focus { outline: none; box-shadow: 0 0 0 3px var(--yellow); }
+  .adm-ts-text { display: block; width: 100%; box-sizing: border-box; min-height: 150px; font-family: var(--adm-read); font-size: 14px; line-height: 1.5; padding: 8px 10px; border: none; background: var(--white); color: var(--k); box-shadow: 0 0 0 3px var(--gray); resize: vertical; tab-size: 8; }
+  .adm-ts-box { margin-top: 12px; padding: 10px 12px; background: var(--k); color: var(--white); font-family: var(--adm-read); font-size: 14px; line-height: 1.7; box-shadow: inset 0 0 0 3px var(--gray); }
+  .adm-ts-box summary { cursor: pointer; color: var(--yellow); }
+  .adm-ts-pairs { margin: 6px 0 0; padding-left: 2.2em; }
+  .adm-ts-vs { color: var(--lgray); }
+  .adm-ts-slot b { margin-left: 2px; } .ts-win b { color: var(--lime); } .ts-draw b { color: var(--yellow); } .ts-lose b { color: var(--lgray); font-weight: normal; }
+  .adm-ts-pick { display: grid; gap: 6px; margin-top: 10px; }
+  .adm-ts-grid { display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+  .adm-ts-kid { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; background: var(--k); color: var(--white); font-family: var(--adm-read); font-size: 14px; box-shadow: inset 0 0 0 3px var(--gray); }
+  .adm-ts-kid.ts-win { background: #0b3d1f; box-shadow: inset 0 0 0 3px var(--lime); } .adm-ts-kid.ts-draw { background: #3d3606; box-shadow: inset 0 0 0 3px var(--yellow); }
+  .adm-ts-kid.done { opacity: 0.6; }
+  .adm-ts-name { overflow-wrap: anywhere; }
+  .adm-ts-sel { flex: none; font: inherit; min-height: 38px; padding: 4px 6px; border: none; background: var(--white); color: var(--k); }
+  .adm-ts-done { flex: none; font-size: 13px; color: var(--lime); }
+  .adm-ts-sum { margin: 12px 0 0; font-family: var(--adm-read); font-size: 15px; color: var(--yellow); }
+  .adm-ts-hist { display: grid; gap: 6px; }
+  .adm-ts-hist details { padding: 8px 12px; background: var(--k); color: var(--white); font-family: var(--adm-read); font-size: 14px; box-shadow: inset 0 0 0 3px var(--gray); }
+  .adm-ts-hist summary { cursor: pointer; }
+  .adm-ts-items { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+  .adm-ts-items li { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 2px 0; border-top: 1px solid var(--gray); }
+  .adm-ts-items li.undone { color: var(--lgray); text-decoration: line-through; }
+  .adm-ts-undo { font: inherit; font-size: 13px; min-height: 34px; padding: 4px 10px; border: none; cursor: pointer; background: var(--gray); color: var(--white); text-shadow: 1px 1px 0 var(--k); box-shadow: 0 3px 0 var(--k); }
+  .adm-ts-undo:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--k); }
   @media (max-width: 600px) { .adm-card { grid-template-columns: 1fr; } .adm-card img { width: 160px; } .adm-edit { grid-template-columns: 1fr; } }
   `;
 
@@ -143,12 +168,12 @@
     root = el('section', { id: 'view-admin', class: 'app-view', hidden: '' }, [
       el('div', { class: 'container' }, [
         el('header', { class: 'adm-head hud-panel' }, [
-          el('div', {}, [el('div', { class: 'adm-title', text: '👩‍🏫 先生の管理画面' }), el('div', { class: 'adm-sub', text: '児童の記録の確認・カードの承認・イベントの予定の変更ができます　（管理画面の版：' + ADMIN_VERSION + '）' })]),
+          el('div', {}, [el('div', { class: 'adm-title', text: '👩‍🏫 先生の管理画面' }), el('div', { class: 'adm-sub', text: '児童の記録の確認・カードの承認・イベントの予定の変更・対戦表のポイントができます　（管理画面の版：' + ADMIN_VERSION + '）' })]),
           el('button', { type: 'button', class: 'btn-logout', text: '🚪 ログアウト', onclick: () => app.logout() })
         ]),
         el('div', { class: 'adm-tabs', id: 'admTabs' }, [
           tabBtn('students', '👥 児童一覧'), tabBtn('point', '💰 ポイントの記録'), tabBtn('login', '🔐 ログインの記録'),
-          tabBtn('cards', '🃏 カードの承認'), tabBtn('cardlist', '🗂️ カード一覧'), tabBtn('event', '📅 イベントの予定'), tabBtn('readme', '📘 説明書')
+          tabBtn('cards', '🃏 カードの承認'), tabBtn('cardlist', '🗂️ カード一覧'), tabBtn('event', '📅 イベントの予定'), tabBtn('taisen', '🆚 対戦表'), tabBtn('readme', '📘 説明書')
         ]),
         el('div', { class: 'adm-panel hud-panel', id: 'admPanel' })
       ])
@@ -171,6 +196,7 @@
     else if (tab === 'readme') renderReadme();
     else if (tab === 'cardlist') renderCardList();
     else if (tab === 'event') renderEventPlan();
+    else if (tab === 'taisen') renderTaisen();
     else renderLogs(tab);
   }
 
@@ -351,6 +377,193 @@
       prev
     ].filter(Boolean));
     showModeNote();
+  }
+
+  // ---------- 🆚 対戦表（11/8 先生「対戦表で勝利したらポイントを追加でもらえるといいな」） ----------
+  //   Excel の対戦表（シート「対戦結果表」か、Sheet2 の「対戦表原簿」）をコピーして貼る → サーバー（admin.taisenRead）が勝ち・引き分けを読む
+  //   → 先生がたしかめて「配る」（admin.taisenPay）。ポイントの数・同じ回に2回もらえないことは、サーバーが決める。ここは見せて、えらぶだけ
+  //   貼った文は、この画面とサーバーで読むだけ（どこにも書かない）。名前などは textContent で入れる
+  const TS_KIND = { win: '勝ち', draw: '引き分け', lose: '負け' };
+  let tsView = null, tsText = '', tsRead = null, tsNames = {}, tsOver = {}, tsRound = '';
+
+  function tsErrText(err) {
+    if (err && (err.code === 'BAD_ACTION' || err.code === 'NOT_READY')) return 'この画面を使うには、GAS に Taisen.gs（＋ → スクリプト）を足して、Api.gs・code.gs を新しい版に貼りかえてください（' + (err.message || '') + '）';
+    return (err && err.message) || '読み込めませんでした';
+  }
+  function renderTaisen() {
+    setBusy();
+    app.call('admin.taisen').then((d) => {
+      if (tab !== 'taisen') return;
+      tsView = d;
+      if (!tsRound) tsRound = String(d.nextRound);
+      drawTaisen();
+    }).catch((err) => { if (tab === 'taisen') showError({ message: tsErrText(err) }); });
+  }
+  // 読みとった結果に、先生が一覧で変えた分（tsOver）をかさねる。{ 出席番号: 'win' | 'draw' }
+  function tsMerged() {
+    const m = {};
+    if (tsRead) tsRead.results.forEach((r) => { m[r.id] = r.kind; });
+    Object.keys(tsOver).forEach((id) => { if (tsOver[id] === 'none') delete m[id]; else m[id] = tsOver[id]; });
+    return m;
+  }
+  function tsPaidIn(round) {   // その回にもう配った子 { 出席番号: 'win' | 'draw' }
+    const g = (tsView.rounds || []).find((x) => String(x.round) === String(round).trim());
+    const out = {};
+    if (g) g.items.forEach((it) => { if (it.paid) out[it.id] = it.kind; });
+    return out;
+  }
+  function tsPicked() { return Object.keys(tsNames).filter((k) => tsNames[k]).map((k) => ({ text: k, id: tsNames[k] })); }
+  function tsReadNow(msgEl) {
+    msgEl.className = 'adm-sub'; msgEl.textContent = '読みとっています...';
+    app.call('admin.taisenRead', { text: tsText, names: tsPicked() }).then((d) => {
+      if (tab !== 'taisen') return;
+      tsRead = d;
+      drawTaisen();
+    }).catch((err) => { msgEl.className = 'adm-ng'; msgEl.textContent = '⚠️ ' + tsErrText(err); });
+  }
+  function tsUndo(round, it, label) {
+    if (!window.confirm('第' + round + '回の ' + label(it.id) + ' の「' + TS_KIND[it.kind] + ' +' + it.pt + 'pt」を とりけします。\nポイントを ' + it.pt + 'pt もどします（もう使っていて足りないときは 0 まで）。\nよいですか？')) return;
+    app.call('admin.taisenUndo', { round: round, id: it.id }).then((x) => {
+      if (tab !== 'taisen') return;
+      tsView = x.view;
+      drawTaisen('↩ 第' + x.round + '回の ' + label(x.undone.id) + ' を とりけしました（' + x.undone.pt + 'pt もどしました' + (x.undone.short ? '。' + x.undone.short + 'pt は もう使っていたので、0pt にしました' : '') + '）。');
+    }).catch((err) => window.alert('⚠️ ' + tsErrText(err)));
+  }
+
+  function drawTaisen(note) {
+    const d = tsView, byId = {};
+    d.students.forEach((s) => { byId[s.id] = s; });
+    const label = (id) => { const s = byId[id]; return id + '番 ' + (s ? (s.nickname || '（名前なし）') + (s.test ? '（ためし）' : '') : ''); };
+    const last = (d.rounds || [])[0];
+    const status = el('div', { class: 'adm-ev-status on' }, [
+      el('div', {}, [el('b', { text: '🆚 漢字テストの対戦表のポイント：' }), '勝ち +' + d.winPt + 'pt・引き分け +' + d.drawPt + 'pt（負けは 0pt）。同じ回には1人1回だけ']),
+      el('div', { class: 'adm-sub', text: d.yearText + '：' + (last ? 'これまで ' + d.rounds.length + '回分・合計 ' + d.total + 'pt を配りました（いちばん新しいのは 第' + last.round + '回・' + last.date + '）' : 'まだ配っていません') +
+        '　／　子どものマイページには ' + d.showDays + '日間「勝った！」が出ます' })
+    ]);
+
+    // ① 第何回
+    const roundIn = el('input', { type: 'number', min: '1', max: String(d.roundMax), inputmode: 'numeric', class: 'adm-ts-round', 'aria-label': '第何回のテストか' });
+    roundIn.value = tsRound;
+
+    // ② 貼る
+    const ta = el('textarea', { class: 'adm-ts-text', rows: '8', spellcheck: 'false', 'aria-label': '対戦表を貼るところ',
+      placeholder: 'ここに貼る（Ctrl＋V）\n例）　炎の柱　VS　水の柱　火炎斬り　…　L' });
+    ta.value = tsText;
+    ta.addEventListener('input', () => { tsText = ta.value; });
+    const readMsg = el('span', { class: 'adm-sub' });
+    const readBtn = el('button', { type: 'button', class: 'adm-yes', text: '🔍 読みとる' });
+    readBtn.addEventListener('click', () => {
+      if (!tsText.trim()) { readMsg.className = 'adm-ng'; readMsg.textContent = '⚠️ 対戦表をコピーして、上に貼ってください'; return; }
+      tsOver = {};   // 新しく読むときは、前に一覧で変えた分は使わない
+      tsReadNow(readMsg);
+    });
+    const clearBtn = el('button', { type: 'button', class: 'adm-no', text: '🧹 消す', onclick: () => { tsText = ''; tsRead = null; tsNames = {}; tsOver = {}; drawTaisen(); } });
+
+    // ③ 読みとった結果
+    const readBox = [];
+    if (tsRead) {
+      const r = tsRead;
+      const slotEl = (s) => {
+        if (!s) return el('span', { class: 'adm-ts-vs', text: '（相手なし）' });
+        return el('span', { class: 'adm-ts-slot' + (s.kind ? ' ts-' + s.kind : '') }, [s.id ? label(s.id) : '「' + s.text + '」？', s.kind ? el('b', { text: TS_KIND[s.kind] }) : null]);
+      };
+      readBox.push(el('details', { class: 'adm-ts-box', open: '' }, [
+        el('summary', { text: '読みとった組み合わせ（' + r.rows.length + '組）' }),
+        r.rows.length ? el('ol', { class: 'adm-ts-pairs' }, r.rows.map((row) => el('li', {}, [
+          slotEl(row.a), el('span', { class: 'adm-ts-vs', text: '　VS　' }), slotEl(row.b),
+          el('span', { class: row.judge ? 'adm-sub' : 'adm-ng', text: '　' + (row.judge ? '判定 ' + row.judge + (row.how && row.how !== 'LRE' ? '（' + row.how + '）' : '') : '⚠️ 勝ち負けを読めない') })
+        ]))) : el('div', { class: 'adm-ng', text: '⚠️ 組み合わせを読めませんでした。「対戦結果表」の表（柱名・VS・柱名・決め技・判定 の行）をコピーしたか、たしかめてください。' })
+      ]));
+      // 名前がわからない（・先生がえらんだ）ところは、ここでえらぶ → もう一度読む（決め技の判定も読みなおす）
+      const picks = [], seen = {};
+      r.rows.forEach((row) => [row.a, row.b].forEach((s) => {
+        if (!s || (s.id && s.by !== 'pick') || seen[s.text]) return;
+        seen[s.text] = true;
+        const u = r.unknown.find((x) => x.text === s.text) || {};
+        const sel = el('select', { class: 'adm-ev-sel', 'aria-label': '「' + s.text + '」はだれ？' },
+          [el('option', { value: '', text: 'だれ？（えらぶ）' })].concat(d.students.map((x) => el('option', { value: x.id, text: label(x.id) }))));
+        sel.value = tsNames[s.text] || s.id || '';
+        sel.addEventListener('change', () => { tsNames[s.text] = sel.value; tsReadNow(readMsg); });
+        picks.push(el('div', { class: 'adm-ev-row' }, [(s.id ? '✋ ' : '⚠️ ') + row.line + '行目「' + s.text + '」' + (u.why === 'same' ? '（同じニックネームの子が2人）' : '') + (s.kind ? '・' + TS_KIND[s.kind] : '') + ' → ', sel]));
+      }));
+      if (picks.length) readBox.push(el('div', { class: 'adm-ts-pick' }, [el('div', { class: 'adm-warn', text: '名前が Students のニックネームと合わない子です。だれかをえらぶと、次からは自動で読みます（名前の字は のこしません）。' })].concat(picks)));
+      if (r.undecided.length) readBox.push(el('div', { class: 'adm-warn', text: '⚠️ 勝ち負けを読めなかった行：' + r.undecided.map((u) => u.line + '行目（' + u.text + '）').join('、') + '。下の一覧で えらんでください。' }));
+      if (r.conflicts.length) readBox.push(el('div', { class: 'adm-warn', text: '⚠️ 勝ちと負けの両方に出てくる子：' + r.conflicts.map((c) => label(c.id)).join('、') + '。下の一覧で えらんでください。' }));
+    }
+
+    // 一覧（えらび直せる）と配るボタン
+    const grid = el('div', { class: 'adm-ts-grid' });
+    const sum = el('div', { class: 'adm-ts-sum' });
+    const payBtn = el('button', { type: 'button', class: 'adm-yes', text: '💰 ポイントを配る' });
+    const payMsg = el('span', { class: note ? 'adm-ok' : 'adm-sub', text: note || '' });
+    const toPay = () => { const m = tsMerged(), paid = tsPaidIn(tsRound); return Object.keys(m).filter((id) => !paid[id] && byId[id]).map((id) => ({ id: id, kind: m[id] })); };
+    const drawGrid = () => {
+      const m = tsMerged(), paid = tsPaidIn(tsRound);
+      grid.replaceChildren(...d.students.map((s) => {
+        const done = paid[s.id];
+        const sel = el('select', { class: 'adm-ts-sel', 'aria-label': label(s.id) + ' の結果' }, [
+          el('option', { value: 'none', text: '―（負け・休み）' }),
+          el('option', { value: 'win', text: '勝ち +' + d.winPt + 'pt' }),
+          el('option', { value: 'draw', text: '引き分け +' + d.drawPt + 'pt' })]);
+        sel.value = m[s.id] || 'none';
+        sel.addEventListener('change', () => { tsOver[s.id] = sel.value; drawGrid(); });
+        return el('div', { class: 'adm-ts-kid' + (done ? ' done' : m[s.id] ? ' ts-' + m[s.id] : '') }, [
+          el('span', { class: 'adm-ts-name', text: label(s.id) }),
+          done ? el('span', { class: 'adm-ts-done', text: '✓ 配った（' + TS_KIND[done] + '）' }) : sel]);
+      }));
+      const list = toPay(), w = list.filter((x) => x.kind === 'win').length, dr = list.length - w, nPaid = Object.keys(paid).length;
+      sum.textContent = '第' + (tsRound || '？') + '回に配る子：勝ち ' + w + '人（+' + (w * d.winPt) + 'pt）・引き分け ' + dr + '人（+' + (dr * d.drawPt) + 'pt）' +
+        (nPaid ? '　／　この回に もう配った子 ' + nPaid + '人（とばします）' : '');
+      payBtn.disabled = !list.length;
+    };
+    roundIn.addEventListener('input', () => { tsRound = roundIn.value.trim(); drawGrid(); });
+    payBtn.addEventListener('click', () => {
+      const round = parseInt(tsRound, 10);
+      if (!(round >= 1 && round <= d.roundMax) || String(round) !== String(tsRound).trim()) { payMsg.className = 'adm-ng'; payMsg.textContent = '⚠️ 第何回のテストかを 1〜' + d.roundMax + ' の数で入れてください'; return; }
+      const list = toPay(), w = list.filter((x) => x.kind === 'win').length, dr = list.length - w;
+      if (!list.length) { payMsg.className = 'adm-ng'; payMsg.textContent = '⚠️ 配る子がいません'; return; }
+      let ask = '第' + round + '回の対戦表のポイントを配ります。\n勝ち ' + w + '人（+' + d.winPt + 'pt ずつ）・引き分け ' + dr + '人（+' + d.drawPt + 'pt ずつ）';
+      const same = (d.rounds || []).find((g) => g.today && g.round !== round);
+      if (same) ask += '\n\n⚠️ 今日は もう 第' + same.round + '回を配っています。同じテストではありませんか？（同じテストなら「キャンセル」して、回の数を ' + same.round + ' にしてください）';
+      if (!window.confirm(ask + '\n\nよいですか？')) return;
+      payBtn.disabled = true; payMsg.className = 'adm-sub'; payMsg.textContent = '配っています...';
+      app.call('admin.taisenPay', { round: round, results: list, names: tsPicked() }).then((x) => {
+        if (tab !== 'taisen') return;
+        tsView = x.view;
+        const pw = x.paid.filter((p) => p.kind === 'win').length;
+        const msg = '✅ 第' + x.round + '回：勝ち ' + pw + '人・引き分け ' + (x.paid.length - pw) + '人に配りました' +
+          (x.skipped.length ? '（もう配っていた ' + x.skipped.length + '人は とばしました）' : '') + '。子どものマイページには、次に開いたときに出ます。';
+        if (x.paid.length) { tsText = ''; tsRead = null; tsNames = {}; tsOver = {}; tsRound = String(x.view.nextRound); }
+        drawTaisen(msg);
+      }).catch((err) => { payBtn.disabled = false; payMsg.className = 'adm-ng'; payMsg.textContent = '⚠️ ' + tsErrText(err); });
+    });
+    drawGrid();
+
+    // ④ これまでの記録（今年度）
+    const hist = (d.rounds || []).length ? el('div', { class: 'adm-ts-hist' }, d.rounds.map((g) => el('details', {}, [
+      el('summary', { text: '第' + g.round + '回（' + g.date + '）　勝ち ' + g.wins + '人・引き分け ' + g.draws + '人・' + g.pt + 'pt' + (g.undone ? '・とりけし ' + g.undone + '人' : '') }),
+      el('ul', { class: 'adm-ts-items' }, g.items.map((it) => el('li', { class: it.paid ? '' : 'undone' }, [
+        el('span', { text: label(it.id) + '：' + TS_KIND[it.kind] + ' +' + it.pt + 'pt（' + it.time + '）' + (it.paid ? '' : '　とりけし') }),
+        it.paid ? el('button', { type: 'button', class: 'adm-ts-undo', text: '↩ とりけす', 'aria-label': '第' + g.round + '回の ' + label(it.id) + ' をとりけす', onclick: () => tsUndo(g.round, it, label) }) : null
+      ])))
+    ]))) : el('div', { class: 'adm-empty', text: 'まだ配っていません' });
+
+    panel().replaceChildren(...[
+      status,
+      el('h3', { class: 'adm-ev-h', text: '① 何回目の漢字テスト？' }),
+      el('div', { class: 'adm-ev-row' }, ['第', roundIn, '回',
+        el('span', { class: 'adm-ev-info', text: (last ? '前回は 第' + last.round + '回（' + last.date + '）。' : '') + 'Excel の対戦表の「テスト回数」（C1）と同じ数がおすすめ' })]),
+      el('h3', { class: 'adm-ev-h', text: '② 対戦表の結果を貼る' }),
+      el('div', { class: 'adm-note', text: 'Excel の対戦表で、シート「対戦結果表」の組み合わせの表（柱名・VS・柱名・決め技・判定 の行）をえらんでコピー（Ctrl＋C）し、下に貼って（Ctrl＋V）「読みとる」を押します。Sheet2 の「対戦表原簿」（AS〜AX）をコピーしても読めます。点数が入っていても、読むだけで のこしません。' }),
+      ta,
+      el('div', { class: 'adm-acts', style: 'margin-top:10px; align-items:center' }, [readBtn, clearBtn, readMsg])
+    ].concat(readBox, [
+      el('h3', { class: 'adm-ev-h', text: '③ たしかめて配る（一覧で えらび直せます。貼らずに、ここで えらんでも配れます）' }),
+      grid, sum,
+      el('div', { class: 'adm-acts', style: 'align-items:center' }, [payBtn, payMsg]),
+      el('h3', { class: 'adm-ev-h', text: '④ これまでの記録（' + d.yearText + '・まちがえたら「とりけす」）' }),
+      hist
+    ]));
   }
 
   // ---------- 説明書（スプレッドシートの「説明書」シートに貼った README_GAS.md） ----------
