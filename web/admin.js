@@ -1,13 +1,14 @@
 /* ===============================================================
    漢字の刃｜先生の管理画面（出席番号 32 ＋ 先生の Google アカウントのときだけ app.js が読み込む）
-   ・児童一覧／ポイントの記録（PointLog）／ログインの記録（LoginLog）／カードの承認（CardRequests）／カード一覧・編集／説明書（「説明書」シート）
+   ・児童一覧／ポイントの記録（PointLog）／ログインの記録（LoginLog）／カードの承認（CardRequests）／カード一覧・編集／
+     📅 イベントの予定（道場破りの期間・巨大レイドボスの来かた。11/7）／説明書（「説明書」シート）
    ・カードの型：承認や画像の差しかえのとき、子どもの絵を型（assets/frames）に当てはめて、この画面でカードの画像を作る
    ・データはすべて GAS（google.script.run）から受け取る。先生かどうかはサーバーが毎回確かめる
    =============================================================== */
 (function () {
   'use strict';
   // 管理画面の版：画面の上に出す。Push したのに新しいボタンが出ないときは、ここが古いまま（5分ほど待って Ctrl＋Shift＋R）
-  const ADMIN_VERSION = '2026-11-07（ドット絵版）';
+  const ADMIN_VERSION = '2026-11-07（イベントの予定）';
   let app = null, root = null, students = [], tab = 'students', filterId = '';
 
   // 見た目（2026-11-07 からドット絵）：色は app.css の PICO-8 の16色（--k・--navy・--yellow …）。角は四角・太い黒のふち・グラデーションなし
@@ -101,6 +102,26 @@
   .adm-cl-item .attr-chip { margin: 2px 0; }
   .adm-attr-hint { font-size: 13px; line-height: 1.6; color: var(--lgray); margin-top: 6px; }
   .adm-attr-hint b { color: var(--yellow); }
+  .adm-tools button:disabled { opacity: 0.45; cursor: default; }
+  .adm-ev-h { margin: 22px 0 8px; font-size: 17px; font-weight: normal; color: var(--yellow); text-shadow: 2px 2px 0 var(--k); }
+  .adm-ev-status { padding: 10px 14px; background: var(--k); color: var(--white); font-family: var(--adm-read); font-size: 15px; line-height: 1.7; box-shadow: inset 0 0 0 3px var(--gray); }
+  .adm-ev-status.on { box-shadow: inset 0 0 0 3px var(--lime); } .adm-ev-status.ng { box-shadow: inset 0 0 0 3px var(--pinkpx); }
+  .adm-ev-modes { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+  .adm-ev-mode { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; background: var(--k); color: var(--white); font-family: var(--adm-read); font-size: 15px; line-height: 1.5; cursor: pointer; box-shadow: inset 0 0 0 3px var(--gray); }
+  .adm-ev-mode.sel { background: var(--navy); box-shadow: inset 0 0 0 3px var(--yellow); }
+  .adm-ev-mode input { flex: none; width: 20px; height: 20px; margin: 2px 0 0; accent-color: #ffec27; }
+  .adm-ev-mode small { display: block; font-size: 13px; color: var(--lgray); }
+  .adm-ev-rows { display: grid; gap: 8px; }
+  .adm-ev-row { display: flex; gap: 8px 10px; align-items: center; flex-wrap: wrap; padding: 8px 10px; background: var(--k); color: var(--white); font-family: var(--adm-read); font-size: 15px; }
+  .adm-ev-row input[type=date] { font: inherit; font-size: 15px; min-height: 40px; padding: 4px 8px; border: none; background: var(--white); color: var(--k); box-shadow: 0 0 0 3px var(--gray); }
+  .adm-ev-row input[type=date]:focus { outline: none; box-shadow: 0 0 0 3px var(--yellow); }
+  .adm-ev-row button { margin-left: auto; font: inherit; font-size: 14px; min-height: 40px; padding: 6px 12px; border: none; cursor: pointer; background: var(--gray); color: var(--white); text-shadow: 2px 2px 0 var(--k); box-shadow: 0 4px 0 var(--k); }
+  .adm-ev-row button:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--k); }
+  .adm-ev-tag { font-size: 12px; padding: 2px 8px; color: var(--white); text-shadow: 1px 1px 0 var(--k); }
+  .adm-ev-info { font-size: 13px; color: var(--lgray); }
+  .adm-ev-info.ng { color: var(--pinkpx); }
+  .adm-ev-sel { font: inherit; font-family: var(--adm-read); font-size: 15px; min-height: 44px; max-width: 100%; padding: 6px 10px; border: none; background: var(--white); color: var(--k); box-shadow: 0 0 0 3px var(--k); }
+  #view-admin .adm-ev-prev { margin: 0; }
   @media (max-width: 600px) { .adm-card { grid-template-columns: 1fr; } .adm-card img { width: 160px; } .adm-edit { grid-template-columns: 1fr; } }
   `;
 
@@ -122,12 +143,12 @@
     root = el('section', { id: 'view-admin', class: 'app-view', hidden: '' }, [
       el('div', { class: 'container' }, [
         el('header', { class: 'adm-head hud-panel' }, [
-          el('div', {}, [el('div', { class: 'adm-title', text: '👩‍🏫 先生の管理画面' }), el('div', { class: 'adm-sub', text: '児童の記録の確認と、カードの承認ができます　（管理画面の版：' + ADMIN_VERSION + '）' })]),
+          el('div', {}, [el('div', { class: 'adm-title', text: '👩‍🏫 先生の管理画面' }), el('div', { class: 'adm-sub', text: '児童の記録の確認・カードの承認・イベントの予定の変更ができます　（管理画面の版：' + ADMIN_VERSION + '）' })]),
           el('button', { type: 'button', class: 'btn-logout', text: '🚪 ログアウト', onclick: () => app.logout() })
         ]),
         el('div', { class: 'adm-tabs', id: 'admTabs' }, [
           tabBtn('students', '👥 児童一覧'), tabBtn('point', '💰 ポイントの記録'), tabBtn('login', '🔐 ログインの記録'),
-          tabBtn('cards', '🃏 カードの承認'), tabBtn('cardlist', '🗂️ カード一覧'), tabBtn('readme', '📘 説明書')
+          tabBtn('cards', '🃏 カードの承認'), tabBtn('cardlist', '🗂️ カード一覧'), tabBtn('event', '📅 イベントの予定'), tabBtn('readme', '📘 説明書')
         ]),
         el('div', { class: 'adm-panel hud-panel', id: 'admPanel' })
       ])
@@ -149,7 +170,187 @@
     else if (tab === 'cards') renderCards();
     else if (tab === 'readme') renderReadme();
     else if (tab === 'cardlist') renderCardList();
+    else if (tab === 'event') renderEventPlan();
     else renderLogs(tab);
+  }
+
+  // ---------- 📅 イベントの予定（11/7 先生「管理画面でイベントスケジュールを変更できるようにして」） ----------
+  //   道場破りの開き方・期間と、巨大レイドボスの来かた（RAID_MODE）。保存すると、サーバー（admin.eventSave）が日付を読み直して、
+  //   ない日・おわりが先・重なりを確かめてから、スクリプト プロパティに書く。ここは入れる欄と、今の様子を見せるだけ
+  const EV_MODES = [
+    { id: 'range', name: '期間のとおりに開く', text: '下の期間の日だけ開く（ふだんはこれ）' },
+    { id: 'test', name: '33番だけ試す', text: '開く前に先生が試すとき。ほかの子には出ない' },
+    { id: 'off', name: 'とめておく', text: 'だれも挑戦できない。マイページにも予定にも出ない' },
+    { id: 'on', name: 'いつでも開く（期間なし）', text: 'みんなが毎日挑戦できる。予定には「開催中」と出る' }
+  ];
+  const EV_STATE = { now: ['いま', 'var(--green)'], soon: ['これから', 'var(--dblue)'], ended: ['おわった', 'var(--gray)'] };
+  let evData = null, evForm = null;
+
+  function evErrText(err) {
+    if (err && (err.code === 'BAD_ACTION' || err.code === 'NOT_READY')) return 'この画面を使うには、GAS の Api.gs と LegendEvent.gs を新しい版に貼りかえてください（' + (err.message || '') + '）';
+    return (err && err.message) || '読み込めませんでした';
+  }
+  // 日付（'YYYY-MM-DD'）⇔ 1970-01-01 からの日数。日本の暦の日付として数えるだけ（時刻は使わない）
+  function ymdN(s) { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) / 864e5 : NaN; }
+  function nYmd(n) { const d = new Date(n * 864e5); return d.getUTCFullYear() + '-' + ('0' + (d.getUTCMonth() + 1)).slice(-2) + '-' + ('0' + d.getUTCDate()).slice(-2); }
+  function ymdText(s) { const n = ymdN(s); if (isNaN(n)) return ''; const d = new Date(n * 864e5); return (d.getUTCMonth() + 1) + '/' + d.getUTCDate() + '（' + '日月火水木金土'.charAt(d.getUTCDay()) + '）'; }
+  function evSpan(p) { return ymdText(p.start) + (p.start === p.end ? '' : '〜' + ymdText(p.end)); }
+
+  function renderEventPlan() {
+    setBusy();
+    app.call('admin.event').then((d) => {
+      if (tab !== 'event') return;
+      evLoad(d);
+      drawEventPlan();
+    }).catch((err) => { if (tab === 'event') showError({ message: evErrText(err) }); });
+  }
+  function evLoad(d) {
+    evData = d;
+    evForm = { mode: d.mode, raid: d.raidKnown ? d.raidMode : '', periods: (d.periods || []).map((p) => ({ start: p.start, end: p.end })) };
+  }
+  // 足す期間のめやす：今日（か、いちばんあとの期間のおわり）より後の月曜〜金曜
+  function evNextWeek() {
+    let base = ymdN(evData.today);
+    evForm.periods.forEach((p) => { const e = ymdN(p.end); if (e > base) base = e; });
+    let n = base + 1;
+    while (new Date(n * 864e5).getUTCDay() !== 1) n++;
+    return { start: nYmd(n), end: nYmd(n + 4) };
+  }
+  // 保存の前に、すぐわかるまちがいを知らせる（サーバーも同じことを確かめる）
+  function evCheck() {
+    const ps = evForm.periods;
+    if (ps.length > (evData.max || 20)) return '期間は ' + (evData.max || 20) + ' こまでです。おわった期間を消してください';
+    for (let i = 0; i < ps.length; i++) {
+      const a = ymdN(ps[i].start), b = ymdN(ps[i].end);
+      if (isNaN(a) || isNaN(b)) return (i + 1) + 'つ目の期間：はじめの日とおわりの日を入れてください';
+      if (b < a) return (i + 1) + 'つ目の期間：おわりの日が、はじめの日より前です';
+    }
+    const s = ps.slice().sort((x, y) => ymdN(x.start) - ymdN(y.start));
+    for (let i = 1; i < s.length; i++) if (ymdN(s[i].start) <= ymdN(s[i - 1].end)) return '期間が重なっています（' + evSpan(s[i - 1]) + ' と ' + evSpan(s[i]) + '）';
+    if (evForm.mode === 'range' && !ps.length) return '期間がありません。「＋ 期間を足す」で入れてください（とめるときは「とめておく」）';
+    return '';
+  }
+  // 今の期間を変えるときのたしかめ（子どもの進み具合にかかわる）
+  function evWarn() {
+    const today = ymdN(evData.today);
+    const was = (evData.periods || []).find((p) => p.state === 'now');
+    if (!was || evData.mode !== 'range') return '';
+    if (evForm.mode !== 'range') return '今の期間（' + was.text + '）の道場破りが、すぐ閉じます。子どもの進み具合はのこります（「期間のとおりに開く」にもどすと続きから）。';
+    const cur = evForm.periods.find((p) => ymdN(p.start) <= today && today <= ymdN(p.end));
+    if (!cur) return '今の期間（' + was.text + '）がなくなるので、道場破りがすぐ閉じます。';
+    if (cur.start !== was.start) return '今の期間のはじめの日が変わります（' + ymdText(was.start) + ' → ' + ymdText(cur.start) + '）。別のイベントになるので、子どもは1つ目の道場からやり直しになります（もらった引換札・LEGEND はのこります）。';
+    return '';
+  }
+
+  function drawEventPlan(note) {
+    const d = evData, f = evForm, today = ymdN(d.today);
+    const status = el('div', { class: 'adm-ev-status' + (d.bad ? ' ng' : d.open ? ' on' : '') }, [
+      el('div', {}, [el('b', { text: '🏯 ' + d.name + '：' }), d.status]),
+      el('div', { class: 'adm-sub', text: '今日：' + d.todayText + '　／　スクリプト プロパティ LEGEND_EVENT の今の値：' + (d.raw || '（なし）') })
+    ]);
+
+    // 開き方
+    const labels = [];
+    const periodNote = el('div', { class: 'adm-warn' });
+    const showModeNote = () => {
+      const m = EV_MODES.find((x) => x.id === f.mode);
+      periodNote.textContent = f.mode === 'range' ? '' : '今は「' + (m ? m.name : f.mode) + '」なので、この期間では開きません（期間は保存して、のこしておけます）。';
+      labels.forEach((l) => l.classList.toggle('sel', l.dataset.mode === f.mode));
+    };
+    const modes = el('div', { class: 'adm-ev-modes', role: 'radiogroup', 'aria-label': '道場破りの開き方' }, EV_MODES.map((m) => {
+      const input = el('input', { type: 'radio', name: 'admEvMode', value: m.id });
+      input.checked = f.mode === m.id;
+      input.addEventListener('change', () => { if (input.checked) { f.mode = m.id; showModeNote(); } });
+      const l = el('label', { class: 'adm-ev-mode', 'data-mode': m.id }, [input, el('span', {}, [m.name, el('small', { text: m.text })])]);
+      labels.push(l);
+      return l;
+    }));
+
+    // 期間
+    const rows = el('div', { class: 'adm-ev-rows' });
+    const addBtn = el('button', { type: 'button', text: '＋ 期間を足す', onclick: () => { f.periods.push(evNextWeek()); drawRows(); } });
+    const drawRows = () => {
+      addBtn.disabled = f.periods.length >= (d.max || 20);
+      if (!f.periods.length) { rows.replaceChildren(el('div', { class: 'adm-empty', text: '期間はまだありません' })); return; }
+      rows.replaceChildren(...f.periods.map((p, i) => {
+        const info = el('span', { class: 'adm-ev-info' }), tag = el('span', { class: 'adm-ev-tag' });
+        const upd = () => {
+          const a = ymdN(p.start), b = ymdN(p.end), ok = !isNaN(a) && !isNaN(b) && b >= a;
+          info.className = 'adm-ev-info' + (ok ? '' : ' ng');
+          info.textContent = isNaN(a) || isNaN(b) ? '日付を入れてね' : (b < a ? '⚠️ おわりの日が先' : (b - a + 1) + '日間');
+          const st = ok ? (b < today ? 'ended' : (a <= today ? 'now' : 'soon')) : '';
+          tag.hidden = !st;
+          if (st) { tag.textContent = EV_STATE[st][0]; tag.style.background = EV_STATE[st][1]; }
+        };
+        const sIn = el('input', { type: 'date', 'aria-label': (i + 1) + 'つ目の期間のはじめの日' });
+        const eIn = el('input', { type: 'date', 'aria-label': (i + 1) + 'つ目の期間のおわりの日' });
+        sIn.value = p.start; eIn.value = p.end;
+        sIn.addEventListener('input', () => {
+          p.start = sIn.value;
+          if (!isNaN(ymdN(p.start)) && !(ymdN(p.end) >= ymdN(p.start))) { p.end = nYmd(ymdN(p.start) + 4); eIn.value = p.end; }   // おわりが先になったら、はじめから5日間に
+          upd();
+        });
+        eIn.addEventListener('input', () => { p.end = eIn.value; upd(); });
+        upd();
+        return el('div', { class: 'adm-ev-row' }, [
+          el('b', { text: (i + 1) + '.' }), sIn, el('span', { text: '〜' }), eIn, info, tag,
+          el('button', { type: 'button', text: '🗑 消す', 'aria-label': (i + 1) + 'つ目の期間を消す', onclick: () => { f.periods.splice(i, 1); drawRows(); } })
+        ]);
+      }));
+    };
+    drawRows();
+
+    // 巨大レイドボス
+    const raidSel = el('select', { class: 'adm-ev-sel', 'aria-label': '巨大レイドボスの来かた', onchange: (e) => { f.raid = e.target.value; } }, [
+      d.raidKnown ? null : el('option', { value: '', text: '今の値「' + d.raidMode + '」のまま' }),
+      el('option', { value: 'auto', text: 'ふだんどおり（毎週金曜 ' + (d.raidHours || '') + '。月の最後の金曜は月末の超巨大ボス）' }),
+      el('option', { value: 'off', text: '来ない（先生が手でとめる）' }),
+      el('option', { value: 'on', text: '今すぐ来る：ふつうのボス（いつでも・何時でも）' }),
+      el('option', { value: 'monthend', text: '今すぐ来る：月末の超巨大ボス（試すとき）' })
+    ]);
+    raidSel.value = f.raid;
+
+    // 保存
+    const msg = el('span', { class: note ? 'adm-ok' : 'adm-sub', text: note || '' });
+    const saveBtn = el('button', { type: 'button', class: 'adm-yes', text: '💾 保存する' });
+    saveBtn.addEventListener('click', () => {
+      const bad = evCheck();
+      if (bad) { msg.className = 'adm-ng'; msg.textContent = '⚠️ ' + bad; return; }
+      const warn = evWarn();
+      if (warn && !window.confirm(warn + '\n\nこのまま保存しますか？')) return;
+      saveBtn.disabled = true; msg.className = 'adm-sub'; msg.textContent = '保存しています...';
+      app.call('admin.eventSave', { mode: f.mode, raidMode: f.raid, periods: f.periods.map((p) => ({ start: p.start, end: p.end })) }).then((x) => {
+        if (tab !== 'event') return;
+        evLoad(x);
+        drawEventPlan('✅ 保存しました。子どものマイページには、次に開いたときから出ます。');
+      }).catch((err) => { saveBtn.disabled = false; msg.className = 'adm-ng'; msg.textContent = '⚠️ ' + evErrText(err); });
+    });
+
+    // 子どもに見える予定（保存してある設定で）
+    const items = (d.preview && d.preview.items) || [];
+    const prev = items.length ? el('div', { class: 'schedule-box adm-ev-prev' }, [el('ul', { class: 'schedule-list' }, items.map((it) =>
+      el('li', { class: 'schedule-item ' + (it.kind === 'dojo' ? 'is-dojo' : it.kind === 'monthend' ? 'is-monthend' : 'is-raid') + (it.now ? ' is-now' : '') }, [
+        el('div', { class: 'schedule-when', text: (it.now ? '▶ ' : '') + it.when }),
+        el('div', { class: 'schedule-what', text: it.title }),
+        el('div', { class: 'schedule-sub', text: it.sub || '' })
+      ])))]) : el('div', { class: 'adm-empty', text: '今は、子どものマイページに予定は出ません' });
+
+    panel().replaceChildren(...[
+      status,
+      el('h3', { class: 'adm-ev-h', text: '🏯 道場破りの開き方' }), modes,
+      el('h3', { class: 'adm-ev-h', text: '🗓️ 道場破りの期間' }),
+      el('div', { class: 'adm-note', text: '日本時間・はじめの日もおわりの日もふくむ・毎日 ' + d.hours + '・1日 ' + d.tries + ' 回まで。期間ごとに別のイベントです（道場は1つ目から・LEGEND は期間ごとに1人1枚）。はじめの日の ' + d.soonDays + ' 日前から、マイページに「もうすぐ」が出ます。' }),
+      periodNote, rows,
+      el('div', { class: 'adm-tools', style: 'margin-top:10px' }, [addBtn]),
+      el('h3', { class: 'adm-ev-h', text: '👹 巨大レイドボス' }), raidSel,
+      el('div', { class: 'adm-acts', style: 'margin-top:20px; align-items:center' }, [
+        saveBtn, el('button', { type: 'button', class: 'adm-no', text: '↩ 保存したものにもどす', onclick: renderEventPlan }), msg
+      ]),
+      el('h3', { class: 'adm-ev-h', text: '👀 子どものマイページの「📅 イベントの予定」（保存してある設定で・' + ((d.preview && d.preview.days) || 35) + '日先まで）' }),
+      d.mode === 'test' ? el('div', { class: 'adm-note', text: '今は「33番だけ試す」なので、33番には道場破りが「開催中」と出ます（ほかの子には出ません）。' }) : null,
+      prev
+    ].filter(Boolean));
+    showModeNote();
   }
 
   // ---------- 説明書（スプレッドシートの「説明書」シートに貼った README_GAS.md） ----------
