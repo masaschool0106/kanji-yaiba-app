@@ -54,6 +54,7 @@
     try { localStorage.removeItem(SESSION_STORE_KEY); } catch (e) {}
     storeRemove(LEGACY_NUM_KEY);
     renderTradeBadge(0);   // 前の子の「交換の申しこみ」の知らせを残さない
+    renderEvent(null);     // 前の子のイベントの知らせも残さない
   }
 
   // ==================== 通信（サーバーの窓口は api() ひとつだけ） ====================
@@ -160,6 +161,7 @@
         if (!fude.greeted) fudeHello();
         renderRanking(data.ranking);
         renderRaid(data.raid);
+        renderEvent(data.event);   // 期間限定イベント（GAS の Api.gs が前の版なら data.event がないので、出さない）
         loadTradeBadge();
         if (!state.jamaicaDone) { state.jamaicaDone = true; syncJamaica(); }
       })
@@ -378,7 +380,7 @@
   // ==================== ドット絵の部品（fx/pixel.js：点のアイコン・城下町の背景・画面を出るときのタイル） ====================
   //   読み込めなくても、絵文字のアイコンと無地の背景で動く
   let pixelBg = null;
-  const PIXEL_BG = { login: 'castle', mypage: 'castle', trade: 'bridge' };   // 画面 → 背景の場面（fx/pixel.js の SCENES）
+  const PIXEL_BG = { login: 'castle', mypage: 'castle', trade: 'bridge', event: 'dojo' };   // 画面 → 背景の場面（fx/pixel.js の SCENES。event＝道場破り）
   function loadPixel() {
     if (!document.getElementById('kpx-font')) {   // 字（DotGothic16）。描くのを止めないように、あとから読みこむ
       const l = document.createElement('link');
@@ -555,6 +557,50 @@
     document.head.appendChild(sc);
   }
 
+  // ==================== 期間限定イベント「道場破り」（2026-11-07。event.js は開いたときだけ読み込む） ====================
+  // 開いている・もうすぐ・引換札があるときだけ、マイページに知らせを出す（中身はサーバーの boot の event。開いているかはサーバーが決める）
+  function renderEvent(ev) {
+    let box = $('eventBanner');
+    if (!ev) { if (box) box.remove(); return; }
+    if (!box) {
+      box = document.createElement('section');
+      box.id = 'eventBanner'; box.className = 'event-banner';
+      const anchor = document.querySelector('#view-mypage .carousel-wrap');
+      if (anchor) anchor.parentNode.insertBefore(box, anchor); else $('view-mypage').appendChild(box);
+    }
+    const name = escapeHtml(ev.name || '道場破り');
+    const until = ev.period ? '（' + escapeHtml(ev.period) + '）' : '';
+    let sub, go = '';
+    if (ev.ticket > 0 && (!ev.open || ev.done)) {
+      sub = '🎫 LEGEND 引換札が <b>' + Number(ev.ticket) + '</b> 枚あるよ！ まだ持っていない LEGEND を1枚えらぼう';
+      go = '🎫 LEGEND をえらぶ';
+    } else if (ev.open) {
+      sub = ev.done ? '🎉 5つの道場を制覇した！ 次のイベントを待とう'
+        : (ev.rarities || ['N']).join('・') + ' のカードだけで5つの道場を破ると、<b>LEGEND</b> が1枚もらえる！ クイズに正解して攻撃しよう　突破 <b>' + Number(ev.cleared) + ' / ' + Number(ev.total) + '</b>・今日 のこり <b>' + Number(ev.left) + '</b>回';
+      go = ev.done ? '' : (ev.running ? '▶ 挑戦の続きから' : '⚔️ 道場へ');
+    } else {
+      sub = escapeHtml(ev.text || '') + (ev.why === 'soon' ? ' 開催！' : '') + (ev.cleared !== undefined && !ev.done ? '　突破 ' + Number(ev.cleared) + ' / ' + Number(ev.total) : '');
+      go = ev.running ? '▶ 挑戦の続きから' : '🗺️ 道場を見る';
+    }
+    box.innerHTML = '<div class="event-title">🏯 期間限定イベント「' + name + '」' + (ev.why === 'soon' ? 'もうすぐ！' : (ev.open ? '開催中！' : '')) + until + '</div>' +
+      '<div class="event-sub">' + sub + '</div>' + (go ? '<button type="button" class="event-go" id="eventGo">' + go + '</button>' : '');
+    const b = $('eventGo');
+    if (b) b.addEventListener('click', openEvent);
+  }
+  function openEvent() {
+    stopRefresh();
+    const api = { call: call, showView: showView, showLoading: showLoading, hideLoading: hideLoading, openMypage: openMypage };
+    const go = () => { hideLoading(); window.KanjiEvent.open(api); };
+    if (window.KanjiEvent) { go(); return; }
+    showLoading('読み込み中...');
+    const cfg = window.KANJI_CONFIG || {};
+    const sc = document.createElement('script');
+    sc.src = (cfg.assetBase || '') + 'event.js' + (cfg.assetVersion ? '?v=' + encodeURIComponent(cfg.assetVersion) : '');
+    sc.onload = go;
+    sc.onerror = () => { hideLoading(); showView('mypage'); showMessage('mypageMessage', 'イベントの画面を読み込めませんでした。', 'error'); };
+    document.head.appendChild(sc);
+  }
+
   // ==================== 先生の管理画面 ====================
   // admin.js は先生のときだけ読み込む（子どもの画面の速さに影響しない）。
   // 先生かどうかは、管理画面の操作のたびにサーバーが確かめる
@@ -610,6 +656,7 @@
     }
     if (page === 'cardmake') { if (CARDMAKE_ON) openCardMake(); return; }
     if (page === 'trade') { openTrade(); return; }
+    if (page === 'event') { openEvent(); return; }
     if (page === 'bugreport') { if (BUG_FORM_URL) window.open(BUG_FORM_URL, '_blank', 'noopener'); return; }
     if (page === 'finisherform') { if (FINISHER_FORM_URL) window.open(FINISHER_FORM_URL, '_blank', 'noopener'); return; }
     if (page === 'jamaica' && !JAMAICA_ON) return;
@@ -660,6 +707,7 @@
           const page = loc && loc.parameter ? loc.parameter.page : '';
           if (page === 'cardmake' && CARDMAKE_ON) openCardMake();
           else if (page === 'trade' && state.view === 'mypage') openTrade();
+          else if (page === 'event' && state.view === 'mypage') openEvent();   // 期間限定イベント（?page=event・2026-11-07）
         });
       }
     } catch (e) {}

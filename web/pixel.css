@@ -220,6 +220,52 @@ body.px-theme[data-page="zukan"] { color: var(--white); }
 [data-page="zukan"].px-theme .zukan-empty { color: var(--lgray) !important; }
 
 /* ===============================================================
+   防御デッキ（defense）。Defense.html が自分で KanjiPixel.apply('defense') を呼ぶ。字の色は HTML の中の style にも書いてあるので、ここで上書きする
+   =============================================================== */
+[data-page="defense"].px-theme h2 { font-weight: normal; color: var(--yellow) !important; text-shadow: 3px 3px 0 var(--red), 6px 6px 0 var(--k) !important; letter-spacing: 2px; }
+[data-page="defense"].px-theme .bar .btn, [data-page="defense"].px-theme .btn {
+  min-height: 52px; border: none !important; background: var(--gray) !important; color: var(--white) !important; font-weight: normal;
+  box-shadow: var(--px-btn) !important; text-shadow: 2px 2px 0 var(--k); transition: none !important; transform: none !important;
+}
+[data-page="defense"].px-theme .btn.save { background: var(--green) !important; min-height: 64px; }
+[data-page="defense"].px-theme .btn:active:not([disabled]) { transform: translateY(3px) !important; box-shadow: var(--px-btn-down) !important; }
+[data-page="defense"].px-theme .btn[disabled] { background: var(--gray) !important; opacity: 0.6; }
+[data-page="defense"].px-theme #message { color: var(--yellow); font-weight: normal; text-shadow: 2px 2px 0 var(--k); }
+[data-page="defense"].px-theme .defense-info, [data-page="defense"].px-theme .container {
+  background: var(--navy) !important; border: none !important; box-shadow: var(--px-edge), var(--px-bevel) !important; margin-bottom: 22px;
+}
+[data-page="defense"].px-theme .defense-info h3, [data-page="defense"].px-theme .container h3, [data-page="defense"].px-theme .container h4 { color: var(--yellow) !important; font-weight: normal; text-shadow: 2px 2px 0 var(--k); }
+[data-page="defense"].px-theme .defense-info li { color: var(--white) !important; }
+[data-page="defense"].px-theme .container p { color: var(--lgray) !important; }
+[data-page="defense"].px-theme .deck-status { background: var(--k) !important; border: none !important; color: var(--white); }
+[data-page="defense"].px-theme .deck-complete { box-shadow: 0 0 0 4px var(--green) !important; }
+[data-page="defense"].px-theme .deck-incomplete { box-shadow: 0 0 0 4px var(--red) !important; }
+[data-page="defense"].px-theme .deck-complete #status-detail { color: var(--lime) !important; }
+[data-page="defense"].px-theme .deck-incomplete #status-detail { color: var(--peach) !important; }
+[data-page="defense"].px-theme .deck-grid { gap: 16px; }
+[data-page="defense"].px-theme .card-slot { background: var(--k) !important; border: 3px dashed var(--gray) !important; transition: none; transform: none !important; }
+[data-page="defense"].px-theme .card-slot.filled { background: #11183a !important; border: 3px solid var(--blue) !important; }
+[data-page="defense"].px-theme .card-slot.lost { border-color: var(--red) !important; }
+[data-page="defense"].px-theme .card-slot img, [data-page="defense"].px-theme .mini-card img { border: none !important; box-shadow: 0 0 0 3px var(--k); background: var(--k); }
+[data-page="defense"].px-theme .card-slot div { color: var(--white) !important; font-weight: normal !important; }
+[data-page="defense"].px-theme .card-slot small { color: var(--lgray) !important; }
+[data-page="defense"].px-theme .card-slot div[style*="#059669"] { color: var(--lime) !important; }
+[data-page="defense"].px-theme .card-slot div[style*="#dc2626"] { color: var(--pink) !important; }
+[data-page="defense"].px-theme .card-list { background: var(--k) !important; border: none !important; }
+[data-page="defense"].px-theme .card-list > div[style] { color: var(--lgray) !important; }
+[data-page="defense"].px-theme .mini-card {
+  background: var(--navy) !important; border: none !important; color: var(--white); box-shadow: inset 0 0 0 3px var(--gray) !important; transform: none !important; transition: none;
+}
+[data-page="defense"].px-theme .mini-card:hover { box-shadow: inset 0 0 0 3px var(--yellow) !important; }
+[data-page="defense"].px-theme .mini-card:active { transform: translateY(3px) !important; }
+[data-page="defense"].px-theme .mini-card.selected { background: var(--gray) !important; opacity: 0.5; }
+[data-page="defense"].px-theme .mini-card div { font-weight: normal !important; }
+[data-page="defense"].px-theme .mini-card div[style*="#6b7280"] { color: var(--lgray) !important; }
+[data-page="defense"].px-theme .attr-preview { background: var(--k) !important; border: none !important; color: var(--white) !important; }
+[data-page="defense"].px-theme .attr-on { color: var(--yellow) !important; font-weight: normal; }
+[data-page="defense"].px-theme .attr-tip { color: var(--lgray) !important; }
+
+/* ===============================================================
    属性のチップ（2026-11-05・どの画面でも）：四角・黒いふち2px・色は属性の色（--attr-c）・字は黒
    作るのは各画面の attrChipHtml（<span class="attr-chip" style="--attr-c:#83769c">🥷 忍者</span>）
    =============================================================== */

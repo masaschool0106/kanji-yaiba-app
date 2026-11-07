@@ -662,9 +662,10 @@
     targets.forEach(function (t) { if (t) ob.observe(t, { attributes: true, attributeFilter: ['class'] }); });
     watcher = ob;
   }
-  // App（ログイン・マイページ・カードを作る・レイド・管理画面・友だちと交換）：app.js が body に view-○○ をつける
+  // App（ログイン・マイページ・カードを作る・レイド・管理画面・友だちと交換・イベント）：app.js が body に view-○○ をつける
+  //   event＝期間限定イベント「道場破り」（2026-11-07）：ボス戦の曲。突破・制覇・LEGEND のジングルは event.js が jingle でならす
   function watchApp() {
-    const map = { login: 'login', mypage: 'mypage', cardmake: 'workshop', admin: 'workshop', raid: 'raid', koukan: 'koukan', trade: 'trade' };
+    const map = { login: 'login', mypage: 'mypage', cardmake: 'workshop', admin: 'workshop', raid: 'raid', koukan: 'koukan', event: 'boss', trade: 'trade' };
     const look = function () { const m = /(?:^|\s)view-([a-z]+)/.exec(global.document.body.className || ''); if (m && map[m[1]]) setBase(map[m[1]]); };
     observe(look, [global.document.body]);
     look();

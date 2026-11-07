@@ -271,7 +271,7 @@
 
   // ---------- FxBridge の画面をドット絵にする ----------
   //   FxBridge が、画面を見分けたあとに呼ぶ。未来風の見た目（theme.css）はやめて、pixel.css の見た目にする
-  const SCENE_OF = { gacha: 'shrine', battle: 'dojo', randombattle: 'dojo', privatebattle: 'dojo', zukan: 'library', quiz: 'terakoya', stepup: 'castle' };
+  const SCENE_OF = { gacha: 'shrine', battle: 'dojo', randombattle: 'dojo', privatebattle: 'dojo', defense: 'dojo', zukan: 'library', quiz: 'terakoya', stepup: 'castle' };
 
   // 画面ごとのキー操作：数字キー（1〜9）で choices の n 番目（見えていて押せるもの）を押す。Enter で next を押す。
   //   focus は Tab で選べるようにするもの（今は div で作られているボタン）。押したときの動きは、タップと同じ（その画面の関数）
@@ -283,7 +283,8 @@
     battle: { choices: '#battleMenu .battle-card', focus: '#battleMenu .battle-card' },
     randombattle: { choices: '#pvpHand .pvp-card' },
     privatebattle: { choices: '#pvpHand .pvp-card' },
-    stepup: { choices: '#quizModal.show #qChoices button, #bossQuizModal.show #bqChoices button, #bossBattleScreen.show #handPanel .hp-cards button', focus: '.route-card' }
+    stepup: { choices: '#quizModal.show #qChoices button, #bossQuizModal.show #bqChoices button, #bossBattleScreen.show #handPanel .hp-cards button', focus: '.route-card' },
+    defense: { focus: '#card-list .mini-card, #deck-slots .card-slot.filled' }   // 防御デッキ（Defense.html が自分で apply を呼ぶ）
   };
   function shown(el) { return !!(el && el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden'); }
   function setupKeys(page) {
@@ -295,6 +296,8 @@
         el.tabIndex = 0; el.setAttribute('role', 'button');
       });
       mark(); setTimeout(mark, 1500);
+      let markTimer = 0;   // 一覧を作り直す画面（防御デッキなど）でも、新しくできた札を Tab で選べるように
+      new MutationObserver(() => { clearTimeout(markTimer); markTimer = setTimeout(mark, 50); }).observe(document.body, { childList: true, subtree: true });
       document.addEventListener('keydown', (e) => {
         const t = e.target;
         if ((e.key === 'Enter' || e.key === ' ') && t && t.matches && t.matches(k.focus)) { e.preventDefault(); t.click(); }

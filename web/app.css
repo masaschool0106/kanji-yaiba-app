@@ -45,10 +45,10 @@ body.view-login { display: flex; justify-content: center; align-items: center; p
 body.view-mypage { padding: 16px 16px 110px; }
 /* ログイン・マイページはドット絵：字と下地。絵の背景（城下町）は app.js が fx/pixel.js で出す */
 body.view-login, body.view-mypage, body.view-loading { background: #0b0f24; font-family: var(--px-font); color: var(--white); }
-body.view-login .hud-bg, body.view-mypage .hud-bg, body.view-loading .hud-bg, body.view-trade .hud-bg { display: none; }
-/* 背景の絵は、ログイン・マイページ（城下町）と友だちと交換（太鼓橋）のときだけ */
-body:not(.view-login):not(.view-mypage):not(.view-trade) #kpx-bg { display: none; }
-body.view-trade { background: #0b0f24; }
+body.view-login .hud-bg, body.view-mypage .hud-bg, body.view-loading .hud-bg, body.view-trade .hud-bg, body.view-event .hud-bg { display: none; }
+/* 背景の絵は、ログイン・マイページ（城下町）と友だちと交換（太鼓橋）とイベント「道場破り」（道場・2026-11-07）のときだけ */
+body:not(.view-login):not(.view-mypage):not(.view-event):not(.view-trade) #kpx-bg { display: none; }
+body.view-trade, body.view-event { background: #0b0f24; }
 
 /* 背景：地平線のグリッド（カードを作る・レイド・管理画面） */
 .hud-bg { position: fixed; inset: 0; pointer-events: none; z-index: -1; overflow: hidden; }
@@ -364,3 +364,21 @@ html.raid-on body:not(.view-mypage)::before { content: ''; position: fixed; inse
 .trade-badge-go { float: right; color: var(--yellow); }
 .trade-badge:active { transform: translateY(3px); }
 @media (prefers-reduced-motion: reduce) { .trade-badge:active { transform: none; } }
+
+/* ==================== 期間限定イベント「道場破り」の知らせ（マイページ。開いている・もうすぐ・引換札があるときだけ。2026-11-07） ==================== */
+/* 中身の画面（道場の地図・たたかい）は event.js が自分の CSS で作る */
+.event-banner {
+  margin: 0 0 18px; padding: 14px 16px; text-align: center; color: var(--white);
+  background: repeating-conic-gradient(#1d2b53 0 25%, #18244a 0 50%) 0 0 / 16px 16px;
+  box-shadow: 0 0 0 4px var(--brown), 0 0 0 8px var(--k), inset 0 4px 0 rgba(255, 255, 255, 0.12);
+}
+.event-title { font-family: var(--px-font); font-size: 20px; line-height: 1.4; color: var(--yellow); text-shadow: 2px 2px 0 var(--k); }
+.event-sub { font-size: 15px; color: var(--peach); margin-top: 6px; line-height: 1.6; }
+.event-sub b { color: var(--yellow); }
+.event-go {
+  margin-top: 12px; min-height: 52px; padding: 10px 22px; border: none; border-radius: 0; cursor: pointer; touch-action: manipulation;
+  font-family: var(--px-font); font-size: 19px; color: var(--white); background: var(--red); text-shadow: 2px 2px 0 var(--k);
+  box-shadow: 0 4px 0 var(--k), inset 0 -4px 0 rgba(0, 0, 0, 0.25), inset 0 4px 0 rgba(255, 255, 255, 0.25);
+}
+.event-go:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--k); }
+@media (prefers-reduced-motion: reduce) { .event-go:active { transform: none; } }
