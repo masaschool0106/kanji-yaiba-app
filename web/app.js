@@ -382,7 +382,7 @@
   // ==================== ドット絵の部品（fx/pixel.js：点のアイコン・城下町の背景・画面を出るときのタイル） ====================
   //   読み込めなくても、絵文字のアイコンと無地の背景で動く
   let pixelBg = null;
-  const PIXEL_BG = { login: 'castle', mypage: 'castle', trade: 'bridge', event: 'dojo' };   // 画面 → 背景の場面（fx/pixel.js の SCENES。event＝道場破り）
+  const PIXEL_BG = { login: 'castle', mypage: 'castle', trade: 'bridge', event: 'dojo', admin: 'terakoya' };   // 画面 → 背景の場面（fx/pixel.js の SCENES。event＝道場破り・admin＝先生の管理画面）
   function loadPixel() {
     if (!document.getElementById('kpx-font')) {   // 字（DotGothic16）。描くのを止めないように、あとから読みこむ
       const l = document.createElement('link');

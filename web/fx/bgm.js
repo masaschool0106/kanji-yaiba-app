@@ -163,6 +163,7 @@
     sugoroku1: ['sg1', 'sgx'], sugoroku2: ['sg2', 'sgx'], sugoroku3: ['sg3', 'sgx'], sugoroku4: ['sg4', 'sgx'],
     urasugoroku: ['ura1', 'ura2'], boss: ['boss1', 'boss2'], lastboss: ['boss3', 'boss2'], uraboss: ['uboss1', 'uboss2'],
     raid: ['raid1', 'raid2'], workshop: ['work1', 'zukan1'], koukan: ['kou1', 'kou2'], trade: ['tomo1', 'tomo2'], rest: ['rest1'],
+    teacher: ['town2', 'quiz1', 'rest1'],   // 先生の管理画面（2026-11-07。背景の寺子屋に合わせて、てらこや通り・筆と硯・ひとやすみ）
     stepClear: { jingle: 'clear', list: ['rest1'] }, stepAllClear: { jingle: 'fanfare', list: ['rest1'] }, stepLose: { jingle: 'lose', list: ['rest1'] }
   };
   Object.keys(SCENES).forEach((k) => { if (Array.isArray(SCENES[k])) SCENES[k] = { list: SCENES[k] }; });
@@ -665,7 +666,7 @@
   // App（ログイン・マイページ・カードを作る・レイド・管理画面・友だちと交換・イベント）：app.js が body に view-○○ をつける
   //   event＝期間限定イベント「道場破り」（2026-11-07）：ボス戦の曲。突破・制覇・LEGEND のジングルは event.js が jingle でならす
   function watchApp() {
-    const map = { login: 'login', mypage: 'mypage', cardmake: 'workshop', admin: 'workshop', raid: 'raid', koukan: 'koukan', event: 'boss', trade: 'trade' };
+    const map = { login: 'login', mypage: 'mypage', cardmake: 'workshop', admin: 'teacher', raid: 'raid', koukan: 'koukan', event: 'boss', trade: 'trade' };
     const look = function () { const m = /(?:^|\s)view-([a-z]+)/.exec(global.document.body.className || ''); if (m && map[m[1]]) setBase(map[m[1]]); };
     observe(look, [global.document.body]);
     look();
