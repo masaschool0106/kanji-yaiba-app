@@ -1,14 +1,15 @@
 /* ===============================================================
    漢字の刃｜先生の管理画面（出席番号 32 ＋ 先生の Google アカウントのときだけ app.js が読み込む）
    ・児童一覧／ポイントの記録（PointLog）／ログインの記録（LoginLog）／カードの承認（CardRequests）／カード一覧・編集／
-     📅 イベントの予定（道場破りの期間・巨大レイドボスの来かた。11/7）／🆚 対戦表（漢字テストの対戦表で勝った子にポイント。11/8）／説明書（「説明書」シート）
+     📅 イベントの予定（道場破りの期間・巨大レイドボスの来かた。11/7）／🆚 対戦表（漢字テストの対戦表で勝った子にポイント。11/8）／
+     🆕 新カード（新しいカードのお知らせ。11/12）／説明書（「説明書」シート）
    ・カードの型：承認や画像の差しかえのとき、子どもの絵を型（assets/frames）に当てはめて、この画面でカードの画像を作る
    ・データはすべて GAS（google.script.run）から受け取る。先生かどうかはサーバーが毎回確かめる
    =============================================================== */
 (function () {
   'use strict';
   // 管理画面の版：画面の上に出す。Push したのに新しいボタンが出ないときは、ここが古いまま（5分ほど待って Ctrl＋Shift＋R）
-  const ADMIN_VERSION = '2026-11-08（対戦表）';
+  const ADMIN_VERSION = '2026-11-12（新カード）';
   let app = null, root = null, students = [], tab = 'students', filterId = '';
 
   // 見た目（2026-11-07 からドット絵）：色は app.css の PICO-8 の16色（--k・--navy・--yellow …）。角は四角・太い黒のふち・グラデーションなし
@@ -103,6 +104,21 @@
   .adm-attr-hint { font-size: 13px; line-height: 1.6; color: var(--lgray); margin-top: 6px; }
   .adm-attr-hint b { color: var(--yellow); }
   .adm-tools button:disabled { opacity: 0.45; cursor: default; }
+  .adm-news-on { display: inline-flex; gap: 6px; align-items: center; font-family: var(--adm-read); cursor: pointer; }
+  .adm-news-on input { width: 20px; height: 20px; accent-color: #ffec27; }
+  .adm-tools input[type=number], .adm-news-nos { font: inherit; font-family: var(--adm-read); font-size: 15px; min-height: 40px; padding: 4px 8px; border: none; background: var(--white); color: var(--k); box-shadow: 0 0 0 3px var(--gray); }
+  .adm-tools input[type=number] { width: 80px; }
+  .adm-news-nos { flex: 1 1 200px; min-width: 0; }
+  .adm-news-day { margin-bottom: 16px; }
+  .adm-news-dayhead { color: var(--peach); font-family: var(--adm-read); font-size: 14px; margin-bottom: 6px; }
+  .adm-news-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .adm-news-card { display: flex; flex-direction: column; gap: 4px; padding: 8px; background: var(--k); color: var(--white); font-family: var(--adm-read); font-size: 13px; line-height: 1.5; box-shadow: inset 0 0 0 3px var(--gray); }
+  .adm-news-card.off { opacity: 0.6; }
+  .adm-news-card img { width: 100%; aspect-ratio: 600 / 849; object-fit: cover; background: var(--navy); }
+  .adm-news-name { font-weight: bold; overflow-wrap: anywhere; }
+  .adm-news-card button { margin-top: auto; font: inherit; font-size: 13px; min-height: 36px; padding: 4px 8px; border: none; cursor: pointer; background: var(--gray); color: var(--white); text-shadow: 2px 2px 0 var(--k); box-shadow: 0 3px 0 var(--k); }
+  .adm-news-card button:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 var(--k); }
+  .adm-news-card button:disabled { opacity: 0.45; cursor: default; }
   .adm-ev-h { margin: 22px 0 8px; font-size: 17px; font-weight: normal; color: var(--yellow); text-shadow: 2px 2px 0 var(--k); }
   .adm-ev-status { padding: 10px 14px; background: var(--k); color: var(--white); font-family: var(--adm-read); font-size: 15px; line-height: 1.7; box-shadow: inset 0 0 0 3px var(--gray); }
   .adm-ev-status.on { box-shadow: inset 0 0 0 3px var(--lime); } .adm-ev-status.ng { box-shadow: inset 0 0 0 3px var(--pinkpx); }
@@ -168,12 +184,12 @@
     root = el('section', { id: 'view-admin', class: 'app-view', hidden: '' }, [
       el('div', { class: 'container' }, [
         el('header', { class: 'adm-head hud-panel' }, [
-          el('div', {}, [el('div', { class: 'adm-title', text: '👩‍🏫 先生の管理画面' }), el('div', { class: 'adm-sub', text: '児童の記録の確認・カードの承認・イベントの予定の変更・対戦表のポイントができます　（管理画面の版：' + ADMIN_VERSION + '）' })]),
+          el('div', {}, [el('div', { class: 'adm-title', text: '👩‍🏫 先生の管理画面' }), el('div', { class: 'adm-sub', text: '児童の記録の確認・カードの承認・新カードのお知らせ・イベントの予定の変更・対戦表のポイントができます　（管理画面の版：' + ADMIN_VERSION + '）' })]),
           el('button', { type: 'button', class: 'btn-logout', text: '🚪 ログアウト', onclick: () => app.logout() })
         ]),
         el('div', { class: 'adm-tabs', id: 'admTabs' }, [
           tabBtn('students', '👥 児童一覧'), tabBtn('point', '💰 ポイントの記録'), tabBtn('login', '🔐 ログインの記録'),
-          tabBtn('cards', '🃏 カードの承認'), tabBtn('cardlist', '🗂️ カード一覧'), tabBtn('event', '📅 イベントの予定'), tabBtn('taisen', '🆚 対戦表'), tabBtn('readme', '📘 説明書')
+          tabBtn('cards', '🃏 カードの承認'), tabBtn('cardlist', '🗂️ カード一覧'), tabBtn('news', '🆕 新カード'), tabBtn('event', '📅 イベントの予定'), tabBtn('taisen', '🆚 対戦表'), tabBtn('readme', '📘 説明書')
         ]),
         el('div', { class: 'adm-panel hud-panel', id: 'admPanel' })
       ])
@@ -195,9 +211,81 @@
     else if (tab === 'cards') renderCards();
     else if (tab === 'readme') renderReadme();
     else if (tab === 'cardlist') renderCardList();
+    else if (tab === 'news') renderNewsAdmin();
     else if (tab === 'event') renderEventPlan();
     else if (tab === 'taisen') renderTaisen();
     else renderLogs(tab);
+  }
+
+  // ---------- 🆕 新カードのお知らせ（11/12 先生「追加カードの情報を流したい」） ----------
+  //   カードが足されると、サーバー（CardNews.gs）が自動でお知らせに入れる。ここでは、番号で足す・外す・何日出すか・止める
+  //   どのカードを出すか・何日出すかを決めるのはサーバー（admin.newsSave が、番号があるか・日数をもう一度確かめる）
+  let newsData = null;
+  function newsErrText(err) {
+    if (err && (err.code === 'BAD_ACTION' || err.code === 'NOT_READY')) return 'この画面を使うには、GAS に CardNews.gs（＋ → スクリプト「CardNews」）を作り、Api.gs を新しい版に貼りかえてください（' + (err.message || '') + '）';
+    return (err && err.message) || '読み込めませんでした';
+  }
+  function renderNewsAdmin() {
+    setBusy();
+    app.call('admin.news').then((d) => { if (tab !== 'news') return; newsData = d; drawNewsAdmin(); })
+      .catch((err) => { if (tab === 'news') showError({ message: newsErrText(err) }); });
+  }
+  function newsSave(params, msg, btn) {
+    if (btn) btn.disabled = true;
+    msg.className = 'adm-sub'; msg.textContent = '保存しています...';
+    app.call('admin.newsSave', params).then((d) => {
+      if (tab !== 'news') return;
+      newsData = d;
+      drawNewsAdmin('✅ 保存しました。子どもの画面には、次に開いたときから出ます。');
+    }).catch((err) => { if (btn) btn.disabled = false; msg.className = 'adm-ng'; msg.textContent = '⚠️ ' + newsErrText(err); });
+  }
+  function newsLine(it) { return '▶ No.' + it.no + ' ' + it.name + '〔' + it.rarity + '〕' + ((it.gachas || []).length ? it.gachas.join('・') + 'で出る' : '') + '（' + it.dText + '）'; }
+  function drawNewsAdmin(note) {
+    const d = newsData, shown = d.preview || [];
+    const msg = el('span', { class: note ? 'adm-ok' : 'adm-sub', text: note || '' });
+    const status = el('div', { class: 'adm-ev-status' + (d.on && shown.length ? ' on' : '') }, [
+      el('div', {}, [el('b', { text: '🆕 新カードのお知らせ：' }), !d.on ? '止めています（子どもの画面に出ません）。'
+        : shown.length ? '今 ' + shown.length + ' 枚を、マイページの流れる文字と、ガチャの画面の「🆕 新しく入ったカード」に出しています。' : '今お知らせしているカードはありません。']),
+      el('div', { class: 'adm-sub', text: '今日：' + d.todayText + '　／　No.' + d.max + ' より大きい番号のカードが足されると、その日の新カードとして自動でお知らせに入ります（今いちばん大きい番号：No.' + d.maxNo + '）' })
+    ]);
+    // 出すか・何日出すか
+    const onIn = el('input', { type: 'checkbox' }); onIn.checked = !!d.on;
+    const daysIn = el('input', { type: 'number', min: '1', max: String(d.daysMax), 'aria-label': 'お知らせする日数' }); daysIn.value = String(d.days);
+    const setBtn = el('button', { type: 'button', text: '💾 この設定にする' });
+    setBtn.addEventListener('click', () => newsSave({ op: 'settings', on: onIn.checked, days: daysIn.value }, msg, setBtn));
+    const settings = el('div', { class: 'adm-tools' }, [el('label', { class: 'adm-news-on' }, [onIn, '子どもの画面に出す']),
+      el('span', { text: '　お知らせする日数：' }), daysIn, el('span', { text: '日（1〜' + d.daysMax + '）' }), setBtn]);
+    // 番号で足す
+    const nosIn = el('input', { type: 'text', class: 'adm-news-nos', placeholder: '例：184-185, 190', 'aria-label': 'お知らせに足すカードの番号' });
+    const addBtn = el('button', { type: 'button', text: '＋ 今日の新カードとして足す' });
+    addBtn.addEventListener('click', () => {
+      if (!nosIn.value.trim()) { msg.className = 'adm-ng'; msg.textContent = '⚠️ カードの番号を入れてください（例：184-185）'; return; }
+      newsSave({ op: 'add', nos: nosIn.value }, msg, addBtn);
+    });
+    nosIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBtn.click(); });
+    // お知らせしているカード（足した日ごと）
+    const days = (d.entries || []).map((e) => el('div', { class: 'adm-news-day' }, [
+      el('div', { class: 'adm-news-dayhead', text: e.dText + ' に入ったカード　' + (e.shown ? '（あと ' + e.left + ' 日出る）' : e.left > 0 ? '（止めているので出ていない）' : '（お知らせはおわった）') }),
+      el('div', { class: 'adm-news-cards' }, e.cards.map((c) => el('div', { class: 'adm-news-card' + (c.hidden ? ' off' : '') }, [
+        c.thumb ? el('img', { src: c.thumb, alt: '', loading: 'lazy', onerror: (ev) => { const im = ev.currentTarget; if (c.imageFull && im.src !== c.imageFull) im.src = c.imageFull; else im.style.visibility = 'hidden'; } }) : null,
+        el('div', { class: 'adm-news-name', text: 'No.' + c.no + ' ' + (c.name || '') }),
+        el('div', { class: 'adm-sub', text: c.hidden ? '子どもの画面に出していない：' + c.hidden : c.rarity + '・' + (c.gachas || []).join('・') }),
+        el('button', { type: 'button', text: '🗑 外す', 'aria-label': 'No.' + c.no + ' をお知らせから外す', onclick: (ev) => newsSave({ op: 'remove', no: c.no }, msg, ev.currentTarget) })
+      ])))
+    ]));
+    panel().replaceChildren(...[
+      status,
+      el('div', { class: 'adm-acts', style: 'margin-top:8px' }, [msg]),
+      el('h3', { class: 'adm-ev-h', text: '⚙️ 出すか・何日出すか' }), settings,
+      el('h3', { class: 'adm-ev-h', text: '＋ 番号で足す' }),
+      el('div', { class: 'adm-note', text: '自動で入らなかったカード（このしくみを入れる前に足したカード、もう一度お知らせしたいカードなど）は、番号で足せます。184-190 のように「-」でつなぐと、まとめて足せます（1回に ' + d.addMax + ' 枚まで）。ガチャの種類が「なし」のカードは、足しても子どもの画面には出ません。' }),
+      el('div', { class: 'adm-tools' }, [nosIn, addBtn]),
+      el('h3', { class: 'adm-ev-h', text: '📋 お知らせしているカード（足した日ごと）' }),
+      ...(days.length ? days : [el('div', { class: 'adm-empty', text: 'お知らせしているカードはありません' })]),
+      el('h3', { class: 'adm-ev-h', text: '👀 子どものマイページに流れる文字（新しい順・' + d.show + ' 枚まで）' }),
+      shown.length ? el('div', { class: 'adm-note', text: shown.map(newsLine).join('　　') }) : el('div', { class: 'adm-empty', text: '今は流れません' }),
+      d.latestLeft ? el('div', { class: 'adm-warn', text: '「最新カード限定」のままのカードが ' + d.latestLeft + ' 枚あります。ガチャはなくしたので、レアリティでノーマル（N〜R+）・レア（SR〜LEGEND）のガチャで出ています。ほかのガチャにするときは「🗂️ カード一覧」で変えてください。' }) : null
+    ].filter(Boolean));
   }
 
   // ---------- 📅 イベントの予定（11/7 先生「管理画面でイベントスケジュールを変更できるようにして」） ----------

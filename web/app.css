@@ -421,3 +421,21 @@ html.raid-on body:not(.view-mypage)::before { content: ''; position: fixed; inse
 }
 .taisen-ok:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--k); }
 @media (prefers-reduced-motion: reduce) { .taisen-ok:active { transform: none; } }
+
+/* ==================== 🆕 新しいカードのお知らせ（マイページの上の帯のすぐ下。流れる文字。2026-11-12） ==================== */
+.news-ticker {
+  display: flex; align-items: stretch; margin: 0 0 16px; min-height: 44px; overflow: hidden; cursor: pointer; touch-action: manipulation;
+  background: var(--k); color: var(--white); font-family: var(--px-font); box-shadow: 0 0 0 4px var(--k), inset 0 0 0 3px var(--yellow);
+}
+.news-ticker:focus-visible { outline: 3px solid var(--yellow); outline-offset: 3px; }
+.news-label { flex: none; display: flex; align-items: center; padding: 0 12px; background: var(--red); color: var(--yellow); font-size: 16px; text-shadow: 2px 2px 0 var(--k); white-space: nowrap; }
+.news-window { flex: 1 1 auto; min-width: 0; overflow: hidden; display: flex; align-items: center; }
+.news-track { display: inline-flex; white-space: nowrap; animation: newsFlow var(--news-sec, 20s) linear infinite; will-change: transform; }
+.news-text { font-size: 16px; padding-left: 12px; }
+.news-ticker:hover .news-track, .news-ticker:focus-visible .news-track { animation-play-state: paused; }
+@keyframes newsFlow { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) {
+  .news-track { display: block; white-space: normal; animation: none; }
+  .news-text + .news-text { display: none; }
+  .news-window { padding: 6px 12px 6px 0; }
+}

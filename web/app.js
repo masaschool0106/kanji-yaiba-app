@@ -57,6 +57,7 @@
     renderEvent(null);     // 前の子のイベントの知らせも残さない
     renderSchedule(null);
     renderTaisen(null);    // 前の子の「対戦表で勝った！」も残さない
+    renderNews(null);
   }
 
   // ==================== 通信（サーバーの窓口は api() ひとつだけ） ====================
@@ -166,6 +167,7 @@
         renderEvent(data.event);   // 期間限定イベント（GAS の Api.gs が前の版なら data.event がないので、出さない）
         renderSchedule(data.schedule);   // 📅 イベントの予定（前の版の Api.gs なら出さない）
         renderTaisen(data.taisen);       // 🆚 漢字テストの対戦表で勝った知らせ（11/8。前の版の Api.gs・Taisen.gs がないときは出さない）
+        renderNews(data.news);           // 🆕 新しいカードのお知らせ（11/12。前の版の Api.gs・CardNews.gs がないときは出さない）
         loadTradeBadge();
         if (!state.jamaicaDone) { state.jamaicaDone = true; syncJamaica(); }
       })
@@ -574,10 +576,11 @@
     }
     const name = escapeHtml(ev.name || '道場破り');
     const until = ev.period ? '（' + escapeHtml(ev.period) + '）' : '';
-    let sub, go = '';
+    let sub, go = '', toGacha = false;
     if (ev.ticket > 0 && (!ev.open || ev.done)) {
-      sub = '🎫 LEGEND 引換札が <b>' + Number(ev.ticket) + '</b> 枚あるよ！ まだ持っていない LEGEND を1枚えらぼう';
-      go = '🎫 LEGEND をえらぶ';
+      // 11/12 先生「レジェンド引換券を使う場所をガチャに入れて欲しい」：札はガチャの画面で使う
+      sub = '🎫 LEGEND 引換札が <b>' + Number(ev.ticket) + '</b> 枚あるよ！ ガチャの画面で、まだ持っていない LEGEND と交換しよう';
+      go = '🎴 ガチャで交換する'; toGacha = true;
     } else if (ev.open) {
       sub = ev.done ? '🎉 5つの道場を制覇した！ 次のイベントを待とう'
         : (ev.rarities || ['N']).join('・') + ' のカードだけで5つの道場を破ると、<b>LEGEND</b> が1枚もらえる！ クイズに正解して攻撃しよう　突破 <b>' + Number(ev.cleared) + ' / ' + Number(ev.total) + '</b>・今日 のこり <b>' + Number(ev.left) + '</b>回';
@@ -586,10 +589,40 @@
       sub = escapeHtml(ev.text || '') + (ev.why === 'soon' ? ' 開催！' : '') + (ev.cleared !== undefined && !ev.done ? '　突破 ' + Number(ev.cleared) + ' / ' + Number(ev.total) : '');
       go = ev.running ? '▶ 挑戦の続きから' : '🗺️ 道場を見る';
     }
+    if (ev.ticket > 0 && !toGacha) sub += '　🎫 引換札 <b>' + Number(ev.ticket) + '</b> 枚は、ガチャの画面で LEGEND と交換できるよ';
     box.innerHTML = '<div class="event-title">🏯 期間限定イベント「' + name + '」' + (ev.why === 'soon' ? 'もうすぐ！' : (ev.open ? '開催中！' : '')) + until + '</div>' +
       '<div class="event-sub">' + sub + '</div>' + (go ? '<button type="button" class="event-go" id="eventGo">' + go + '</button>' : '');
     const b = $('eventGo');
-    if (b) b.addEventListener('click', openEvent);
+    if (b) b.addEventListener('click', toGacha ? () => navigate('gacha') : openEvent);
+  }
+  // 🆕 新しいカードのお知らせ（2026-11-12 先生「追加カードの情報を流したい」）：上の帯（名前・ポイント）のすぐ下に、流れる文字で出す
+  //   中身はサーバーの boot の news（CardNews.gs。どのカードを出すかはサーバーが決める）。押すとガチャへ。名前などは textContent で入れる
+  //   動きをへらす設定の端末では流さず、折り返して出す（app.css の .news-ticker）
+  function renderNews(n) {
+    let box = $('newsTicker');
+    const items = n && Array.isArray(n.items) ? n.items : [];
+    if (!items.length) { if (box) box.remove(); return; }
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'newsTicker'; box.className = 'news-ticker';
+      box.setAttribute('role', 'button'); box.tabIndex = 0;
+      box.setAttribute('aria-label', '新しいカードのお知らせ。押すとガチャの画面へ');
+      box.addEventListener('click', () => navigate('gacha'));
+      box.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('gacha'); } });
+      const head = document.querySelector('#view-mypage .hud-top');
+      if (head) head.parentNode.insertBefore(box, head.nextSibling); else $('view-mypage').prepend(box);
+    }
+    const label = document.createElement('span');
+    label.className = 'news-label'; label.textContent = '🆕 新カード';
+    const text = items.map((it) => '▶ No.' + it.no + ' ' + it.name + '〔' + it.rarity + '〕' + (it.gachas && it.gachas.length ? it.gachas.join('・') + 'で出る' : '') + '（' + it.dText + '）').join('　　');
+    const track = document.createElement('span');
+    track.className = 'news-track';
+    const a = document.createElement('span'); a.className = 'news-text'; a.textContent = text + '　　';
+    const b = document.createElement('span'); b.className = 'news-text'; b.textContent = text + '　　'; b.setAttribute('aria-hidden', 'true');   // つなぎ目なく流すための2つ目
+    track.append(a, b);
+    track.style.setProperty('--news-sec', Math.max(12, Math.round(text.length * 0.28)) + 's');   // 長いほどゆっくり（1文字 約0.28秒）
+    const win = document.createElement('span'); win.className = 'news-window'; win.appendChild(track);
+    box.replaceChildren(label, win);
   }
   // 📅 イベントの予定（2026-11-07）：道場破りの期間と、金曜の巨大ボス。中身はサーバーの boot の schedule（日付の計算はサーバー）
   //   行き先のタイルの下・ランキングの上に出す。予定がないときは出さない。名前などは textContent で入れる
