@@ -1,40 +1,43 @@
 # 偉人の画像の出典（web/assets/ijin/21〜53.webp）
 
-ステップアップの偉人（⚔️中ボス・💬偉人マス）の画像。どれも Wikimedia Commons の **パブリックドメイン**（歌川広重は CC0）の肖像を、800×566 に切り取って小さくしたもの（2026-11-13）。
-行基は「四聖御影」（1377年）の右下の人物を切り取った。資料集などの商品の絵は使っていない。
+ステップアップの偉人（⚔️中ボス・💬偉人マス）の画像。どれも **いらすとや**（https://www.irasutoya.com/ ・作者 みふねたかし）の無料イラストを、
+ボスの画像と同じ 800×566 にそろえたもの（時代ごとの うすい色の背景をつけた。2026-11-14）。
 
-| 管理番号 | 偉人名 | 元の画像（Wikimedia Commons） | ライセンス | 作者・年代（Commons の記載） |
-|---|---|---|---|---|
-| 21 | 小野妹子 | [Ono no Imoko.jpg](https://commons.wikimedia.org/wiki/File:Ono_no_Imoko.jpg) | Public domain | 不明・13世紀|
-| 22 | 中大兄皇子 | [Emperor Tenji (Kanou Tanyuu).jpg](https://commons.wikimedia.org/wiki/File:Emperor_Tenji_(Kanou_Tanyuu).jpg) | Public domain | Kanō Tan'yū・17世紀|
-| 23 | 中臣鎌足 | [Fujiwara-Kamatari.jpg](https://commons.wikimedia.org/wiki/File:Fujiwara-Kamatari.jpg) | Public domain | Kikuchi Yōsai |
-| 24 | 行基 | [Four Saintly Figures (Eiwa Version).jpg](https://commons.wikimedia.org/wiki/File:Four_Saintly_Figures_(Eiwa_Version).jpg) | Public domain | 作者不明・1377 |
-| 25 | 鑑真 | [Ganjin wajyo portrait.JPG](https://commons.wikimedia.org/wiki/File:Ganjin_wajyo_portrait.JPG) | Public domain | OGAWA SEIYOU(1894-1960) 写真家・1949-02-20 |
-| 26 | 清少納言 | [Sei Shonagon2.jpg](https://commons.wikimedia.org/wiki/File:Sei_Shonagon2.jpg) | Public domain | 土佐光起 (Tosa Mitsuoki)・around 17th century |
-| 27 | 平清盛 | [Taira no Kiyomori Portrait by Fujiwara Tamenobu and Takenobu.png](https://commons.wikimedia.org/wiki/File:Taira_no_Kiyomori_Portrait_by_Fujiwara_Tamenobu_and_Takenobu.png) | Public domain | Artist: Fujiwara Tamenobu (藤原為信 - ためのぶ) and Takenobu (豪信 たけのぶ) (both dates of bi・Circa 1300 (copied in 1863) |
-| 28 | 源義経 | [Portrait of Minamoto no Yoshitsune.jpg](https://commons.wikimedia.org/wiki/File:Portrait_of_Minamoto_no_Yoshitsune.jpg) | Public domain | 不明 |
-| 29 | 北条政子 | [Hojo Masako.jpg](https://commons.wikimedia.org/wiki/File:Hojo_Masako.jpg) | Public domain | 不明 |
-| 30 | 足利義政 | [Ashikaga Yoshimasa.jpg](https://commons.wikimedia.org/wiki/File:Ashikaga_Yoshimasa.jpg) | Public domain | Attributed to Tosa Mitsunobu・Latter half of 15th century (15世紀後半) |
-| 31 | ザビエル | [Franciscus de Xabier.jpg](https://commons.wikimedia.org/wiki/File:Franciscus_de_Xabier.jpg) | Public domain | 不明 |
-| 32 | 徳川家光 | [Iemitu.jpg](https://commons.wikimedia.org/wiki/File:Iemitu.jpg) | Public domain | The author creates a file.・2008-11-18 |
-| 33 | 歌川広重 | [Memorial Portrait of Hiroshige, by Kunisada.jpg](https://commons.wikimedia.org/wiki/File:Memorial_Portrait_of_Hiroshige,_by_Kunisada.jpg) | CC0 | Utagawa Kunisada・1858|
-| 34 | 本居宣長 | [Motoori Norinaga self portrait.jpg](https://commons.wikimedia.org/wiki/File:Motoori_Norinaga_self_portrait.jpg) | Public domain | Motoori Norinaga・1773 |
-| 35 | 伊能忠敬 | [Ino Tadataka.jpg](https://commons.wikimedia.org/wiki/File:Ino_Tadataka.jpg) | Public domain | Aoki Katsujirō・1821 |
-| 36 | 大塩平八郎 | [Oshio Heihachiro.jpg](https://commons.wikimedia.org/wiki/File:Oshio_Heihachiro.jpg) | Public domain | Kikuchi Yōsai・19世紀 |
-| 37 | 坂本竜馬 | [Sakamoto Ryoma.jpg](https://commons.wikimedia.org/wiki/File:Sakamoto_Ryoma.jpg) | Public domain | 作者不明・before 1867|
-| 38 | 勝海舟 | [Kaishu Katsu 2.jpg](https://commons.wikimedia.org/wiki/File:Kaishu_Katsu_2.jpg) | Public domain | published by 東洋文化協會 (The Eastern Culture Association)・between 1933 and 1934|
-| 39 | 徳川慶喜 | [1867 Osaka Yoshinobu Tokugawa.jpg](https://commons.wikimedia.org/wiki/File:1867_Osaka_Yoshinobu_Tokugawa.jpg) | Public domain | Frederick Sutton・1867 |
-| 40 | 岩倉具視 | [IWAKURA Tomomi.jpg](https://commons.wikimedia.org/wiki/File:IWAKURA_Tomomi.jpg) | Public domain | 作者不明・before 1883|
-| 41 | 大久保利通 | [Toshimichi Okubo 4.jpg](https://commons.wikimedia.org/wiki/File:Toshimichi_Okubo_4.jpg) | Public domain | 作者不明・before 1878|
-| 42 | 木戸孝允 | [KIDO TAKAYOSHI.jpg](https://commons.wikimedia.org/wiki/File:KIDO_TAKAYOSHI.jpg) | Public domain | 撮影時期不明。・1870年代 |
-| 43 | 明治天皇 | [Meiji Emperor.jpg](https://commons.wikimedia.org/wiki/File:Meiji_Emperor.jpg) | Public domain | Uchida Kuichi・1873|
-| 44 | 津田梅子 | [Tsuda Umeko Portrait c1900.png](https://commons.wikimedia.org/wiki/File:Tsuda_Umeko_Portrait_c1900.png) | Public domain | 作者不明・circa 1900|
-| 45 | 福沢諭吉 | [Fukuzawa Yukichi.jpg](https://commons.wikimedia.org/wiki/File:Fukuzawa_Yukichi.jpg) | Public domain | 作者不明・before 1901|
-| 46 | 大隈重信 | [Shigenobu Okuma 2.jpg](https://commons.wikimedia.org/wiki/File:Shigenobu_Okuma_2.jpg) | Public domain | published by 東洋文化協會 (The Eastern Culture Association)・between 1933 and 1934|
-| 47 | 板垣退助 | [ITAGAKI Taisuke.jpg](https://commons.wikimedia.org/wiki/File:ITAGAKI_Taisuke.jpg) | Public domain | 作者不明・before 1919|
-| 48 | 陸奥宗光 | [Mutsu Munemitsu.jpg](https://commons.wikimedia.org/wiki/File:Mutsu_Munemitsu.jpg) | Public domain | 作者不明・before 1897|
-| 49 | 東郷平八郎 | [Tōgō Heihachirō.jpg](https://commons.wikimedia.org/wiki/File:T%C5%8Dg%C5%8D_Heihachir%C5%8D.jpg) | Public domain | 作者不明 |
-| 50 | 小村寿太郎 | [KOMURA Jutaro.jpg](https://commons.wikimedia.org/wiki/File:KOMURA_Jutaro.jpg) | Public domain | 作者不明・before 1911|
-| 51 | 田中正造 | [Tanaka Shozo.jpg](https://commons.wikimedia.org/wiki/File:Tanaka_Shozo.jpg) | Public domain | 作者不明・before 1913|
-| 52 | 渋沢栄一 | [Eiichi Shibusawa.jpg](https://commons.wikimedia.org/wiki/File:Eiichi_Shibusawa.jpg) | Public domain | 作者不明・before 1931|
-| 53 | 北里柴三郎 | [Kitasato Shibasaburo.jpg](https://commons.wikimedia.org/wiki/File:Kitasato_Shibasaburo.jpg) | Public domain | 作者不明 |
+- いらすとやの規約：規約の範囲内なら 個人・法人・商用・非商用を問わず無料。加工してよい。素材そのものを主にした再配布・販売や、素材のイメージをそこなう使い方は しない。著作権は作者にある（https://www.irasutoya.com/p/terms.html）
+- ★：いらすとやに その人の似顔絵がないので、その時代の人や、ゆかりのある物の絵で代わりにした（本人の絵ではない）
+
+| 管理番号 | 偉人名 | いらすとやの絵 | 備考 |
+|---|---|---|---|
+| 21 | 小野妹子 | [小野妹子の似顔絵イラスト](https://www.irasutoya.com/2013/09/blog-post_25.html) | 似顔絵 |
+| 22 | 中大兄皇子 | [中大兄皇子の似顔絵イラスト](https://www.irasutoya.com/2020/09/blog-post_99.html) | 似顔絵 |
+| 23 | 中臣鎌足 | [公家のイラスト](https://www.irasutoya.com/2018/05/blog-post_760.html) | ★ 代わりの絵 |
+| 24 | 行基 | [説法を説くお坊さんのイラスト](https://www.irasutoya.com/2018/03/blog-post_27.html) | ★ 代わりの絵 |
+| 25 | 鑑真 | [座禅を組むお坊さんのイラスト](https://www.irasutoya.com/2014/10/blog-post_599.html) | ★ 代わりの絵 |
+| 26 | 清少納言 | [歌を詠む平安貴族のイラスト（女性）](https://www.irasutoya.com/2015/08/blog-post_96.html) | ★ 代わりの絵 |
+| 27 | 平清盛 | [平清盛の似顔絵イラスト](https://www.irasutoya.com/2013/10/blog-post_5.html) | 似顔絵 |
+| 28 | 源義経 | [牛若丸（源義経）の似顔絵イラスト](https://www.irasutoya.com/2013/10/blog-post_13.html) | 似顔絵 |
+| 29 | 北条政子 | [北条政子の似顔絵イラスト](https://www.irasutoya.com/2017/04/blog-post_930.html) | 似顔絵 |
+| 30 | 足利義政 | [銀閣寺のイラスト](https://www.irasutoya.com/2013/11/blog-post_697.html) | ★ 代わりの絵 |
+| 31 | ザビエル | [ザビエルの似顔絵イラスト](https://www.irasutoya.com/2015/07/blog-post_207.html) | 似顔絵 |
+| 32 | 徳川家光 | [お殿様のイラスト](https://www.irasutoya.com/2013/08/blog-post_4614.html) | ★ 代わりの絵 |
+| 33 | 歌川広重 | [旅装束のイラスト（男性）](https://www.irasutoya.com/2019/07/blog-post_98.html) | ★ 代わりの絵 |
+| 34 | 本居宣長 | [古事記のイラスト](https://www.irasutoya.com/2019/06/blog-post_299.html) | ★ 代わりの絵 |
+| 35 | 伊能忠敬 | [伊能忠敬の似顔絵イラスト](https://www.irasutoya.com/2013/08/blog-post_4268.html) | 似顔絵 |
+| 36 | 大塩平八郎 | [寺子屋のイラスト](https://www.irasutoya.com/2017/07/blog-post_279.html) | ★ 代わりの絵 |
+| 37 | 坂本竜馬 | [坂本龍馬の似顔絵イラスト](https://www.irasutoya.com/2013/09/blog-post_28.html) | 似顔絵 |
+| 38 | 勝海舟 | [勝海舟の似顔絵イラスト](https://www.irasutoya.com/2013/09/blog-post_3.html) | 似顔絵 |
+| 39 | 徳川慶喜 | [徳川慶喜の似顔絵イラスト](https://www.irasutoya.com/2017/12/blog-post_792.html) | 似顔絵 |
+| 40 | 岩倉具視 | [岩倉具視の似顔絵イラスト](https://www.irasutoya.com/2017/01/blog-post_642.html) | 似顔絵 |
+| 41 | 大久保利通 | [大久保利通の似顔絵イラスト](https://www.irasutoya.com/2013/09/blog-post_24.html) | 似顔絵 |
+| 42 | 木戸孝允 | [木戸孝允・桂小五郎の似顔絵イラスト](https://www.irasutoya.com/2014/10/blog-post_358.html) | 似顔絵 |
+| 43 | 明治天皇 | [菊のイラスト「黄色い菊」](https://www.irasutoya.com/2012/03/blog-post_2388.html) | ★ 代わりの絵 |
+| 44 | 津田梅子 | [津田梅子の似顔絵イラスト](https://www.irasutoya.com/2019/04/blog-post_27.html) | 似顔絵 |
+| 45 | 福沢諭吉 | [福沢諭吉の似顔絵イラスト](https://www.irasutoya.com/2013/08/blog-post_6401.html) | 似顔絵 |
+| 46 | 大隈重信 | [大隈重信の似顔絵イラスト](https://www.irasutoya.com/2018/12/blog-post_835.html) | 似顔絵 |
+| 47 | 板垣退助 | [板垣退助の似顔絵イラスト](https://www.irasutoya.com/2018/12/blog-post_226.html) | 似顔絵 |
+| 48 | 陸奥宗光 | [陸奥宗光の似顔絵イラスト](https://www.irasutoya.com/2019/07/blog-post_961.html) | 似顔絵 |
+| 49 | 東郷平八郎 | [東郷平八郎の似顔絵イラスト](https://www.irasutoya.com/2013/10/blog-post_8.html) | 似顔絵 |
+| 50 | 小村寿太郎 | [小村寿太郎の似顔絵イラスト](https://www.irasutoya.com/2019/07/blog-post_160.html) | 似顔絵 |
+| 51 | 田中正造 | [汚染された川のイラスト](https://www.irasutoya.com/2014/01/blog-post_3652.html) | ★ 代わりの絵 |
+| 52 | 渋沢栄一 | [渋沢栄一の似顔絵イラスト](https://www.irasutoya.com/2018/02/blog-post_50.html) | 似顔絵 |
+| 53 | 北里柴三郎 | [北里柴三郎の似顔絵イラスト](https://www.irasutoya.com/2019/04/blog-post_230.html) | 似顔絵 |
