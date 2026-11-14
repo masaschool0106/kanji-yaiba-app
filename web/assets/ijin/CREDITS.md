@@ -1,13 +1,33 @@
-# 偉人の画像の出典（web/assets/ijin/21〜53.webp）
+# 偉人の画像の出典（web/assets/ijin/1〜53.webp）
 
-ステップアップの偉人（⚔️中ボス・💬偉人マス）の画像。どれも **いらすとや**（https://www.irasutoya.com/ ・作者 みふねたかし）の無料イラストを、
-ボスの画像と同じ 800×566 にそろえたもの（時代ごとの うすい色の背景をつけた。2026-11-14）。
+ステップアップの偉人（👿ボス 1〜20・⚔️中ボスと💬偉人マス 21〜53）の画像。どれも **いらすとや**（https://www.irasutoya.com/ ・作者 みふねたかし）の無料イラストを、
+800×566 にそろえたもの（時代ごとの うすい色の背景をつけた。21〜53 は 2026-11-14 朝、1〜20 は 2026-11-14）。0.svg（つつジン）は このゲームの絵。
 
 - いらすとやの規約：規約の範囲内なら 個人・法人・商用・非商用を問わず無料。加工してよい。素材そのものを主にした再配布・販売や、素材のイメージをそこなう使い方は しない。著作権は作者にある（https://www.irasutoya.com/p/terms.html）
 - ★：いらすとやに その人の似顔絵がないので、その時代の人や、ゆかりのある物の絵で代わりにした（本人の絵ではない）
 
 | 管理番号 | 偉人名 | いらすとやの絵 | 備考 |
 |---|---|---|---|
+| 1 | 卑弥呼 | [卑弥呼の似顔絵イラスト](https://www.irasutoya.com/2014/06/blog-post_5103.html) | 似顔絵 |
+| 2 | 土偶 | [土偶のイラスト](https://www.irasutoya.com/2014/04/blog-post_6295.html) | 似顔絵 |
+| 3 | 聖徳太子 | [聖徳太子の似顔絵イラスト](https://www.irasutoya.com/2013/10/blog-post_4.html) | 似顔絵 |
+| 4 | 聖武天皇 | [聖武天皇の似顔絵イラスト](https://www.irasutoya.com/2019/10/blog-post_469.html) | 似顔絵 |
+| 5 | 藤原道長 | [平安貴族のイラスト（男性）](https://www.irasutoya.com/2017/07/blog-post_639.html) | ★ 代わりの絵 |
+| 6 | 紫式部 | [平安貴族のイラスト（女性）](https://www.irasutoya.com/2017/07/blog-post_665.html) | ★ 代わりの絵 |
+| 7 | 源頼朝 | [源頼朝の似顔絵イラスト](https://www.irasutoya.com/2013/09/blog-post_11.html) | 似顔絵 |
+| 8 | 北条時宗 | [鎧兜を着た武士のイラスト](https://www.irasutoya.com/2016/11/blog-post_153.html) | ★ 代わりの絵 |
+| 9 | 足利義満 | [足利義満のイラスト](https://www.irasutoya.com/2016/03/blog-post_993.html) | 似顔絵 |
+| 10 | 雪舟 | [雪舟の似顔絵イラスト](https://www.irasutoya.com/2019/06/blog-post_63.html) | 似顔絵 |
+| 11 | 織田信長 | [織田信長の似顔絵イラスト](https://www.irasutoya.com/2013/09/blog-post_21.html) | 似顔絵 |
+| 12 | 豊臣秀吉 | [豊臣秀吉の似顔絵イラスト](https://www.irasutoya.com/2013/10/blog-post_11.html) | 似顔絵 |
+| 13 | 徳川家康 | [徳川家康の似顔絵イラスト](https://www.irasutoya.com/2013/10/blog-post_9.html) | 似顔絵 |
+| 14 | 近松門左衛門 | [人形浄瑠璃のイラスト](https://www.irasutoya.com/2016/10/blog-post_31.html) | ★ 代わりの絵 |
+| 15 | ペリー | [ペリーの似顔絵イラスト](https://www.irasutoya.com/2013/09/blog-post_26.html) | 似顔絵 |
+| 16 | 杉田玄白 | [杉田玄白の似顔絵イラスト](https://www.irasutoya.com/2013/10/blog-post_2.html) | 似顔絵 |
+| 17 | 伊藤博文 | [伊藤博文の似顔絵イラスト](https://www.irasutoya.com/2013/09/blog-post_9424.html) | 似顔絵 |
+| 18 | 西郷隆盛 | [西郷隆盛の似顔絵イラスト](https://www.irasutoya.com/2013/09/blog-post_27.html) | 似顔絵 |
+| 19 | 吉田茂 | [総理大臣のイラスト](https://www.irasutoya.com/2021/10/blog-post_06.html) | ★ 代わりの絵 |
+| 20 | 野口英世 | [野口英世の似顔絵イラスト](https://www.irasutoya.com/2013/09/blog-post_20.html) | 似顔絵 |
 | 21 | 小野妹子 | [小野妹子の似顔絵イラスト](https://www.irasutoya.com/2013/09/blog-post_25.html) | 似顔絵 |
 | 22 | 中大兄皇子 | [中大兄皇子の似顔絵イラスト](https://www.irasutoya.com/2020/09/blog-post_99.html) | 似顔絵 |
 | 23 | 中臣鎌足 | [公家のイラスト](https://www.irasutoya.com/2018/05/blog-post_760.html) | ★ 代わりの絵 |
